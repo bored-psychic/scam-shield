@@ -51,18 +51,21 @@ After any high-effort step, a fresh session should review the diff for leakage a
 
 ## Current status (update this section as work progresses)
 
-- Data: `messages.csv` (~48.8k rows, 25% scam, mostly English), `urls.csv` (~61k rows; phishing mostly from ealvaradob), `apps.csv`, `typosquat_candidates.csv`, `web_scams.csv` (20 rows: 13 illustrative, 5 real_circulating, 2 generic_script).
+- Data: `messages.csv` (48,790 rows, 25.6% scam, mostly English), `urls.csv` (~61k rows; phishing mostly from ealvaradob), `apps.csv`, `typosquat_candidates.csv`, `web_scams.csv` (20 rows: 13 illustrative, 5 real_circulating, 2 generic_script).
 - Web scraping is finished. Low yield; don't extend it.
-- Baseline F1 0.934 is **suspected inflated** (no near-dup dedupe, source confounding).
-- Near-dup clustering done (2026-10-07): MinHash char 5-grams, Jaccard >= 0.8 -> 39,934 clusters, 2,958 multi-row (11,814 rows); split by `cluster_id` moved 3,585 rows (7.3%). `augment.py` asserts parents and their clusters are in the matching split. Baseline not rerun yet.
-- Open question: what added ~485 rows to `messages.csv` between the 48,288 and 48,773 counts.
+- Baseline F1 0.934 is **suspected inflated** (no near-dup dedupe, source confounding). Not rerun since the split changes.
+- Row count: the ~485-row jump (48,288 -> 48,773) was the 39 extra `synth_india` templates added on 6 Oct (+485 synthetic rows, nothing real). The remaining +17 to 48,790 is the `web_scams` quotes (inferred: 48,773 = 48,288 + 485 was counted before they were added; no log records it; 3 of the 20 quotes were exact copies of existing rows).
+- Near-dup clustering (2026-10-07, `src/neardup.py`): two rows merge if exact Jaccard >= 0.7 on char 5-grams (first 2000 chars) on the raw OR the normalised text (templated prefixes/suffixes stripped, numbers -> `<NUM>`), or >= 0.6 within `india_fraud_final`. Also grouped: `synth_india` translations (`template_family`, 32 families; the English templates are reversed in two cells, handled in `synth_india.py`) and `fake_job_postings` by `company_key` (12,884 of 15,966 posts have a profile). Result: 29,702 clusters, 3,145 multi-row (22,233 rows), 8 mixed-label (none in `india_fraud_final`).
+- Splits are frozen in `data/final/split_map.csv` (text_hash -> split; 48,790 rows; SHA-256 `89eec6f1104bc671c034b7a9c66ce3f25d67d3dde1e6c809592a300487f838c5`). It is committed to git (force-added past the `data/` ignore) and tagged `splits-v1`; if it changes, update the hash here, re-add it with `git add -f` and move the tag. `build_text.py` reuses it for existing rows. Re-frozen 2026-10-07 after the clustering change (48 rows moved). If the clustering rules change again, the old map conflicts with the new clusters: delete it deliberately and say so. `build_text.py` and `augment.py` abort if any cluster / family / company straddles splits or any cross-split pair breaks the rule (independent LSH seed); `src/split_audit.py` reports it: 0 violations. Still crossing at 0.6-0.7: 3.3% of val/test rows have a train twin (phishing_email, job posts, SMS spam; none in `india_fraud_final`). See BUGS.md.
+- `augment.py` splits attack families: homoglyph / leet / zero_width -> `messages_aug.csv` (19,831 rows, train parents); char_noise / url_obfuscate / spaced_keywords -> `messages_adv_test.csv` (1,865 rows, test parents, held-out attacks, 749 from real parents). Outputs have `source = augmented`, `is_synthetic = True`, plus `parent_source`, `parent_is_synthetic`, `parent_hash`. Rerun after every `build_text.py`.
+- Run order: `build_text.py` (about 7 min, 7.5 GB peak) -> `split_audit.py` -> `augment.py` -> `baseline.py`.
 
 ## Next steps, in order
 
-1. Account for the ~485-row jump. *(Haiku, low)*
+1. ~~Account for the ~485-row jump.~~ Done (see above).
 2. ~~Near-duplicate clustering, `cluster_id` split, augmentation parents follow the split.~~ Done.
-3. Freeze splits, rerun `augment.py` and `baseline.py`. *(Haiku, low)*
-4. `src/sanity_checks.py` → `reports/sanity.md`. *(Sonnet, medium)*
+3. ~~Freeze splits, rerun `augment.py`.~~ Done. Rerun `baseline.py` *(Haiku, low)*: switch its adversarial join to `parent_hash` first (BUGS.md).
+4. `src/sanity_checks.py` -> `reports/sanity.md`. *(Sonnet, medium)*
 5. URL head, with and without domain age, excluding `domain_conflict`, plus a fresh-OpenPhish test. *(Sonnet, medium)*
 6. Rule baseline for text and URLs. *(Haiku/Sonnet)*
 7. Fine-tuning on the 2nd laptop (MuRIL main, mDeBERTa comparison, bf16, max length 128). *(Sonnet, high)*

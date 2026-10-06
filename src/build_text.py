@@ -1,17 +1,21 @@
 import ast, glob, hashlib, json, os, re
 import pandas as pd
-from datasketch import MinHash, MinHashLSH
+import neardup
 
 # Build data/final/messages.csv from data/messages/ + data/external/{text,indic}/ (see data/sources.yaml).
 # benign Hinglish is plentiful but Hinglish scam text is only synthetic (~220 rows); capping keeps
 # the scam share within Hinglish near the overall ~20%, so language alone doesn't predict the label
 HINGLISH_BENIGN_PER_SOURCE = 500
-# near-duplicate clustering: MinHash over char 5-grams of the first 2000 normalised chars, Jaccard >= 0.8.
-# At 0.8 the big clusters are fake_job_postings sharing a company profile and templated phishing_email batches
-# (0.7 starts merging scam with benign; 0.9 misses reworded copies)
-SHINGLE, NUM_PERM, NEAR_DUP_JACCARD, SHINGLE_CHARS = 5, 128, 0.8, 2000
+# near-duplicate clusters (see neardup.py): exact Jaccard >= 0.7 on char 5-grams, on the raw OR the normalised text
+# (templated prefixes/suffixes stripped, numbers -> <NUM>), 0.6 within india_fraud_final (slot-filler templates), plus
+# two forced groupings: translations of one synth_india
+# template (template_family) and posts by one company (company_key, from fake_job_postings.company_profile; the
+# dataset has no company-name column, and 18% of posts have no profile, so those cluster by text only).
+# Whole clusters go to one split; the result is frozen in SPLIT_MAP and reused on later runs.
+COMPANY_KEY_CHARS, MIN_COMPANY_PROFILE = 150, 20
+SPLIT_MAP = "data/final/split_map.csv"
 COLS = ["text", "label", "category", "subcategory", "channel", "language", "source", "is_synthetic", "template_id",
-        "provenance", "note"]
+        "template_family", "company_key", "provenance", "note"]
 
 def latest(name, module="text"):
     files = sorted(glob.glob(f"data/external/{module}/{name}/{name}_*"))
@@ -72,8 +76,12 @@ if f := latest("fake_job_postings"):
     d = pd.read_csv(f)
     parts = ["title", "company_profile", "description", "requirements", "benefits"]
     text = d[parts].fillna("").astype(str).agg("\n".join, axis=1)
+    prof = d["company_profile"].fillna("").astype(str).str.lower().str.replace(r"\s+", " ", regex=True).str.strip()
+    prof = prof.str.slice(0, COMPANY_KEY_CHARS)
+    company = prof.map(lambda p: hashlib.md5(p.encode()).hexdigest() if len(p) >= MIN_COMPANY_PROFILE else "")
     frames.append(pd.DataFrame({"text": text, "label": d["fraudulent"], "category": "job", "channel": "job_post",
-                                "language": "english", "source": "fake_job_postings", "is_synthetic": False}))
+                                "language": "english", "source": "fake_job_postings", "is_synthetic": False,
+                                "company_key": company}))
 
 if f := latest("scam_dialogue"):
     d = pd.read_csv(f)
@@ -104,13 +112,13 @@ if f := latest("hinglish_conversations", "indic"):
     frames.append(pd.DataFrame({"text": text, "label": 0, "category": "benign_chat", "channel": "chat",
                                 "language": "hinglish", "source": "hinglish_conversations", "is_synthetic": True}))
 
-df = pd.concat(frames, ignore_index=True)[COLS]
+df = pd.concat(frames, ignore_index=True).reindex(columns=COLS)
 df["text"] = df["text"].astype(str).str.strip()
 df = df[df["text"].str.len() > 3]
 df["label"] = df["label"].astype(int)
 df["subcategory"] = df["subcategory"].fillna("")
-df["template_id"] = df["template_id"].fillna("")
-df[["provenance", "note"]] = df[["provenance", "note"]].fillna("")
+df[["template_id", "template_family", "company_key", "provenance", "note"]] = \
+    df[["template_id", "template_family", "company_key", "provenance", "note"]].fillna("")
 
 # 3b. mask PII (README: ethics). Same tokens for every source so masking itself isn't a label signal.
 MASKS = [
@@ -151,77 +159,107 @@ for c in ["provenance", "note"]:
     df[c] = df["text_hash"].map(web[c]).fillna("")
 df = df.drop_duplicates("text_hash").reset_index(drop=True)
 
-# 6. near-duplicate clusters (MinHash LSH, then the estimated Jaccard re-checked per candidate pair), joined by
-# union-find; rows of one template are also joined. cluster_id = smallest text_hash in the cluster, so a singleton's
+# 6. near-duplicate clusters, joined by union-find. cluster_id = smallest text_hash in the cluster, so a singleton's
 # cluster_id is its own text_hash.
-norm = df["text"].str.lower().str.replace(r"\s+", " ", regex=True).str.slice(0, SHINGLE_CHARS)
-shingles = [{t[i:i + SHINGLE].encode() for i in range(max(1, len(t) - SHINGLE + 1))} for t in norm]
-mh = MinHash.bulk(shingles, num_perm=NUM_PERM)
-lsh = MinHashLSH(threshold=NEAR_DUP_JACCARD, num_perm=NUM_PERM)
-for i, m in enumerate(mh):
-    lsh.insert(i, m)
 parent = list(range(len(df)))
 def find(x):
     while parent[x] != x:
         parent[x] = parent[parent[x]]
         x = parent[x]
     return x
-for i, m in enumerate(mh):
-    for j in lsh.query(m):
-        if j > i and m.jaccard(mh[j]) >= NEAR_DUP_JACCARD:
-            parent[find(i)] = find(j)
-templated = df["template_id"] != ""
-for rows in df.groupby("template_id").indices.values():   # positions in df (index is 0..n-1 after dedupe)
-    if df.at[rows[0], "template_id"]:
+def union(a, b):
+    parent[find(a)] = find(b)
+# forced groups first: they make most of the big job-post clusters, so the text pass can skip those pairs
+for key in ("template_family", "company_key"):
+    for rows in df[df[key] != ""].groupby(key).groups.values():
         for j in rows[1:]:
-            parent[find(rows[0])] = find(j)
+            union(rows[0], j)
+forced = len({find(i) for i in range(len(df))})
+for i, j, _, _ in neardup.near_dup_pairs_any(df["text"], df["source"], neardup.CLUSTER_SEED,
+                                           skip=lambda i, j: find(i) == find(j)):
+    union(i, j)
 root = pd.Series([find(i) for i in range(len(df))], index=df.index)
 df["cluster_id"] = df["text_hash"].groupby(root).transform("min")
+print(f"clusters: {len(df)} rows -> {forced} after template-family/company grouping -> {df['cluster_id'].nunique()} after text pass")
 
-# 7. deterministic split by unit: hash bucket for real units (same scheme as build_urls.py); units holding templated
-# rows are stratified per (category, label, language) cell so every language/label pair reaches test. In each cell
-# (units ordered by md5): 1st -> test, 2nd -> val if the cell has 3+, rest -> train. A single-unit cell stays in train.
+# 7. split. Rule for a fresh cluster: hash bucket 80/10/10 (same scheme as build_urls.py). Clusters holding synth_india
+# rows are stratified per (category, label) instead, so every language/label pair reaches test (a template family spans
+# all four languages): in each cell, clusters ordered by md5: 1st -> test, 2nd -> val if the cell has 3+, rest -> train.
+# A one-cluster cell stays in train. Rows already in SPLIT_MAP keep their split; new rows join their cluster's.
 md5 = lambda k: hashlib.md5(k.encode()).hexdigest()
-def assign_split(unit, warn=True):
-    tpl_unit = unit.isin(set(unit[templated]))
+templated = df["template_family"] != ""
+def rule_split(unit):
+    tpl = unit.isin(set(unit[templated]))
     split = pd.Series("", index=df.index)
-    split[~tpl_unit] = pd.cut(unit[~tpl_unit].map(lambda h: int(h, 16) % 100), [-1, 79, 89, 99],
-                              labels=["train", "val", "test"]).astype(str)
+    split[~tpl] = pd.cut(unit[~tpl].map(lambda h: int(h, 16) % 100), [-1, 79, 89, 99],
+                         labels=["train", "val", "test"]).astype(str)
     cells = df[templated].assign(unit=unit[templated])
-    cells = cells.loc[cells["template_id"].map(md5).sort_values().index].drop_duplicates("unit")
+    cells = cells.loc[cells["template_family"].map(md5).sort_values().index].drop_duplicates("unit")
     assign = {}
-    for cell, g in cells.groupby(["category", "label", "language"]):
+    for cell, g in cells.groupby(["category", "label"]):
         ids = sorted(g["unit"], key=md5)
-        if len(ids) < 2 and warn:
+        if len(ids) < 2:
             print(f"warning: only one template cluster in {cell}, kept in train")
         for i, u in enumerate(ids):
             assign[u] = "test" if i == 0 and len(ids) > 1 else "val" if i == 1 and len(ids) > 2 else "train"
-    split[tpl_unit] = unit[tpl_unit].map(assign)
+    split[tpl] = unit[tpl].map(assign)
     return split
 
-# previous scheme (unit = text_hash, or template_id for templated rows), kept only to report what moved
-before = assign_split(df["template_id"].where(templated, df["text_hash"]), warn=False)
-df["split"] = assign_split(df["cluster_id"])
-assert df.groupby("cluster_id")["split"].nunique().max() == 1, "a near-duplicate cluster straddles splits"
+prev = None   # last build's split per text_hash, only to report what moved
+if os.path.exists(f := "data/final/messages.csv"):
+    prev = pd.read_csv(f, usecols=["text_hash", "split"]).drop_duplicates("text_hash").set_index("text_hash")["split"]
+frozen = pd.read_csv(SPLIT_MAP).set_index("text_hash")["split"] if os.path.exists(SPLIT_MAP) else pd.Series(dtype=str)
+fixed = df["text_hash"].map(frozen)   # NaN for rows not frozen yet
+rule = rule_split(df["cluster_id"])
+if fixed.notna().any():
+    known = pd.DataFrame({"c": df["cluster_id"], "s": fixed}).dropna().groupby("c")["s"].agg(["first", "nunique"])
+    inherit = df["cluster_id"].map(known["first"])
+    clash = fixed.isna() & (df["cluster_id"].map(known["nunique"]) > 1)   # new row that bridges frozen rows of 2+ splits
+    df["split"] = fixed.fillna(inherit).fillna(rule)
+    print(f"split_map: {fixed.notna().sum()} rows frozen, {fixed.isna().sum()} new "
+          f"({(fixed.isna() & inherit.notna()).sum()} inherited a cluster's split, "
+          f"{(fixed.isna() & inherit.isna()).sum()} placed by rule)")
+    if clash.any():
+        print(f"warning: dropping {clash.sum()} new rows that bridge frozen clusters in different splits")
+        df = df[~clash].reset_index(drop=True)
+else:
+    df["split"] = rule
+
+# the real leakage check: runs before anything is written, so a leaky split can't overwrite the last good files
+neardup.assert_no_leakage(df)
+print(f"leakage check passed: no cluster / template family / company straddles splits, no cross-split pair with exact "
+      f"Jaccard >= {neardup.MIN_JACCARD} on raw or normalised text ({neardup.SOURCE_MIN_JACCARD} within those sources)")
 df["split"] = pd.Categorical(df["split"], ["train", "val", "test"])
 
+os.makedirs("data/final", exist_ok=True)
+new_map = pd.DataFrame({"text_hash": df["text_hash"], "split": df["split"].astype(str)})
+old_map = frozen.rename("split").rename_axis("text_hash").reset_index()
+pd.concat([old_map, new_map]).drop_duplicates("text_hash").sort_values("text_hash").to_csv(SPLIT_MAP, index=False)
+
 size = df["cluster_id"].value_counts()
-print(f"\nnear-dup clusters (Jaccard >= {NEAR_DUP_JACCARD}): {len(size)} for {len(df)} rows; "
-      f"{(size > 1).sum()} multi-row clusters hold {size[size > 1].sum()} rows; "
-      f"{(df.groupby('cluster_id')['label'].nunique() > 1).sum()} mix scam and benign")
+mixed = df.groupby("cluster_id")["label"].nunique() > 1
+print(f"\nnear-dup clusters: {len(size)} for {len(df)} rows; {(size > 1).sum()} multi-row clusters hold "
+      f"{size[size > 1].sum()} rows; {mixed.sum()} mix scam and benign")
+for cid in mixed[mixed].index[:8]:
+    g = df[df["cluster_id"] == cid]
+    print(f"  mixed ({len(g)} rows, labels {g['label'].tolist()[:6]}): " + " ~ ".join(ascii(t[:55]) for t in g["text"].head(2)))
 print("10 largest:")
 for cid, n in size.head(10).items():
     r = df[df["cluster_id"] == cid].iloc[0]
-    print(f"  {n:4d}  {r['source']:<18} {r['text'][:90]!r}")
-moved = before != df["split"].astype(str)
-print(f"rows that changed split: {moved.sum()} ({moved.mean():.1%})")
-print(pd.crosstab(before[moved].rename("old"), df.loc[moved, "split"].rename("new")))
+    print(f"  {n:4d}  {r['source']:<18} {ascii(r['text'][:90])}")
+if prev is not None:
+    old = df["text_hash"].map(prev)
+    moved = old.notna() & (old != df["split"].astype(str))
+    print(f"\nvs previous messages.csv: {old.isna().sum()} new rows, {moved.sum()} of {old.notna().sum()} existing rows "
+          f"changed split ({moved.sum() / old.notna().sum():.1%})")
+    print(pd.crosstab(old[moved].rename("old"), df.loc[moved, "split"].rename("new")))
+    print(df[moved].groupby("source").size().sort_values(ascending=False).to_string())
 
-os.makedirs("data/final", exist_ok=True)
 df.to_csv("data/final/messages.csv", index=False)
 print(df.groupby(["source", "label"]).size().unstack(fill_value=0))
 print("\nby category:\n", df.groupby(["category", "label"]).size().unstack(fill_value=0))
 print("\nsplit:\n", df.groupby(["split", "label"], observed=True).size().unstack(fill_value=0))
+print("\nsource x split:\n", df.groupby(["source", "split"], observed=True).size().unstack(fill_value=0))
 print("\nscript x label:\n", df.groupby(["script", "label"]).size().unstack(fill_value=0))
 print("\nlanguage x label:\n", df.groupby(["language", "label"]).size().unstack(fill_value=0))
 print("\nprovenance x split (web quotes):\n", df[df["provenance"] != ""].groupby(["provenance", "split"], observed=True).size().unstack(fill_value=0))

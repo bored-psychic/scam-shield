@@ -1,9 +1,15 @@
 import os, random, re
 import pandas as pd
+import neardup
 
 # Character-level adversarial variants of scam messages (label 1), the obfuscations scammers use to dodge filters.
-#   train split -> data/final/messages_aug.csv       (training augmentation)
-#   test split  -> data/final/messages_adv_test.csv  (robustness eval; never train on it)
+# Attack families are split too, so the robustness test uses attack types the model never trained on:
+#   train parents -> data/final/messages_aug.csv       homoglyph, leet, zero_width         (training augmentation)
+#   test parents  -> data/final/messages_adv_test.csv  char_noise, url_obfuscate, spaced_keywords
+#                                                      (held-out attacks; never train on it)
+# Output rows are machine-generated: source = "augmented", is_synthetic = True, so real-only evaluation drops them;
+# the parent's source / is_synthetic / provenance / split are kept in parent_source, parent_is_synthetic, provenance,
+# split (filter on parent_is_synthetic == False for robustness numbers on real parents only).
 # Back-translation / TextAttack word-level recipes are not here yet (see README).
 random.seed(0)
 HOMO = {"a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "x": "х", "i": "і", "y": "у", "s": "ѕ"}   # Cyrillic
@@ -41,29 +47,42 @@ def url_obfuscate(t):
     # only touch URL / domain tokens: hxxp scheme and "[.]" dots, as in defanged-link spam
     return URL_RE.sub(lambda m: m.group().replace("http", "hxxp").replace(".", "[.]"), t)
 
-ATTACKS = {"homoglyph": homoglyph, "leet": leet, "zero_width": zero_width, "char_noise": char_noise,
-           "spaced_keywords": spaced_keywords, "url_obfuscate": url_obfuscate}
+TRAIN_ATTACKS = {"homoglyph": homoglyph, "leet": leet, "zero_width": zero_width}
+HELD_OUT_ATTACKS = {"char_noise": char_noise, "url_obfuscate": url_obfuscate, "spaced_keywords": spaced_keywords}
 
 df = pd.read_csv("data/final/messages.csv", low_memory=False)
-df["orig_id"] = df.index
+df["orig_id"] = df.index   # row position in messages.csv; parent_hash is the stable key if the file is rebuilt
 base = df[(df["label"] == 1) & (df["text"].str.len() <= MAX_LEN)]
 
-def build(part):
+def build(part, attacks):
     rows = []
-    for name, fn in ATTACKS.items():
+    for name, fn in attacks.items():
         a = part.copy()
         a["text"] = a["text"].map(fn)
         a = a[a["text"] != part["text"]]   # attack didn't apply (e.g. no URL)
-        rows.append(a.assign(aug_method=name, is_synthetic=True))
-    return pd.concat(rows, ignore_index=True)
+        rows.append(a.assign(aug_method=name))
+    a = pd.concat(rows, ignore_index=True)
+    return a.assign(parent_hash=a["text_hash"], parent_source=a["source"], parent_is_synthetic=a["is_synthetic"],
+                    source="augmented", is_synthetic=True)
 
-cols = ["orig_id", "cluster_id", "text", "label", "category", "channel", "language", "source", "aug_method", "split"]
+cols = ["orig_id", "parent_hash", "cluster_id", "text", "label", "category", "channel", "language", "source",
+        "parent_source", "parent_is_synthetic", "aug_method", "is_synthetic", "provenance", "split"]
 os.makedirs("data/final", exist_ok=True)
-for split, out in (("train", "messages_aug.csv"), ("test", "messages_adv_test.csv")):
-    a = build(base[base["split"] == split])[cols]
-    # variants must come only from parents in this split, and no parent's near-dup cluster may reach another split
-    # (build_text.py splits by cluster_id), else a test variant's twin could be trained on
+
+# messages.csv must be the frozen split, or orig_id / the parents' splits mean something else
+frozen = pd.read_csv("data/final/split_map.csv").set_index("text_hash")["split"]
+assert (df["split"] == df["text_hash"].map(frozen)).all(), "messages.csv doesn't match split_map.csv; rerun build_text.py"
+
+outputs = {}
+for split, out, attacks in (("train", "messages_aug.csv", TRAIN_ATTACKS), ("test", "messages_adv_test.csv", HELD_OUT_ATTACKS)):
+    a = build(base[base["split"] == split], attacks)[cols]
     assert (df.loc[a["orig_id"], "split"] == split).all(), f"{out}: parent from another split"
-    assert (df.loc[df["cluster_id"].isin(a["cluster_id"]), "split"] == split).all(), f"{out}: parent cluster straddles splits"
+    assert (df.loc[a["orig_id"], "text_hash"].values == a["parent_hash"].values).all(), f"{out}: orig_id / parent_hash mismatch"
+    outputs[out] = a
+# no parent may have a near-duplicate (exact Jaccard >= 0.7, normalised text) in another split, or a test variant's
+# twin could be trained on; this replaces the old asserts, which held by construction and could not fail
+parents = sorted(set().union(*(a["orig_id"] for a in outputs.values())))
+neardup.assert_no_leakage(df, queries=parents)
+for out, a in outputs.items():
     a.to_csv(f"data/final/{out}", index=False)
-    print(f"{out}: {len(a)} rows", a["aug_method"].value_counts().to_dict())
+    print(f"{out}: {len(a)} rows from {a['orig_id'].nunique()} parents", a["aug_method"].value_counts().to_dict())

@@ -119,10 +119,12 @@ src/
   build_urls.py     # combine (+ ISCX if present), dedupe, split, domain age, shortcut check
   pull_hf.py        # fetch every `access: hf` source in sources.yaml
   synth_india.py    # template-generated multilingual India scam + benign messages
-  build_text.py     # normalise, mask PII, dedupe, split -> messages.csv
+  build_text.py     # normalise, mask PII, dedupe, cluster near-duplicates, split -> messages.csv + split_map.csv
+  neardup.py        # near-duplicate clustering + the cross-split leakage check (used by build_text, augment, split_audit)
+  split_audit.py    # read-only: cross-split near-duplicate pairs, per-source val/test exposure, cluster sizes
   scrape_web.py     # Firecrawl every URL in data/sources.csv -> data/raw_web/ (cached)
   extract_scams.py  # verbatim scam quotes from data/raw_web/ -> data/extracted/web_scams.csv
-  augment.py        # adversarial variants -> messages_aug.csv, messages_adv_test.csv
+  augment.py        # adversarial variants: train attacks -> messages_aug.csv, held-out attacks -> messages_adv_test.csv
   gen_typosquat.py  # brand lookalike domains -> typosquat_candidates.csv
   enrich_domains.py # RDAP registration dates (cached)
   build_apps.py     # Android permission table -> apps.csv
@@ -144,6 +146,7 @@ python src/build_urls.py
 python src/pull_hf.py
 python src/synth_india.py
 python src/build_text.py
+python src/split_audit.py   # optional: how much near-duplicate leakage is left
 python src/augment.py
 python src/gen_typosquat.py
 python src/build_apps.py

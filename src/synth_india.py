@@ -3,7 +3,7 @@ import pandas as pd
 
 # Template-based synthetic India scam + benign messages in en / hinglish / hi / kn.
 # Patterns follow public advisories (I4C, PIB fact-checks, DoT, bank warnings). Every row is is_synthetic=True;
-# build_text.py splits on template_id so variants of one template never straddle train/test.
+# build_text.py splits on template_family so variants (and translations) of one template never straddle train/test.
 random.seed(0)
 N_PER_TEMPLATE = 15
 
@@ -203,22 +203,31 @@ for cat, label, _, by_lang in T:
     for lang, temps in EXTRA.get((cat, label), {}).items():
         by_lang[lang] = by_lang[lang] + temps
 
+# template_family = the same message in all four languages. Templates are translated by position, except in these
+# two cells where the English pair is listed in the opposite order to hinglish/hi/kn (checked by reading them side
+# by side), so English is flipped to line up. build_text.py splits and clusters on template_family.
+EN_REVERSED = {("digital_arrest", 1), ("courier_customs", 0)}
+
 rows = []
 for ci, (cat, label, channel, by_lang) in enumerate(T):
     for lang, temps in by_lang.items():
         for ti, t in enumerate(temps):
             tid = f"synth_{cat}_{label}_{lang}_{ci}_{ti}"
+            fi = len(temps) - 1 - ti if lang == "en" and (cat, label) in EN_REVERSED else ti
+            family = f"synth_{cat}_{label}_{ci}_{fi}"
             seen = set()
             for _ in range(N_PER_TEMPLATE * 3):
                 s = fill(t)
                 if s not in seen:
                     seen.add(s)
                     rows.append({"text": s, "label": label, "category": cat, "channel": channel,
-                                 "language": lang, "template_id": tid})
+                                 "language": lang, "template_id": tid, "template_family": family})
                 if len(seen) >= N_PER_TEMPLATE:
                     break
 
 df = pd.DataFrame(rows)
+fam_langs = df.groupby("template_family")["template_id"].nunique()
+assert (fam_langs == 4).all(), "every template family needs exactly one template per language"
 df["language"] = df["language"].map({"en": "english", "hi": "hindi", "kn": "kannada", "hinglish": "hinglish"})
 os.makedirs("data/external/text/synth_india", exist_ok=True)
 df.to_csv("data/external/text/synth_india/synth_india.csv", index=False)
