@@ -1,0 +1,165 @@
+# Scam Shield: Hybrid ML Detection of India-Specific Scams
+
+VTU Community / Societal Project (1BCP308, Sem 3), topic #19: Cyber Security Awareness Platform for Phishing, Digital Arrest Scams, and Malicious Applications.
+
+## Problem
+
+Most scam checkers are rule-based: keyword lists, blacklists, domain reputation. They break on three things that matter in India:
+
+1. **Message-only scams.** Digital arrest, fake KYC and parcel/customs scams usually arrive as a text or call script with no link at all.
+2. **Rephrased and code-mixed text.** Hinglish and Kannada variants, typos and paraphrases evade keyword rules.
+3. **Fresh infrastructure.** New domains aren't on any blacklist yet.
+
+Reputation sites such as ScamAdviser answer "is this website trustworthy?". This project answers "is this message a scam, and which manipulation tactic is it using?"
+
+## Objectives
+
+1. Build a hybrid detector with a **text head** (message content) and a **URL head** (link structure), fused into one calibrated risk score.
+2. Explain every flag: token- and feature-level attributions, plus **tactic tags** (authority impersonation, urgency, isolation, payment redirection).
+3. Beat a rule-based baseline, measured with precision, recall, F1 and **false-positive rate on legitimate bank/OTP SMS**.
+4. Measure **adversarial robustness** (paraphrase, typos, homoglyphs, code-switching, URL obfuscation), then retrain with augmentation and show recovery.
+5. Create a small, documented **India-specific scam message dataset** (English, Hinglish, Kannada), anonymized, with a datasheet and inter-annotator agreement.
+6. Validate with people: a **user study (15-20 participants)** comparing scam-spotting accuracy with and without the explanations, plus at least one stakeholder conversation (bank or cyber cell contact).
+7. Ship a minimal web UI (paste text or a link, get a score and reasons) and a reproducible repo where one command regenerates every table.
+
+## Scope
+
+**In scope:** scam taxonomy (digital arrest, fake KYC, parcel/customs, job offer, lottery, benign); text and URL models; fusion and calibration; explanations; adversarial evaluation; user study.
+
+**Out of scope / cut first if time is short:** malicious-app (APK) analysis, Kannada samples, character-level URL CNN (keep gradient boosting).
+
+**Never cut:** the India-specific dataset, the adversarial results, the user study.
+
+## Architecture
+
+| Component | Approach |
+|---|---|
+| Text head | Fine-tuned small multilingual transformer (MuRIL or DistilmBERT) |
+| URL head | Gradient boosting on lexical features (length, entropy, subdomain depth, homoglyphs, TLD, brand-lookalike distance) |
+| Fusion | Small meta-model over both heads |
+| Calibration | Temperature scaling, so a score of 87 means roughly 87% likely |
+| Explainability | Token attributions (text), feature contributions (URL), tactic tags |
+| Baseline (control) | Rule/keyword scorer from the project spec |
+
+## Data
+
+| Source | Use | Notes |
+|---|---|---|
+| OpenPhish, PhishTank | Phishing URLs | Snapshots go stale; record download date |
+| URLhaus | Malware URLs | Kept as a separate class (mostly raw-IP hosts, an easy shortcut) |
+| Tranco | Benign domains | Bare domains only; see the shortcut warning below |
+| `msgs` dataset | Main text data | ~85% synthetic, English only; **test on real messages only** |
+| `sms` dataset | Benign / generic spam text | Spam is not the same as scam; map labels carefully |
+| Own collection | **Held-out test set** | Family/classmate-forwarded messages, advisories, news quotes; PII masked at intake |
+
+`txn` (transaction-fraud tabular data) was dropped: it isn't text or URLs, and has heavy duplication and untrustworthy labels.
+
+### Known data pitfalls (handled in the pipeline)
+
+- **Shortcut features:** malware URLs are ~88% raw-IP hosts with paths, and benign Tranco rows are bare domains. A model can score high on `has_ip` / `has_path` alone. Main task is therefore **phishing vs. benign on host-only URLs**; malware is reported separately.
+- **Leakage:** URL splits are grouped by registered domain; text splits are grouped by template/near-duplicate cluster. The test set is frozen after week 8.
+- **Synthetic text:** train on synthetic + real, test only on real, and report the domain-shift gap as a finding.
+- **Class imbalance:** use class weights; report precision/recall/FPR, not accuracy.
+- **Small test sets:** phishing rows must reach a few thousand before test metrics are trusted.
+
+## Evaluation
+
+- Precision / recall / F1 and false-positive rate (legit bank/OTP SMS)
+- Ablation: rules only, text only, URL only, fused
+- Calibration plot and expected calibration error
+- Adversarial suite: recall drop per attack for baseline vs. model, then recovery after augmentation
+- Real-only test set vs. synthetic test set (domain-shift gap)
+- User study: accuracy with vs. without explanations
+
+## Plan (TLP weeks 7-15)
+
+| Phase | Weeks | Work | Deliverable |
+|---|---|---|---|
+| 1. Scope and data | 7-8 | Approve problem statement, fix taxonomy and labelling rules, collect India-specific messages, pull public data, build rule baseline, freeze splits | Concept note + baseline numbers |
+| 2. Models | 9-10 | URL head, text head, fusion, calibration, explanations, tactic tags, minimal UI | Ablation table + working prototype |
+| 3. Stress test | 11 | Attack suite, augmentation retrain, FPR on legit SMS | Robustness table + calibration plot |
+| 4. Field validation | 12 | User study (recruit by week 10), feedback form, stakeholder conversation, photos and attendance as evidence | Study data + feedback note |
+| 5. Write-up | 13-15 | Report, one-command reproduction script, slides, mock viva, final submission, optional dataset release | Final report, deck, viva |
+
+**Risks:** fewer than ~200 India-specific samples by end of week 9 (extend collection, lean on augmentation); test-set leakage; recruiting the user-study participants late.
+
+## Status
+
+- [x] Topic chosen and scoped (#19)
+- [x] URL pull script (`src/pull_urls.py`): URLhaus, OpenPhish, Tranco
+- [x] URL build script (`src/build_urls.py`): combine, dedupe, registered-domain split, shortcut check
+- [ ] PhishTank snapshot added (rate-limited by Cloudflare, retry later)
+- [x] Source registry (`data/sources.yaml`) + Hugging Face puller (`src/pull_hf.py`); manual sources in `MANUAL_DOWNLOADS.md`
+- [x] Text dataset normalization, PII masking, dedupe, splits (`src/build_text.py` → `data/final/messages.csv`, ~48k rows)
+- [x] Synthetic India templates in English / Hinglish / Hindi / Kannada, scam + benign pairs (`src/synth_india.py`)
+- [x] Typosquat / IDN lookalike candidates for Indian brands (`src/gen_typosquat.py`); RDAP domain age (`src/enrich_domains.py`, partial cache)
+- [x] Character-level adversarial suite: train augmentation + held-out adversarial test (`src/augment.py`)
+- [x] App permissions table (`src/build_apps.py`, optional module)
+- [x] TF-IDF smoke-test baseline (`src/baseline.py`)
+- [ ] Rule-based baseline
+- [ ] India-specific message collection (Google Form intake + advisories); RBI site blocks scrapers, so collect by hand
+- [ ] More Hinglish/Hindi/Kannada templates (current splits are lumpy: e.g. no Hinglish scam in test)
+- [ ] Back-translation / paraphrase augmentation (needs Bhashini or IndicTrans2)
+- [ ] Freeze splits
+- [ ] URL head and text head
+- [ ] Fusion, calibration, explanations
+- [ ] Adversarial suite
+- [ ] User study
+- [ ] Report, slides, viva
+
+## Repo layout
+
+```
+data/sources.yaml   # registry of every dataset: access method, licence, verified date
+data/raw/           # dated URL feed pulls only (build_urls.py globs it) (gitignored)
+data/external/      # other pulls, by module: text/, indic/, urls/, apps/ (gitignored)
+data/final/         # combined, deduped, split tables (gitignored)
+src/
+  pull_urls.py      # fetch URLhaus / OpenPhish / Tranco
+  build_urls.py     # combine (+ ISCX if present), dedupe, split, domain age, shortcut check
+  pull_hf.py        # fetch every `access: hf` source in sources.yaml
+  synth_india.py    # template-generated multilingual India scam + benign messages
+  build_text.py     # normalise, mask PII, dedupe, split -> messages.csv
+  scrape_web.py     # Firecrawl every URL in data/sources.csv -> data/raw_web/ (cached)
+  extract_scams.py  # verbatim scam quotes from data/raw_web/ -> data/extracted/web_scams.csv
+  augment.py        # adversarial variants -> messages_aug.csv, messages_adv_test.csv
+  gen_typosquat.py  # brand lookalike domains -> typosquat_candidates.csv
+  enrich_domains.py # RDAP registration dates (cached)
+  build_apps.py     # Android permission table -> apps.csv
+  baseline.py       # TF-IDF + logistic regression smoke test
+MANUAL_DOWNLOADS.md # datasets behind forms / accounts
+README.md
+```
+
+## Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install requests pandas tldextract pyyaml pyarrow huggingface_hub beautifulsoup4 scikit-learn datasketch
+export URLHAUS_KEY=your_key_here   # never commit keys
+python src/pull_urls.py
+python src/enrich_domains.py 500   # optional, RDAP lookups, cached; repeat to cover more domains
+python src/build_urls.py
+python src/pull_hf.py
+python src/synth_india.py
+python src/build_text.py
+python src/augment.py
+python src/gen_typosquat.py
+python src/build_apps.py
+python src/baseline.py
+```
+
+Add a `.gitignore` containing `.venv/` and `data/`.
+
+## Ethics and data handling
+
+- No personal data in the dataset: phone numbers, emails, UPI IDs, account numbers and victim names are masked at ingestion.
+- Scraped news/advisory text: keep only the quoted scam message, plus source URL and date; do not redistribute full articles.
+- Malicious URLs are stored as strings only and never visited from a personal machine.
+- Respect each source's terms of service and robots.txt.
+- API keys live in environment variables, not in the repo.
+
+## Related work
+
+ScamAdviser and similar website-reputation tools (URL trust scoring); SMS spam collections; PhishTank / OpenPhish feeds. Gap addressed: message-level, multilingual, India-specific scam detection with explanations and measured robustness.
