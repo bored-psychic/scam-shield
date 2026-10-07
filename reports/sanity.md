@@ -173,3 +173,68 @@ messages_adv_test.csv (test parents):
 
 `baseline.py` uses **character** n-grams, not word n-grams: `analyzer="char_wb"` (character n-grams taken inside word boundaries, padded with spaces), `ngram_range=(2, 4)`, `min_df=3`, `max_features=200000`, `sublinear_tf=True`, text cut to the first 2000 characters, logistic regression with `class_weight=balanced`. Consequences: it needs no tokenizer, so Hindi and Kannada script work with the same code, and it tolerates the typo-style attacks better than word n-grams would, but it also picks up script, casing and boilerplate fragments that identify a source. A word-level run is the obvious ablation.
 
+## Interpretation
+
+Written 2026-10-07 by hand (not generated) against split_map SHA-256 `89eec6f1104bc671...` (tag `splits-v1`). Numbers are from the tables above unless marked *[baseline.py]* (the `src/baseline.py` run of 2026-10-07 on the same splits, whose output is not in this report) or *[count]* (a one-off count, noted where used). Statements marked **hypothesis** have not been tested; the check that would settle each is given.
+
+### In one paragraph
+
+The baseline's test F1 of 0.895 is an in-distribution number: it is scored on messages from the same eleven datasets it trained on. When a whole dataset is held out (section 5), the model often fails, and the AUROC column shows two different kinds of failure. For some sources the model still *ranks* scams above benign messages but its 0.5 cut-off lands in the wrong place; for others the ranking itself is close to random, which means the model never learned anything about those messages that carries over. Hindi and Kannada are a separate problem: every row comes from one synthetic generator, so their scores measure memorised templates, not language ability. The character n-gram model shrugs off the current attacks mainly because the attacks are mild and touch only a few of the hundreds of character n-grams in a message.
+
+### 1. Leave-one-source-out: cut-off shift vs real failure
+
+AUROC asks "if I pick one scam and one benign message from this source, how often does the scam get the higher score?" 0.5 is a coin flip, 1.0 is perfect, and it does not depend on any cut-off. F1 is measured at the fixed cut-off of 0.5. So a high AUROC with a low F1 means the scores are in the right order but shifted, and a low AUROC means the order itself is wrong.
+
+| held-out source | LOSO F1 | LOSO AUROC | what happened |
+| --- | --- | --- | --- |
+| ealvaradob_phishing | 0.881 | 0.971 | carries over; small source (116 rows), so noisy |
+| scam_ham_india | 0.815 | 0.944 | carries over, small cut-off loss |
+| uci_sms_spam | 0.454 | 0.940 | **cut-off shift**: ranking is good, but at 0.5 it catches 93.6% of spam while calling 26% of normal SMS scam (benign accuracy 0.739) |
+| synth_india | 0.750 | 0.865 | partial |
+| scam_dialogue | 0.116 | 0.820 | **mostly cut-off shift**: scam calls usually score above benign calls, but almost all of them fall below 0.5 (scam recall 0.062) |
+| india_fraud_final | 0.676 | 0.707 | **real failure, on the benign side**: it catches 94.2% of scams but calls 74% of benign messages scam (benign accuracy 0.261) |
+| phishing_email | 0.420 | 0.590 | **real failure**: barely better than random; PR-AUC 0.470 against a 0.382 base rate |
+| fake_job_postings | 0.085 | 0.568 | **real failure**: near random; PR-AUC 0.059 against a 0.040 base rate. It is weak even in-distribution (F1 0.311, AUROC 0.834; scam recall 0.194 *[baseline.py]*) |
+
+What each group means:
+
+- **Cut-off shift (uci_sms_spam, scam_dialogue).** The model has learned something that transfers, but its scores are calibrated to the mix of sources it trained on. In principle a new cut-off fixes it, but choosing that cut-off needs labelled messages from the new source, and a deployed detector doesn't know which "source" an incoming message belongs to. So this is a calibration problem we have to design for (calibrate on a held-out mix that looks like real traffic), not something to wave away.
+- **Real failure (phishing_email, fake_job_postings, india_fraud_final).** No cut-off rescues these; the model needs different training data. Two of them are genre gaps: without `phishing_email` the main email-style phishing left is 573 `ealvaradob_phishing` rows (email and SMS mixed), and no other source is long job advertisements. `scam_dialogue` (call transcripts) is a genre gap as well: its in-distribution 0.997 mostly reflects the phrasing of one synthetic generator (the source is 100% synthetic, section 1).
+- **india_fraud_final, the case that matters most for this project.** It is the closest thing to real Indian SMS traffic, and the held-out model calls three quarters of its legitimate messages (OTP notices, bill reminders, delivery updates) scams. **Hypothesis:** in the other sources, the vocabulary of Indian transactional SMS (OTP, Rs, KYC, account, bill, delivery) appears almost only in scam rows, so the model learned "transactional India vocabulary = scam". Supporting *[count]* (2026-10-07): among benign rows of at most 200 characters, only 46 in `uci_sms_spam` and 13 in `scam_ham_india` contain any of OTP / credited / debited / recharge / delivered / bill / payment / balance / UPI, against 790 in `india_fraud_final` itself. Check that would settle it: list the n-grams with the largest positive weight in that fold's model on the misclassified benign rows. This is also why piece 3 translates benign transactional messages, not just any benign text.
+
+The general lesson: a model scored only on its own datasets looked like 0.895 F1, but on a dataset it had not seen, its F1 ranged from 0.085 to 0.881. Messages from real people (the final test set) will look like a new source, so the LOSO numbers are the better guide to what to expect.
+
+### 2. Shortcuts the model could take
+
+- **Source.** A model that sees only the source name, not the text, reaches F1 0.611 on test (section 4), well below the text model's 0.895, so the text model is doing more than identifying the source. But three sources have only one label (`cmu_hinglish_dog`, `hinglish_conversations` benign; `web_scams` scam), so for those rows the source alone gives the answer.
+- **Near-duplicates.** Val/test rows that still have a train twin at Jaccard 0.6-0.7 score F1 0.966, against 0.903 for rows without one *[baseline.py; 367 vs 10,611 rows]*. The gap is small in total because those rows are only 3.3% of val/test (BUGS.md), but it shows that template reuse inflates scores.
+
+### 3. The language confound
+
+- **Hindi and Kannada are not real data.** All 394 rows of each language come from `synth_india` (section 3, real rows: 0). They are 58.6% scam, against 25.3% for English, and have no val rows at all (section 2). Each (category, label) cell has only two template families, so test contains one template and train the other, each filled 15 times with different names and amounts.
+- **So the Hindi/Kannada score measures template matching.** On test, Hindi and Kannada scam recall is 1.000 and accuracy 0.824 *[baseline.py]*. With 119 scam and 86 benign test rows per language, that means about 36 of the 86 benign messages (42%) are called scams. A model that leans on "Devanagari or Kannada script = probably scam" would produce exactly this pattern. And because real-only evaluation drops every synthetic row, there is currently **no honest number for Hindi or Kannada at all**.
+- **Hinglish has the mirror-image problem.** All 478 real Hinglish rows are benign chat (`cmu_hinglish_dog`), and every Hinglish scam is synthetic. So "real-looking Hinglish = benign" is learnable. The language-only model (section 4: F1 0.428, benign accuracy 0.046) is weak overall only because English dominates the data; the confound is concentrated in the ~2,160 non-English rows.
+
+### 4. Why the attacks barely move the score
+
+The held-out attacks change scam recall very little *[baseline.py]*:
+
+| attack | variants (all parents) | recall: clean parent -> attacked | real parents only |
+| --- | --- | --- | --- |
+| char_noise | 1182 | 0.965 -> 0.962 | 0.957 -> 0.955 (n=584) |
+| spaced_keywords | 306 | 0.964 -> 0.961 | 0.976 -> 0.951 (n=41) |
+| url_obfuscate | 377 | 0.979 -> 0.966 | 0.935 -> 0.895 (n=124) |
+
+Reasons, in order of importance:
+
+1. **The baseline reads short character pieces, not words** (section 7: `char_wb`, 2-4 characters). A scam SMS gives it hundreds of such pieces. `char_noise` swaps or deletes about 5% of the letters (section 6: p = 0.05), so roughly four out of five 4-character pieces survive unchanged, and those still carry the scam signal. A word-level model would lose every word containing a typo, which is why piece 4 adds one for comparison.
+2. **The attacks are mild and local.** `spaced_keywords` only touches ten case-sensitive keywords ("OTP", but not "otp" or "Account"), which is why only 41 real-parent variants exist. `url_obfuscate` only rewrites the link. The rest of the message, with its urgency phrases and amounts, is untouched.
+3. **The parents were already easy.** The model catches 96.5% of the clean parents, mostly with a wide margin, so a small change rarely pushes one below the cut-off. The one visible drop, real-parent `url_obfuscate` (0.935 -> 0.895, n=124), suggests that for real SMS the link carries a good share of the evidence.
+
+So "robust to attacks" here means "robust to these mild attacks at one strength". Piece 4 measures recall as the attack strength rises, for both the character and the word model, before we claim anything stronger.
+
+### What this changes
+
+- Report LOSO and per-source numbers next to the headline F1, as CLAUDE.md requires; the headline alone overstates performance on new data.
+- Hindi/Kannada need data with both labels in every split before any number for them means something (piece 3); until then, report no Hindi/Kannada score as a result.
+- Fine-tuned encoders (MuRIL, mDeBERTa) are better at picking up style than TF-IDF, so expect larger LOSO gaps from them unless the data gaps are fixed first.
