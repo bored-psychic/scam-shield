@@ -127,18 +127,18 @@ Source-only accuracy per source on test (the 'a model that only knows the source
 
 ## 5. Leave-one-source-out
 
-Major sources = at least 500 rows and both labels (8 of 11). Each fold trains on the train rows of every other source (same TF-IDF settings, vectorizer refit) and scores the held-out source's val+test rows. Clusters never straddle splits, so these rows have no >= 0.7 twin in the training rows. `in-dist F1` is the full model (section 4) on the same rows, so the difference is what losing the source costs. The last column scores all of the source's rows (train split too) for a steadier number on small sources; cross-source near-duplicates are not excluded there, so treat it as optimistic. Sources with one class (`cmu_hinglish_dog`, `hinglish_conversations`, `web_scams`) have no F1 and stay in training.
+Major sources = at least 500 rows and both labels (8 of 11). Each fold trains on the train rows of every other source (same TF-IDF settings, vectorizer refit) and scores the held-out source's val+test rows. Clusters never straddle splits, so these rows have no >= 0.7 twin in the training rows. `in-dist` columns are the full model (section 4) on the same rows, so the difference is what losing the source costs. AUROC and PR-AUC use the decision function (no threshold): a high AUROC with a low F1 means the ranking survived but the 0.5 cut-off moved; PR-AUC should be read against `scam rate`, which is what a random ranking scores. The last column scores all of the source's rows (train split too) for a steadier number on small sources; cross-source near-duplicates are not excluded there, so treat it as optimistic. Sources with one class (`cmu_hinglish_dog`, `hinglish_conversations`, `web_scams`) have no F1 and stay in training.
 
-| held-out source | train rows left | val+test n | val+test scam | in-dist F1 | LOSO F1 | LOSO scam recall | LOSO benign acc | LOSO F1 (all rows) | F1 drop |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| phishing_email | 23803 | 3491 | 1334 | 0.955 | 0.420 | 0.378 | 0.740 | 0.406 | 0.535 |
-| fake_job_postings | 25736 | 3890 | 154 | 0.311 | 0.085 | 0.526 | 0.553 | 0.093 | 0.226 |
-| uci_sms_spam | 33703 | 1032 | 110 | 0.879 | 0.454 | 0.936 | 0.739 | 0.494 | 0.425 |
-| india_fraud_final | 35272 | 660 | 308 | 0.907 | 0.676 | 0.942 | 0.261 | 0.686 | 0.231 |
-| scam_ham_india | 36000 | 428 | 150 | 0.948 | 0.815 | 0.793 | 0.917 | 0.823 | 0.133 |
-| scam_dialogue | 36550 | 336 | 162 | 0.997 | 0.116 | 0.062 | 1.000 | 0.120 | 0.881 |
-| synth_india | 37056 | 821 | 477 | 0.878 | 0.750 | 0.671 | 0.837 | 0.727 | 0.128 |
-| ealvaradob_phishing | 37355 | 116 | 79 | 0.947 | 0.881 | 0.797 | 0.973 | 0.887 | 0.066 |
+| held-out source | train rows left | val+test n | val+test scam | scam rate | in-dist F1 | LOSO F1 | in-dist AUROC | LOSO AUROC | in-dist PR-AUC | LOSO PR-AUC | LOSO scam recall | LOSO benign acc | LOSO F1 (all rows) | F1 drop |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| phishing_email | 23803 | 3491 | 1334 | 0.382 | 0.955 | 0.420 | 0.993 | 0.590 | 0.989 | 0.470 | 0.378 | 0.740 | 0.406 | 0.535 |
+| fake_job_postings | 25736 | 3890 | 154 | 0.040 | 0.311 | 0.085 | 0.834 | 0.568 | 0.288 | 0.059 | 0.526 | 0.553 | 0.093 | 0.226 |
+| uci_sms_spam | 33703 | 1032 | 110 | 0.107 | 0.879 | 0.454 | 0.988 | 0.940 | 0.962 | 0.802 | 0.936 | 0.739 | 0.494 | 0.425 |
+| india_fraud_final | 35272 | 660 | 308 | 0.467 | 0.907 | 0.676 | 0.987 | 0.707 | 0.991 | 0.654 | 0.942 | 0.261 | 0.686 | 0.231 |
+| scam_ham_india | 36000 | 428 | 150 | 0.350 | 0.948 | 0.815 | 0.995 | 0.944 | 0.992 | 0.893 | 0.793 | 0.917 | 0.823 | 0.133 |
+| scam_dialogue | 36550 | 336 | 162 | 0.482 | 0.997 | 0.116 | 1.000 | 0.820 | 1.000 | 0.798 | 0.062 | 1.000 | 0.120 | 0.881 |
+| synth_india | 37056 | 821 | 477 | 0.581 | 0.878 | 0.750 | 0.941 | 0.865 | 0.938 | 0.883 | 0.671 | 0.837 | 0.727 | 0.128 |
+| ealvaradob_phishing | 37355 | 116 | 79 | 0.681 | 0.947 | 0.881 | 0.986 | 0.971 | 0.993 | 0.986 | 0.797 | 0.973 | 0.887 | 0.066 |
 
 ## 6. Attack rates in `augment.py`
 

@@ -1,8 +1,8 @@
-import hashlib, re, sys, time
+import argparse, hashlib, re, sys, time
 import numpy as np, pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score, recall_score
+from sklearn.metrics import average_precision_score, f1_score, recall_score, roc_auc_score
 from sklearn.preprocessing import OneHotEncoder
 
 # Shortcut / confounding checks on data/final/messages.csv -> reports/sanity.md.
@@ -12,7 +12,12 @@ from sklearn.preprocessing import OneHotEncoder
 #      held-out source; the gap to the in-distribution score is how much the model leans on source-specific style
 #   4. the attack rates in src/augment.py, and which n-gram type the baseline TF-IDF uses (both read from the source
 #      files, so the report cannot drift from the code)
-#   python src/sanity_checks.py
+#   python src/sanity_checks.py              full report (about 7 min, dominated by the 8 LOSO fits)
+#   python src/sanity_checks.py --only-loso  refit and rescore LOSO only, then replace section 5 of the existing
+#                                            reports/sanity.md in place (the other sections are left untouched)
+# LOSO also reports AUROC and PR-AUC from the logistic-regression decision function. They don't depend on the 0.5
+# threshold, so they separate "the ranking broke" from "the threshold moved under domain shift"; PR-AUC is only
+# readable against the held-out source's scam rate (a random ranking scores that), so the rate is printed beside it.
 # Only val/test rows are scored. This is the project's internal test split, not the final real-message test set.
 MIN_SOURCE_ROWS = 500   # "major" source for LOSO: at least this many rows and both labels (single-class sources have no F1)
 OUT = "reports/sanity.md"
@@ -25,6 +30,10 @@ def md(df, index=True):
     lines = ["| " + " | ".join(r) + " |" for r in cells]
     lines.insert(1, "|" + "|".join(" --- " for _ in cells[0]) + "|")
     return "\n".join(lines)
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--only-loso", action="store_true", help="rerun the LOSO section and splice it into the existing report")
+args = ap.parse_args()
 
 def log(msg):
     print(msg, file=sys.stderr, flush=True)
@@ -110,8 +119,14 @@ for s in major:
     p = lambda d, model=m, vv=vl: model.predict(vv.transform(d["text"]))
     sc = score(held_vt, p(held_vt))
     sc_in = score(held_vt, ref_pred(held_vt))
-    rows.append({"held-out source": s, "train rows left": len(rest), "val+test n": sc["n"], "val+test scam": int(held_vt["label"].sum()),
-                 "in-dist F1": sc_in["F1"], "LOSO F1": sc["F1"], "LOSO scam recall": sc["scam_recall"], "LOSO benign acc": sc["benign_acc"],
+    y = held_vt["label"]
+    s_loso, s_in = m.decision_function(vl.transform(held_vt["text"])), ref.decision_function(v.transform(held_vt["text"]))
+    rows.append({"held-out source": s, "train rows left": len(rest), "val+test n": sc["n"], "val+test scam": int(y.sum()),
+                 "scam rate": y.mean(),
+                 "in-dist F1": sc_in["F1"], "LOSO F1": sc["F1"],
+                 "in-dist AUROC": roc_auc_score(y, s_in), "LOSO AUROC": roc_auc_score(y, s_loso),
+                 "in-dist PR-AUC": average_precision_score(y, s_in), "LOSO PR-AUC": average_precision_score(y, s_loso),
+                 "LOSO scam recall": sc["scam_recall"], "LOSO benign acc": sc["benign_acc"],
                  "LOSO F1 (all rows)": score(held_all, p(held_all))["F1"]})
     log(f"  {time.time() - t0:.0f}s")
 loso = pd.DataFrame(rows)
@@ -119,10 +134,21 @@ loso["F1 drop"] = loso["in-dist F1"] - loso["LOSO F1"]
 out.append(f"\n## 5. Leave-one-source-out\n\nMajor sources = at least {MIN_SOURCE_ROWS} rows and both labels ({len(major)} of {len(sizes)}). "
            "Each fold trains on the train rows of every other source (same TF-IDF settings, vectorizer refit) and scores the held-out "
            "source's val+test rows. Clusters never straddle splits, so these rows have no >= 0.7 twin in the training rows. "
-           "`in-dist F1` is the full model (section 4) on the same rows, so the difference is what losing the source costs. "
+           "`in-dist` columns are the full model (section 4) on the same rows, so the difference is what losing the source costs. "
+           "AUROC and PR-AUC use the decision function (no threshold): a high AUROC with a low F1 means the ranking survived but the "
+           "0.5 cut-off moved; PR-AUC should be read against `scam rate`, which is what a random ranking scores. "
            "The last column scores all of the source's rows (train split too) for a steadier number on small sources; cross-source "
            "near-duplicates are not excluded there, so treat it as optimistic. Sources with one class (`cmu_hinglish_dog`, "
            "`hinglish_conversations`, `web_scams`) have no F1 and stay in training.\n\n" + md(loso, index=False))
+
+if args.only_loso:
+    new = out[-1]
+    old = open(OUT).read()
+    a, b = old.index("\n## 5. Leave-one-source-out"), old.index("\n## 6. Attack rates")
+    open(OUT, "w").write(old[:a] + new + "\n" + old[b:])
+    print(new)
+    log(f"replaced section 5 in {OUT}")
+    sys.exit(0)
 
 # ---- attack rates and n-gram type, read from the source ----
 aug = open("src/augment.py").read()
