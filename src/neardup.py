@@ -116,3 +116,19 @@ def assert_no_leakage(df, queries=None):
         lines = [f"  J={jac:.2f} ({view}) {sp[i]}|{sp[j]}  {ascii(df['text'][i][:70])} ~ {ascii(df['text'][j][:70])}"
                  for (i, j), (jac, view) in list(bad.items())[:8]]
         raise AssertionError(f"{len(bad)} near-duplicate pairs cross splits:\n" + "\n".join(lines))
+
+def train_twin_rows(df, min_jac=0.6):
+    """Positions (df.index must be 0..n-1) of val/test rows that have a train row at exact Jaccard >= min_jac on
+    either view. Same lookup as split_audit.py (CHECK_SEED; india_fraud_final brute-forced), so the counts agree."""
+    sp = df["split"].to_numpy()
+    src = df["source"].to_numpy()
+    india = [r for r, s in enumerate(src) if s == "india_fraud_final"]
+    same = lambda i, j: sp[i] == sp[j] or (sp[i] != "train" and sp[j] != "train")   # keep only train <-> val/test
+    rows = set()
+    for fn in VIEWS.values():
+        shs = shingle_sets([fn(t) for t in df["text"]])
+        pairs = list(near_dup_pairs(shs, CHECK_SEED, min_jac, skip=same)) + list(exact_pairs(shs, india, min_jac, skip=same))
+        for i, j, _ in pairs:
+            rows.add(j if sp[i] == "train" else i)
+        del shs
+    return rows

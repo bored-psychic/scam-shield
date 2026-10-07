@@ -53,7 +53,7 @@ After any high-effort step, a fresh session should review the diff for leakage a
 
 - Data: `messages.csv` (48,790 rows, 25.6% scam, mostly English), `urls.csv` (~61k rows; phishing mostly from ealvaradob), `apps.csv`, `typosquat_candidates.csv`, `web_scams.csv` (20 rows: 13 illustrative, 5 real_circulating, 2 generic_script).
 - Web scraping is finished. Low yield; don't extend it.
-- Baseline F1 0.934 is **suspected inflated** (no near-dup dedupe, source confounding). Not rerun since the split changes.
+- Baseline F1 was 0.934 before the cluster split; on the frozen splits it is 0.895 (test).
 - Row count: the ~485-row jump (48,288 -> 48,773) was the 39 extra `synth_india` templates added on 6 Oct (+485 synthetic rows, nothing real). The remaining +17 to 48,790 is the `web_scams` quotes (inferred: 48,773 = 48,288 + 485 was counted before they were added; no log records it; 3 of the 20 quotes were exact copies of existing rows).
 - Near-dup clustering (2026-10-07, `src/neardup.py`): two rows merge if exact Jaccard >= 0.7 on char 5-grams (first 2000 chars) on the raw OR the normalised text (templated prefixes/suffixes stripped, numbers -> `<NUM>`), or >= 0.6 within `india_fraud_final`. Also grouped: `synth_india` translations (`template_family`, 32 families; the English templates are reversed in two cells, handled in `synth_india.py`) and `fake_job_postings` by `company_key` (12,884 of 15,966 posts have a profile). Result: 29,702 clusters, 3,145 multi-row (22,233 rows), 8 mixed-label (none in `india_fraud_final`).
 - Splits are frozen in `data/final/split_map.csv` (text_hash -> split; 48,790 rows; SHA-256 `89eec6f1104bc671c034b7a9c66ce3f25d67d3dde1e6c809592a300487f838c5`). It is committed to git (force-added past the `data/` ignore) and tagged `splits-v1`; if it changes, update the hash here, re-add it with `git add -f` and move the tag. `build_text.py` reuses it for existing rows. Re-frozen 2026-10-07 after the clustering change (48 rows moved). If the clustering rules change again, the old map conflicts with the new clusters: delete it deliberately and say so. `build_text.py` and `augment.py` abort if any cluster / family / company straddles splits or any cross-split pair breaks the rule (independent LSH seed); `src/split_audit.py` reports it: 0 violations. Still crossing at 0.6-0.7: 3.3% of val/test rows have a train twin (phishing_email, job posts, SMS spam; none in `india_fraud_final`). See BUGS.md.
@@ -64,7 +64,7 @@ After any high-effort step, a fresh session should review the diff for leakage a
 
 1. ~~Account for the ~485-row jump.~~ Done (see above).
 2. ~~Near-duplicate clustering, `cluster_id` split, augmentation parents follow the split.~~ Done.
-3. ~~Freeze splits, rerun `augment.py`.~~ Done. Rerun `baseline.py` *(Haiku, low)*: switch its adversarial join to `parent_hash` first (BUGS.md).
+3. ~~Freeze splits, rerun `augment.py`.~~ Done. `baseline.py` rerun 2026-10-07 with the `parent_hash` join: test F1 0.895 (was 0.934), real-only 0.894; `fake_job_postings` scam recall 0.19.
 4. `src/sanity_checks.py` -> `reports/sanity.md`. *(Sonnet, medium)*
 5. URL head, with and without domain age, excluding `domain_conflict`, plus a fresh-OpenPhish test. *(Sonnet, medium)*
 6. Rule baseline for text and URLs. *(Haiku/Sonnet)*
