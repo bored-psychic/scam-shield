@@ -338,33 +338,103 @@ def build_pool(args):
     p["category"] = p["text"].map(category)
     return p, led
 
-def apply_caps(p, cap_template, cap_sender, led=None):
+def apply_caps(p, cap_template, cap_sender, led=None, balance_cues=True):
     """At most cap_template parents per template group, then at most cap_sender benign parents per named sender (rows without a
-    sender id are exempt: they are not one sender). Deterministic (parents are already in hash order)."""
+    sender id are exempt: they are not one sender). Deterministic. balance_cues=True: inside a template group the cap keeps the LEAST
+    numeric benign parents and the MOST numeric scam parents (see richness); every group still keeps min(size, cap) parents, so no
+    template or topic is dropped. balance_cues=False: hash order."""
+    rich = p["text"].map(richness) if balance_cues else pd.Series(0.0, index=p.index)
+    p = p.assign(_k=np.where(p["label"] == 0, rich, -rich)).sort_values(["template_id", "_k", "order"])
     sizes = p["template_id"].value_counts()
-    rank = p.groupby("template_id").cumcount()
-    q = p[rank < cap_template]
+    q = p[p.groupby("template_id").cumcount() < cap_template]
     if led is not None:
         led.add("all", f"cap {cap_template} parents per template group", len(p), len(q),
-                f"largest group before the cap: {int(sizes.max())} parents; groups > cap: {int((sizes > cap_template).sum())} of {len(sizes)}")
-    # rows with no sender id are not one sender: most of the preview (the ICICI card alerts) has none, so only the template cap bounds them
+                f"largest group before the cap: {int(sizes.max())} parents; groups > cap: {int((sizes > cap_template).sum())} of {len(sizes)}; "
+                f"inside a group the least numeric benign / most numeric scam parents are kept" if balance_cues else f"largest group before the cap: {int(sizes.max())} parents")
+    q = q.sort_values(["_k", "order"])
     ok = (q["label"] == 1) | (q["sender"] == "unknown") | (q.groupby(["label", "sender"]).cumcount() < cap_sender)
     if led is not None:
         led.add("all", f"cap {cap_sender} benign parents per named sender", len(q), int(ok.sum()), "rows without a sender id are exempt")
-    return q[ok].reset_index(drop=True)
+    return q[ok].drop(columns="_k").sort_values("order").reset_index(drop=True)
 
 # synth_india Hindi / Kannada rows already in messages.csv (per language): 231 scam + 163 benign. They are never touched.
 SYNTH_SCAM, SYNTH_BENIGN = 231, 163
 SCAM_SHARE = 0.15        # scam share of the TRANSLATED rows: a design choice, not whatever the caps leave
 TARGET_OVERALL = 0.35    # overall Hindi / Kannada scam share we want to be at or below (synth_india rows included)
 
-def pick_scam(q, share, seed):
+MASK_RE = re.compile(r"<(?:EMAIL|UPI_ID|PHONE|ACCOUNT)>")
+URL_RE = re.compile(r"https?://|www\.|\b[\w-]+\.(?:com|in|co|ly|me|it|im|cc|net|org|fm)\b", re.I)
+AMOUNT_RE = re.compile(r"(?:rs\.?|inr|\u20b9)\s?\d|\d\s?(?:lakh|crore|thousand)", re.I)
+
+def cue_frame(texts):
+    """Surface cues a model could use instead of the meaning. Also run on the translations (finalise), where latin_share matters."""
+    t = pd.Series(list(texts))
+    n = t.str.len().clip(lower=1)
+    letters = t.map(lambda x: [c for c in x if c.isalpha()])
+    return pd.DataFrame({
+        "log_len": np.log1p(t.str.len()), "len": t.str.len(),
+        "digit_share": t.map(lambda x: sum(c.isdigit() for c in x)) / n,
+        "mask_share": t.map(lambda x: sum(len(m) for m in MASK_RE.findall(x))) / n,
+        "n_mask": t.map(lambda x: len(MASK_RE.findall(x))),
+        "has_digit": t.map(lambda x: any(c.isdigit() for c in x)), "has_mask": t.map(lambda x: bool(MASK_RE.search(x))),
+        "has_amount": t.map(lambda x: bool(AMOUNT_RE.search(x))), "has_url": t.map(lambda x: bool(URL_RE.search(x))),
+        "latin_share": letters.map(lambda L: sum(c.isascii() for c in L) / len(L) if L else 1.0)})
+
+def richness(text):
+    """How numeric a message is: digit share plus 0.10 if it holds a mask token (<PHONE>, <ACCOUNT> ...). Used to prefer numeric scam
+    parents and less numeric benign parents when a choice exists."""
+    return sum(c.isdigit() for c in text) / max(1, len(text)) + 0.10 * bool(MASK_RE.search(text))
+
+CONFOUND_MODELS = {"length only": ["log_len"], "digit/mask share only": ["digit_share", "mask_share", "n_mask"],
+                   "latin share + length": ["latin_share", "log_len"],
+                   "all cues (length, digit/mask, latin, url)": ["log_len", "digit_share", "mask_share", "n_mask", "latin_share", "has_url"]}
+
+def confound_report(df, group_col="template_id", label_col="label", text_col="text", n_splits=5, seed=0):
+    """Cue-only models: each sees only surface cues, never the words. Depth-3 decision tree (balanced classes), out-of-fold scores with
+    GroupKFold on the template group, so near-identical messages never sit in both train and test folds. AUROC near 0.5 = the cues
+    carry no label signal; the translated set should be near 0.5 for 'latin share + length' and 'digit/mask share only' before it is used."""
+    from sklearn.metrics import balanced_accuracy_score, roc_auc_score
+    from sklearn.model_selection import GroupKFold
+    from sklearn.tree import DecisionTreeClassifier
+    X, y, g = cue_frame(df[text_col]), df[label_col].to_numpy(), df[group_col].to_numpy()
+    rows = []
+    for name, cols in CONFOUND_MODELS.items():
+        oof = np.zeros(len(df))
+        for tr, te in GroupKFold(n_splits).split(X, y, g):
+            clf = DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, class_weight="balanced", random_state=seed).fit(X.iloc[tr][cols], y[tr])
+            oof[te] = clf.predict_proba(X.iloc[te][cols])[:, 1]
+        rows.append({"model": name, "AUROC": roc_auc_score(y, oof), "balanced_acc": balanced_accuracy_score(y, oof >= 0.5)})
+    return pd.DataFrame(rows)
+
+def pick_scam(q, share, seed, numeric=True, floor=3):
     """Size the scam parents from the benign count so scam is `share` of the translated rows: n = share / (1 - share) * benign.
-    Picks one parent per template group first (round-robin over groups), then in hash order, so the scam parents are as
-    varied as the pool allows; split mix follows what is available (anchor splits are frozen, so nothing here moves a row)."""
+    numeric=False: one parent per template group first, then hash order.
+    numeric=True (default): spread n over the fraud-mechanism buckets (rule) so every bucket keeps min(available, floor) parents and the
+    rest is proportional to what is left, then inside a bucket prefer one parent per template and the most numeric ones (amounts, numbers,
+    mask tokens), so the scam side's digit/mask cues move toward the benign side without a whole scam type disappearing (the 17
+    authority-threat parents have almost no digits; picking by digit share alone would drop them all). Anchor splits are frozen, so
+    nothing here moves a row."""
     ben, sc = q[q.label == 0], q[q.label == 1]
     n = min(len(sc), int(round(share / (1 - share) * len(ben))))
-    sc = sc.assign(_rank=sc.groupby("template_id").cumcount()).sort_values(["_rank", "order"]).head(n).drop(columns="_rank")
+    if not numeric:
+        sc = sc.assign(_rank=sc.groupby("template_id").cumcount()).sort_values(["_rank", "order"]).head(n).drop(columns="_rank")
+        return pd.concat([ben, sc]).sort_values("order").reset_index(drop=True)
+    sc = sc.assign(_rich=sc["text"].map(richness))
+    avail = sc.groupby("rule").size()
+    alloc = np.minimum(avail, floor).astype(int)
+    spare = avail - alloc
+    if n > alloc.sum() and spare.sum() > 0:
+        extra = spare / spare.sum() * (n - alloc.sum())
+        add = np.floor(extra).astype(int)
+        for r in (extra - add).sort_values(ascending=False).index[: int(n - alloc.sum() - add.sum())]:
+            add[r] += 1
+        alloc = alloc + add
+    parts = []
+    for r, k in alloc.items():
+        g = sc[sc["rule"] == r].sort_values(["_rich", "order"], ascending=[False, True])
+        g = g.assign(_rank=g.groupby("template_id").cumcount()).sort_values(["_rank", "_rich", "order"], ascending=[True, False, True])
+        parts.append(g.head(int(k)))
+    sc = pd.concat(parts).drop(columns=["_rich", "_rank"])
     return pd.concat([ben, sc]).sort_values("order").reset_index(drop=True)
 
 def split_sim(q, trials=2000, seed=0):
@@ -396,6 +466,15 @@ def sweep_table(pool, template_caps, sender_caps, share, seed, survival=0.85):
                          "scam_val": int((sc.anchor_split == "val").sum()), "scam_test": int((sc.anchor_split == "test").sum())})
     return pd.DataFrame(rows)
 
+def stage_selection(pool, args, benign_balanced, scam_numeric):
+    """The selection under one of the three stages the report compares: A = hash order for both labels; B = numeric-preferring scam picks only;
+    C = B plus the least numeric benign parents inside each template group (the default, what is written)."""
+    q = apply_caps(pool, args.cap_template, args.cap_sender, balance_cues=benign_balanced or scam_numeric)
+    if scam_numeric and not benign_balanced:
+        qh = apply_caps(pool, args.cap_template, args.cap_sender, balance_cues=False)
+        q = pd.concat([qh[qh.label == 0], q[q.label == 1]]).sort_values("order")
+    return pick_scam(q, args.scam_share, args.seed, numeric=scam_numeric)
+
 def run_parents(args):
     pool, led = build_pool(args)
     if args.sweep:
@@ -423,13 +502,6 @@ def write_report(p, led, out, args, pool):
     p = p.assign(norm_key=p["text"].map(lambda t: " ".join(re.sub(r"\d+", "N", t.lower()).split()[:6])))
     coarse = p.groupby("norm_key").size().sort_values(ascending=False)
     top_t = p.groupby("template_id").size().idxmax()
-    shortcut = p.groupby("label").agg(n=("text", "size"), median_len=("text", lambda s: s.str.len().median()),
-                                      has_url=("text", lambda s: s.str.contains(r"https?://|www\.|\b[\w-]+\.(?:com|in|co|ly|me|it|im|cc|net|org)\b", case=False).mean()),
-                                      has_mask_token=("text", lambda s: s.str.contains(r"<(?:PHONE|ACCOUNT|UPI_ID|EMAIL)>").mean()),
-                                      has_digits=("text", lambda s: s.str.contains(r"\d").mean()),
-                                      digit_share=("text", lambda s: np.mean([sum(c.isdigit() for c in t) / len(t) for t in s])),
-                                      has_otp=("text", lambda s: s.str.contains(r"\botp", case=False).mean())).reset_index()
-    shortcut["label"] = shortcut["label"].map({0: "benign", 1: "scam"})
     L = [f"# Translation parents\n\nGenerated by `src/translate_parents.py parents` on {dt.date.today().isoformat()} -> `{out}`. "
          f"Settings: length {LEN_MIN}-{LEN_MAX} chars, template cap {args.cap_template}, sender cap {args.cap_sender}, template Jaccard {TEMPLATE_JACCARD}, seed {args.seed}. "
          "Nothing here changes messages.csv or split_map.csv; the English parents are not added to the dataset, only their translations will be.\n",
@@ -446,8 +518,34 @@ def write_report(p, led, out, args, pool):
          f"- independent check with a coarser key (first 6 words, digits -> N): largest group {int(coarse.iloc[0])} parents (`{coarse.index[0]}`); "
          f"top 5: {', '.join(f'{k!r} x{v}' for k, v in coarse.head(5).items())}. The cap bounds near-duplicate clusters, not a shared sentence opening, so a coarse group can exceed the cap.\n"
          f"- benign senders: {p[p.label == 0]['sender'].nunique()} distinct, largest {p[p.label == 0]['sender'].value_counts().head(5).to_dict()}.\n",
-         "\n## Label cues in the English parents (CLAUDE.md rule 3)\n\nThese cues carry into the translations, because protected tokens are restored verbatim. "
-         "A gap here is not an error (real transaction alerts do carry more digits and real scams more links) but a model can use it instead of the message.\n\n" + md(shortcut)]
+         "\n## Label cues in the English parents (CLAUDE.md rule 3)\n\n@@CUES@@"]
+    stages = {"A: hash order (before)": stage_selection(pool, args, False, False), "B: scam picks prefer numbers": stage_selection(pool, args, False, True),
+              "C: B + benign least-numeric per template (written)": stage_selection(pool, args, True, True)}
+    cue_rows, model_rows = [], []
+    for name, q in stages.items():
+        cf = cue_frame(q["text"])
+        cf["label"] = q["label"].to_numpy()
+        for lab, g in cf.groupby("label"):
+            cue_rows.append({"stage": name, "label": ["benign", "scam"][lab], "n": len(g), "median_len": g["len"].median(), "digit_share": g["digit_share"].mean(),
+                             "has_digit": g["has_digit"].mean(), "has_mask_token": g["has_mask"].mean(), "has_amount": g["has_amount"].mean(), "has_url": g["has_url"].mean()})
+        m = confound_report(q)
+        m.insert(0, "stage", name)
+        model_rows.append(m)
+    A, C = stages["A: hash order (before)"], p
+    cov = pd.DataFrame({"scam parents, stage A": A[A.label == 1]["rule"].value_counts(), "scam parents, written": C[C.label == 1]["rule"].value_counts()}).fillna(0).astype(int)
+    bcat = pd.DataFrame({"benign parents, stage A": A[A.label == 0]["category"].value_counts(), "benign parents, written": C[C.label == 0]["category"].value_counts()}).fillna(0).astype(int)
+    cues = ("These cues carry into the translations: protected numbers, amounts and mask tokens are restored verbatim. A gap is not an error (real transaction alerts do "
+            "carry more digits than real scams) but a model can use it instead of the message.\n\n"
+            "**What was done, and what was not.** Scam parents are chosen per fraud-mechanism bucket with a floor of 3 per bucket (so digital-arrest and KYC scams, which have "
+            "almost no digits, stay in) and, inside a bucket, the most numeric parents are preferred; benign parents inside a template group keep the least numeric ones "
+            "(every template and topic still has at least one parent). Picking scam parents by digit share alone reaches only 4.5% and would drop all 17 authority-threat parents; "
+            "only 3 of the 231 available scam parents contain a mask token and only 2 reach a 9.9% digit share, so the gap cannot be closed by selection. "
+            "It was left as it is on purpose. The post-translation confound check (`finalise`) measures whether it matters on the translated text.\n\n"
+            + md(pd.DataFrame(cue_rows)) + "\n\nCue-only models on the English parents (each sees surface cues, never the words; depth-3 tree, 5-fold GroupKFold by template; "
+            "AUROC 0.5 = no label signal). Length alone separates the classes at stage C (scam parents are shorter); length is matched after translation in `finalise`.\n\n"
+            + md(pd.concat(model_rows)) + "\n\nCoverage kept (stage A -> written):\n\n" + md(cov.reset_index().rename(columns={"index": "rule"}))
+            + "\n\n" + md(bcat.reset_index().rename(columns={"index": "category"})))
+    L[-1] = L[-1].replace("@@CUES@@", cues)
     ex = led.scam_rows
     L.append("\n## SCAM RULE examples (random, 5 per cell)\n")
     for rule in sorted(ex["rule"].unique()):
