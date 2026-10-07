@@ -101,3 +101,8 @@ def restore(out, spans):
         pos = m.end()
     pieces.append(out[pos:])
     return "".join(pieces), "ok_tolerant"
+
+def strip_markers(out):
+    """Model output with every marker token (exact or transliterated spelling) replaced by a space: the text OUTSIDE the protected spans.
+    finalise uses it to measure script share on the words the model actually translated, not on numbers, amounts and bank names."""
+    return _TOLERANT.sub(" ", _MARKER.sub(" ", out))

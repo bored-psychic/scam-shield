@@ -1,7 +1,8 @@
-import argparse, datetime as dt, glob, hashlib, os, re, sys
+import argparse, datetime as dt, glob, hashlib, os, re, sys, unicodedata
 import numpy as np, pandas as pd
 import neardup
 from pii import mask_text
+from protect import protect, restore, strip_markers
 
 # English parents for the Hindi / Kannada translation set (CLAUDE.md next step: benign Hindi/Kannada data).
 #   python src/translate_parents.py parents    select + filter parents -> data/external/indic/translate_in/parents_<date>.csv
@@ -394,10 +395,24 @@ CONFOUND_MODELS = {"length only": ["log_len"], "digit/mask share only": ["digit_
                    "latin share + length": ["latin_share", "log_len"],
                    "all cues (length, digit/mask, latin, url)": ["log_len", "digit_share", "mask_share", "n_mask", "latin_share", "has_url"]}
 
-def confound_report(df, group_col="template_id", label_col="label", text_col="text", n_splits=5, seed=0):
+def auroc_ci(y, score, groups, boot, seed=0):
+    """95% interval for an AUROC by resampling template groups (not rows) with replacement; the out-of-fold scores are reused, nothing is refitted."""
+    from sklearn.metrics import roc_auc_score
+    rng = np.random.default_rng(seed)
+    keys = pd.unique(groups)
+    where = {k: np.flatnonzero(groups == k) for k in keys}
+    vals = []
+    for _ in range(boot):
+        ii = np.concatenate([where[keys[j]] for j in rng.integers(0, len(keys), len(keys))])
+        if 0 < y[ii].sum() < len(ii):
+            vals.append(roc_auc_score(y[ii], score[ii]))
+    return tuple(np.percentile(vals, [2.5, 97.5]))
+
+def confound_report(df, group_col="template_id", label_col="label", text_col="text", n_splits=5, seed=0, boot=0):
     """Cue-only models: each sees only surface cues, never the words. Depth-3 decision tree (balanced classes), out-of-fold scores with
     GroupKFold on the template group, so near-identical messages never sit in both train and test folds. AUROC near 0.5 = the cues
-    carry no label signal; the translated set should be near 0.5 for 'latin share + length' and 'digit/mask share only' before it is used."""
+    carry no label signal; the translated set should be near 0.5 for 'latin share + length' and 'digit/mask share only' before it is used.
+    boot > 0 adds a group-bootstrap 95% interval for the AUROC (columns AUROC_lo, AUROC_hi)."""
     from sklearn.metrics import balanced_accuracy_score, roc_auc_score
     from sklearn.model_selection import GroupKFold
     from sklearn.tree import DecisionTreeClassifier
@@ -408,10 +423,13 @@ def confound_report(df, group_col="template_id", label_col="label", text_col="te
         for tr, te in GroupKFold(n_splits).split(X, y, g):
             clf = DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, class_weight="balanced", random_state=seed).fit(X.iloc[tr][cols], y[tr])
             oof[te] = clf.predict_proba(X.iloc[te][cols])[:, 1]
-        rows.append({"model": name, "AUROC": roc_auc_score(y, oof), "balanced_acc": balanced_accuracy_score(y, oof >= 0.5)})
+        row = {"model": name, "AUROC": roc_auc_score(y, oof), "balanced_acc": balanced_accuracy_score(y, oof >= 0.5)}
+        if boot:
+            row["AUROC_lo"], row["AUROC_hi"] = auroc_ci(y, oof, g, boot, seed)
+        rows.append(row)
     return pd.DataFrame(rows)
 
-def pick_scam(q, share, seed, numeric=True, floor=3):
+def pick_scam(q, share, seed, numeric=True, floor=3, n=None):
     """Size the scam parents from the benign count so scam is `share` of the translated rows: n = share / (1 - share) * benign.
     numeric=False: one parent per template group first, then hash order.
     numeric=True (default): spread n over the fraud-mechanism buckets (rule) so every bucket keeps min(available, floor) parents and the
@@ -420,7 +438,7 @@ def pick_scam(q, share, seed, numeric=True, floor=3):
     authority-threat parents have almost no digits; picking by digit share alone would drop them all). Anchor splits are frozen, so
     nothing here moves a row."""
     ben, sc = q[q.label == 0], q[q.label == 1]
-    n = min(len(sc), int(round(share / (1 - share) * len(ben))))
+    n = min(len(sc), int(round(share / (1 - share) * len(ben)))) if n is None else min(len(sc), n)   # n given: keep exactly n scam rows (finalise)
     if not numeric:
         sc = sc.assign(_rank=sc.groupby("template_id").cumcount()).sort_values(["_rank", "order"]).head(n).drop(columns="_rank")
         return pd.concat([ben, sc]).sort_values("order").reset_index(drop=True)
@@ -590,6 +608,386 @@ def write_report(p, led, out, args, pool):
     os.makedirs("reports", exist_ok=True)
     open(REPORT, "w").write("\n".join(L) + "\n")
 
+# ---------------------------------------------------------------------------------------------------------------------
+# FINALISE: content filters on the translations, scam trim, cue-only confound check, optional length-bin sampling, spot-check sheets.
+#   python src/translate_parents.py finalise [--length-match]     (length-bin sampling is off unless asked for; see the decision section of the report)
+# Reads the parents file and the raw translation CSV (latest dated file of each unless --parents / --raw), writes
+#   data/external/indic/translated/translated_final_<date>.csv     kept translations (the rows build_text.py will ingest later)
+#   data/external/indic/translated/translated_dropped_<date>.csv   every dropped translation and the step that dropped it
+#   reports/translate_finalise.md, reports/spotcheck_hi.csv, reports/spotcheck_kn.csv
+# It does not touch messages.csv or split_map.csv.
+# ---------------------------------------------------------------------------------------------------------------------
+FINAL_REPORT = "reports/translate_finalise.md"
+SET_A, SET_B = "COMBINED pool, no length sampling", "COMBINED pool, length-bin sampled (pass B)"
+TRANSLATED_DIR = "data/external/indic/translated"
+LANG_BLOCK = {"hindi": (0x0900, 0x097F), "kannada": (0x0C80, 0x0CFF)}      # Unicode blocks of the two target scripts
+LANG_CODE = {"hindi": "hi", "kannada": "kn"}
+MIN_TARGET_SHARE = 0.5     # leftover English: at least half of the letters outside the protected spans must be in the target script
+N_LEN_BINS = 8             # length-bin sampling: equal-mass bins of the scam-side length distribution
+SPOT_N = 50
+REF_SOURCES, REF_MAX_LEN = ("uci_sms_spam", "scam_ham_india"), 160     # English reference for the cue-only models: real short SMS
+# Personal names found by eye in the English parents (rare capitalised tokens read in context: UPI payer names, a train passenger, a delivery
+# rider, a doctor, a guest). pii.MASKS has no name masking, so these parents would put real-looking names into data/final/ (CLAUDE.md rule 5).
+# Curated, not exhaustive: it only covers this parents file. The proper fix is name masking at ingestion (BUGS.md).
+NAME_RX = re.compile(r"\b(?:GANDHARV|BHAKSHI|RACHURI|CHAKRAV|VUTNOORI|RAVINDER|GOKULA|MAHBUBAN|RENU|SIDDHARTH|PURUSHOTHAMA|MAHESH|Gowrisha|"
+                     r"Saleem|Arun|CHINNAYYA|Srinivas|Rajashekar)\b", re.I)
+
+def latest(pattern):
+    found = sorted(glob.glob(pattern))
+    if not found:
+        sys.exit(f"nothing matches {pattern}")
+    return found[-1]
+
+def script_counts(text, lang):
+    """(target-script letters+marks, letters of any other non-ASCII script, ASCII letters). Digits, punctuation and symbols are ignored."""
+    lo, hi = LANG_BLOCK[lang]
+    tgt = foreign = latin = 0
+    for ch in text:
+        if unicodedata.category(ch)[0] not in "LM":
+            continue
+        if lo <= ord(ch) <= hi:
+            tgt += 1
+        elif ch.isascii():
+            latin += 1
+        else:
+            foreign += 1
+    return tgt, foreign, latin
+
+def evaluate_translations(raw, parents):
+    """One row per (parent, language) with the parent's fields and the measurements the filters use. Hard checks: the parents file and the
+    raw CSV agree, and every kept translation is exactly restore(raw_output)."""
+    cols = ["parent_id", "category", "channel", "template_id", "sender", "rule", "anchor_hash", "anchor_kind", "anchor_split",
+            "parent_is_synthetic", "parent_provenance", "text"]
+    d = raw.merge(parents[cols].rename(columns={"text": "parent_text"}), on="parent_id", how="left", validate="m:1")
+    assert d["parent_text"].notna().all(), "translation rows whose parent_id is not in the parents file"
+    chk = raw.merge(parents[["parent_id", "label", "parent_hash"]], on="parent_id", suffixes=("", "_p"))
+    assert (chk["label"] == chk["label_p"]).all() and (chk["parent_hash"] == chk["parent_hash_p"]).all(), "raw CSV and parents file disagree"
+    d["anchor_kind"], d["anchor_split"] = d["anchor_kind"].fillna(""), d["anchor_split"].fillna("")
+    d["marker_ok"] = d["translation"].notna()
+    assert (d["marker_ok"] == (d["status"] == "ok")).all()
+    out = []
+    for r in d.itertuples():
+        row = {"name_hit": bool(NAME_RX.search(r.parent_text))}
+        if r.marker_ok:
+            prot, spans = protect(r.parent_text)
+            assert prot == r.protected, f"{r.parent_id}: protected text differs between the parents file and the raw CSV"
+            assert restore(r.raw_output, spans)[0] == r.translation, f"{r.parent_id} {r.lang}: translation is not restore(raw_output)"
+            tgt, foreign, latin = script_counts(strip_markers(r.raw_output), r.lang)
+            row.update(tgt=tgt, foreign=foreign, latin=latin, target_share=tgt / max(1, tgt + latin),
+                       digits_ok=sorted(re.findall(r"[0-9]", r.parent_text)) == sorted(re.findall(r"[0-9]", r.translation)),
+                       masks_ok=sorted(MASK_RE.findall(r.parent_text)) == sorted(MASK_RE.findall(r.translation)),
+                       text_hash=text_hash(r.translation), tlen=len(r.translation))
+        out.append(row)
+    return pd.concat([d, pd.DataFrame(out, index=d.index)], axis=1)
+
+class FinLedger:
+    """Row counts by label at every step, per language."""
+    def __init__(self):
+        self.rows = []
+    def add(self, lang, step, before, after, note=""):
+        b0, b1, a0, a1 = (int((x.label == k).sum()) for x in (before, after) for k in (0, 1))
+        self.rows.append({"language": lang, "step": step, "benign_in": b0, "benign_dropped": b0 - a0, "scam_in": b1, "scam_dropped": b1 - a1,
+                          "benign_left": a0, "scam_left": a1, "note": note})
+    def frame(self):
+        return pd.DataFrame(self.rows)
+
+def length_match(a, synth_lang, seed, n_bins=N_LEN_BINS):
+    """Length-bin sampling of the translated BENIGN rows so that, in the Hindi (or Kannada) training pool = existing synth_india rows + kept
+    translations, the benign length histogram follows the scam one. Bins: equal-mass bins of the pool's scam lengths. Benign rows outside the
+    scam range are dropped (no scam row lives there). With the synth rows fixed, bin b keeps round(r * scam_b) - synth_benign_b translated benign
+    rows (clipped to [0, available]); r is the largest benign:scam ratio every bin can reach. Random within a bin (seeded). -> (kept index labels, bin table)."""
+    t_ben, t_sc = a[a.label == 0], a[a.label == 1]
+    s_ben = synth_lang.loc[synth_lang.label == 0, "text"].str.len().to_numpy().astype(int)
+    sc_len = np.concatenate([synth_lang.loc[synth_lang.label == 1, "text"].str.len().to_numpy().astype(int), t_sc["tlen"].to_numpy().astype(int)])
+    edges = np.unique(np.quantile(sc_len, np.linspace(0, 1, n_bins + 1)))
+    nb = len(edges) - 1
+    bin_of = lambda x: np.digitize(x, edges[1:-1])
+    inside = lambda x: (x >= edges[0]) & (x <= edges[-1])
+    scam_b = np.bincount(bin_of(sc_len), minlength=nb)
+    synth_b = np.bincount(bin_of(s_ben[inside(s_ben)]), minlength=nb)
+    tb = t_ben[inside(t_ben["tlen"].to_numpy().astype(int))]
+    tb = tb.assign(_bin=bin_of(tb["tlen"].to_numpy().astype(int)))
+    avail = np.bincount(tb["_bin"].to_numpy(), minlength=nb)
+    r = np.min((synth_b + avail) / scam_b)
+    target = np.clip(np.rint(r * scam_b).astype(int) - synth_b, 0, avail)
+    rng, keep = np.random.default_rng(seed), []
+    for b in range(nb):
+        ids = np.sort(tb.index[tb["_bin"] == b].to_numpy())
+        if target[b]:
+            keep.extend(rng.choice(ids, size=int(target[b]), replace=False).tolist())
+    table = pd.DataFrame({"length_bin": [f"{int(edges[b])}-{int(edges[b + 1])}" for b in range(nb)], "scam_in_pool": scam_b, "synth_benign": synth_b,
+                          "translated_benign_available": avail, "translated_benign_kept": target})
+    return keep, table.assign(ratio_r=round(float(r), 2))
+
+def run_pipeline(d, args, existing, synth, match_langs=()):
+    """Content filters -> (optional length-bin sampling against the pool's scam lengths) -> scam trim, per language. In a length-matched language the scam trim is skipped: it would cut scam to 15% of an already reduced benign set. Returns d with
+    drop_step ('' = kept), the ledger, bin tables."""
+    d = d.copy()
+    d["drop_step"] = ""
+    led, bins = FinLedger(), {}
+    alive = lambda lang: (d["lang"] == lang) & (d["drop_step"] == "")
+    def step_(lang, name, hit, note=""):
+        before = d[alive(lang)]
+        d.loc[alive(lang) & hit.astype(bool), "drop_step"] = name
+        led.add(lang, name, before, d[alive(lang)], note)
+    none = pd.Series(False, index=d.index)
+    for lang in LANG_BLOCK:
+        a = d[alive(lang)]
+        led.add(lang, "translations requested (parents x 1 language)", a, a)
+        step_(lang, "marker restore failed (after the greedy retry)", ~d["marker_ok"], "the model dropped or duplicated a number marker; strict restore, nothing is repaired by guessing")
+        step_(lang, "person name in the English parent (rule 5)", d["name_hit"], "NAME_RX, curated by eye, not exhaustive")
+        step_(lang, "digit or mask-token mismatch", d["digits_ok"].eq(False) | d["masks_ok"].eq(False), "ASCII digits and <PHONE>/<ACCOUNT>/... tokens must equal the parent's, as multisets")
+        step_(lang, "wrong script", (d["foreign"] > 0) | (d["tgt"] == 0), "a letter of another non-ASCII script, or no target-script letter at all")
+        step_(lang, "leftover English", d["target_share"] < args.min_target_share,
+              f"fewer than {args.min_target_share:.0%} of the letters outside the protected spans are in the target script")
+        step_(lang, "exact duplicate of a messages.csv row", d["text_hash"].isin(existing))
+        step_(lang, "exact duplicate within the translations", a_dup(d, alive(lang)), "first kept")
+        if lang in match_langs:
+            keep, bins[lang] = length_match(d[alive(lang)], synth[synth.language == lang], args.seed)
+            hit = pd.Series(~d.index.isin(keep), index=d.index) & (d["label"] == 0)
+            step_(lang, "length-bin sampling of benign rows", hit, f"{N_LEN_BINS} equal-mass bins of the pool's scam lengths; kept benign:scam ratio equal in every bin")
+        else:
+            step_(lang, "length-bin sampling of benign rows (not applied)", none)
+        a = d[alive(lang)]
+        n_ben = int((a.label == 0).sum())
+        n_target = int(round(args.scam_share / (1 - args.scam_share) * n_ben))
+        sc, hit = a[a.label == 1], none.copy()
+        if lang in match_langs:
+            step_(lang, f"trim scam to ~{args.scam_share:.0%} of the translated rows (skipped)", hit,
+                  f"skipped after length-bin sampling: {n_ben} benign would allow only {n_target} of the {len(sc)} scam rows")
+            continue
+        note = f"target {n_target} scam rows for {n_ben} benign ({args.scam_share:.0%} of the translated rows); {len(sc)} available"
+        if len(sc) > n_target:
+            ev = sc[sc["anchor_split"].isin(["val", "test"])]
+            tr = sc.drop(ev.index)
+            k = n_target - len(ev)
+            kept = pick_scam(tr.assign(order=np.arange(len(tr)), text=tr["translation"], _id=tr.index), args.scam_share, args.seed, n=k)
+            assert len(kept) == k, f"{lang}: scam trim kept {len(kept)} rows, wanted {k}"
+            hit.loc[tr.index.difference(kept["_id"])] = True
+            note += f"; the {len(ev)} val/test scam rows are never trimmed (val/test scam is thin), the cut comes from train rows, most numeric kept (floor 3 per fraud mechanism)"
+        step_(lang, f"trim scam to ~{args.scam_share:.0%} of the translated rows", hit, note)
+    return d, led, bins
+
+def a_dup(d, alive_mask):
+    dup = d[alive_mask].duplicated("text_hash", keep="first")
+    return dup.reindex(d.index, fill_value=False)
+
+def pool_frame(synth_lang, t):
+    """The Hindi (or Kannada) training pool as the confound check sees it: existing synth_india rows + translations, groups kept apart by prefix."""
+    s = pd.DataFrame({"text": synth_lang["text"].to_numpy(), "label": synth_lang["label"].to_numpy(), "template_id": "s" + synth_lang["template_id"].astype(str).to_numpy()})
+    x = pd.DataFrame({"text": t["translation"].to_numpy(), "label": t["label"].to_numpy(), "template_id": "t" + t["template_id"].astype(str).to_numpy()})
+    return pd.concat([s, x], ignore_index=True)
+
+def english_reference(m, boot, seed):
+    e = m[m["source"].isin(REF_SOURCES) & (m["language"] == "english") & (m["text"].str.len() <= REF_MAX_LEN)]
+    assert not e["is_synthetic"].any()
+    df = pd.DataFrame({"text": e["text"].to_numpy(), "label": e["label"].to_numpy(), "template_id": "c" + e["cluster_id"].astype(str).to_numpy()})
+    return confound_report(df, boot=boot, seed=seed), df
+
+def ci_str(r):
+    return f"{r.AUROC:.2f} [{r.AUROC_lo:.2f}, {r.AUROC_hi:.2f}]"
+
+def spot_sample(f, n, seed, min_per_source=10):
+    """n rows: half benign, half scam; scam split over the parent sources in proportion to what is available (at least min_per_source each)."""
+    n_b = n // 2
+    ben, sc = f[f.label == 0], f[f.label == 1]
+    picks = [ben.sample(min(n_b, len(ben)), random_state=seed)]
+    counts = sc.groupby("parent_source").size()
+    alloc = {s: min(int(c), min_per_source) for s, c in counts.items()}
+    spare = {s: int(counts[s]) - alloc[s] for s in alloc}
+    rest, tot = min(n - n_b - sum(alloc.values()), sum(spare.values())), sum(spare.values())
+    if rest > 0:
+        share = {s: spare[s] / tot * rest for s in spare}
+        add = {s: int(v) for s, v in share.items()}
+        for s in sorted(share, key=lambda s: share[s] - add[s], reverse=True)[: rest - sum(add.values())]:
+            add[s] += 1
+        alloc = {s: alloc[s] + add[s] for s in alloc}
+    picks += [sc[sc.parent_source == s].sample(k, random_state=seed) for s, k in alloc.items()]
+    return pd.concat(picks).sample(frac=1, random_state=seed)
+
+def run_finalise(args):
+    parents_path = args.parents or latest(f"{OUT_DIR}/parents_*.csv")
+    raw_path = args.raw or latest(f"{TRANSLATED_DIR}/translated_raw_*.csv")
+    parents, raw = pd.read_csv(parents_path), pd.read_csv(raw_path)
+    assert not raw.duplicated(["parent_id", "lang"]).any() and len(raw) == len(LANG_BLOCK) * len(parents), \
+        f"the raw CSV has {len(raw)} rows, expected {len(LANG_BLOCK) * len(parents)}: the run is not finished"
+    stem = re.search(r"\d{4}-\d{2}-\d{2}", os.path.basename(raw_path)).group(0)
+    print(f"parents: {parents_path}\nraw:     {raw_path}")
+    m = pd.read_csv("data/final/messages.csv", low_memory=False, usecols=["text", "label", "source", "language", "template_id", "cluster_id", "text_hash", "is_synthetic", "split"])
+    synth = m[(m["source"] == "synth_india") & m["language"].isin(LANG_BLOCK)]
+    d = evaluate_translations(raw, parents)
+    boot = args.boot
+    # --- pass A: no length sampling (the output). Pass B: length-bin sampling against the pool's scam rows (synth_india + translated), run for the report
+    # so the cost of matching is measured; its rows are written out only with --length-match.
+    dA, ledA, _ = run_pipeline(d, args, set(m["text_hash"]), synth, ())
+    dB, ledB, binsB = run_pipeline(d, args, set(m["text_hash"]), synth, tuple(LANG_BLOCK))
+    kept = lambda x, lang: x[(x["lang"] == lang) & (x["drop_step"] == "")]
+    ref, ref_df = english_reference(m, boot, args.seed)
+    ref_i = ref.set_index("model")
+    sets, cmp_rows, over = {}, [], {}
+    for lang in LANG_BLOCK:
+        sl = synth[synth.language == lang]
+        raw_ok = d[(d["lang"] == lang) & d["marker_ok"]]
+        sets[(lang, "synth_india only (existing rows)")] = pd.DataFrame({"text": sl["text"].to_numpy(), "label": sl["label"].to_numpy(), "template_id": "s" + sl["template_id"].astype(str).to_numpy()})
+        sets[(lang, "translations, marker-ok, before content filters")] = pd.DataFrame({"text": raw_ok["translation"].to_numpy(), "label": raw_ok["label"].to_numpy(), "template_id": "t" + raw_ok["template_id"].astype(str).to_numpy()})
+        fa, fb = kept(dA, lang), kept(dB, lang)
+        sets[(lang, "translations, final (no length sampling)")] = pd.DataFrame({"text": fa["translation"].to_numpy(), "label": fa["label"].to_numpy(), "template_id": "t" + fa["template_id"].astype(str).to_numpy()})
+        sets[(lang, SET_A)] = pool_frame(sl, fa)
+        sets[(lang, SET_B)] = pool_frame(sl, fb)
+    res = {k: confound_report(v.reset_index(drop=True), boot=boot, seed=args.seed).set_index("model") for k, v in sets.items()}
+    counts = {k: (len(v), int(v["label"].sum())) for k, v in sets.items()}
+    for lang in LANG_BLOCK:
+        c = res[(lang, SET_A)]
+        over[lang] = [mdl for mdl in c.index if c.loc[mdl, "AUROC_lo"] > ref_i.loc[mdl, "AUROC_hi"]]
+    match_langs = set(LANG_BLOCK) if args.length_match else set()
+    fin = {lang: (dB if lang in match_langs else dA) for lang in LANG_BLOCK}
+    final_all = pd.concat([kept(fin[l], l) for l in LANG_BLOCK])
+    dropped_all = pd.concat([fin[l][(fin[l]["lang"] == l) & (fin[l]["drop_step"] != "")] for l in LANG_BLOCK])
+    led = pd.concat([(ledB if l in match_langs else ledA).frame().query("language == @l") for l in LANG_BLOCK], ignore_index=True)
+    # accounting: every requested translation is kept or dropped for exactly one reason
+    for lang in LANG_BLOCK:
+        assert len(kept(fin[lang], lang)) + int(((fin[lang]["lang"] == lang) & (fin[lang]["drop_step"] != "")).sum()) == len(parents)
+    # --- write the data files
+    fcols = ["parent_id", "lang", "label", "parent_source", "parent_hash", "anchor_hash", "anchor_kind", "anchor_split", "template_id", "category", "channel", "rule",
+             "parent_is_synthetic", "parent_provenance", "recovery", "text_hash", "parent_text", "translation"]
+    out_final = f"{TRANSLATED_DIR}/translated_final_{stem}.csv"
+    out_drop = f"{TRANSLATED_DIR}/translated_dropped_{stem}.csv"
+    final_all[fcols].rename(columns={"lang": "language", "translation": "text"}).to_csv(out_final, index=False)
+    dropped_all[["parent_id", "lang", "label", "parent_source", "drop_step", "parent_text", "translation"]].to_csv(out_drop, index=False)
+    for lang, code in LANG_CODE.items():
+        s = spot_sample(final_all[final_all["lang"] == lang], SPOT_N, args.seed)
+        sheet = pd.DataFrame({"row_id": [f"{code}{i + 1:02d}" for i in range(len(s))], "parent_id": s["parent_id"].to_numpy(), "label": np.where(s["label"] == 1, "scam", "benign"),
+                              "parent_source": s["parent_source"].to_numpy(), "english_parent": s["parent_text"].to_numpy(), "translation": s["translation"].to_numpy(),
+                              "meaning_ok": "", "label_still_correct": "", "notes": ""})
+        sheet.to_csv(f"reports/spotcheck_{code}.csv", index=False, encoding="utf-8-sig")
+    write_final_report(args, parents_path, raw_path, out_final, out_drop, led, ref, ref_df, res, counts, over, match_langs, binsB, final_all, synth, d, dA, dB)
+    for lang in LANG_BLOCK:
+        f = kept(fin[lang], lang)
+        nb, ns = int((f.label == 0).sum()), int((f.label == 1).sum())
+        c = res[(lang, SET_A)]["AUROC"].round(2).to_dict()
+        print(f"{lang}: kept {nb} benign + {ns} scam of {len(parents)}; overall scam share {(231 + ns) / (394 + nb + ns):.1%}; length matching {'APPLIED' if lang in match_langs else 'not applied'}; combined AUROC {c}")
+    print(f"English reference ({len(ref_df)} rows, {int(ref_df['label'].sum())} scam): {ref['AUROC'].round(2).tolist()}")
+    print(f"wrote {out_final}, {out_drop}, {FINAL_REPORT}, reports/spotcheck_hi.csv, reports/spotcheck_kn.csv")
+
+def cue_means(df):
+    cf = cue_frame(df["text"])
+    cf["label"] = df["label"].to_numpy()
+    g = cf.groupby("label")
+    out = pd.DataFrame({"rows": g.size(), "median_len": g["len"].median(), "digit_share": g["digit_share"].mean(), "has_mask_token": g["has_mask"].mean(),
+                        "latin_share": g["latin_share"].mean(), "has_url": g["has_url"].mean()}).reset_index()
+    out["label"] = out["label"].map({0: "benign", 1: "scam"})
+    return out
+
+def write_final_report(args, parents_path, raw_path, out_final, out_drop, led, ref, ref_df, res, counts, over, match_langs, binsB, final_all, synth, d, dA, dB):
+    from collections import Counter
+    kept = lambda x, lang: x[(x["lang"] == lang) & (x["drop_step"] == "")]
+    models = list(CONFOUND_MODELS)
+    short = {"length only": "length only", "digit/mask share only": "digit/mask share only", "latin share + length": "latin share + length",
+             "all cues (length, digit/mask, latin, url)": "all cues"}
+    L = [f"# Translation finalise\n\nGenerated by `src/translate_parents.py finalise` on {dt.date.today().isoformat()}. Inputs: `{parents_path}`, `{raw_path}`. Outputs: `{out_final}` "
+         f"(kept translations), `{out_drop}` (every dropped translation and why), `reports/spotcheck_hi.csv`, `reports/spotcheck_kn.csv`. "
+         "Nothing here changes messages.csv or split_map.csv, and `build_text.py` has not been run. Every translation is `is_synthetic=True` whatever its parent was.\n"]
+    # ---- ledger
+    L.append("## Row ledger\n\nOne row per step and language; every one of the 735 requested translations per language ends up kept or dropped by exactly one step.\n\n" + md(led.drop(columns="note")))
+    notes = led.drop_duplicates("step")[["step", "note"]]
+    L.append("\nWhat each step does:\n\n" + "\n".join(f"- **{r.step}**: {r.note}" for r in notes.itertuples() if r.note))
+    nm = d[(d["lang"] == "hindi") & d["name_hit"]]
+    tok = Counter(t.upper() for x in nm["parent_text"] for t in NAME_RX.findall(x))
+    L.append(f"\n### The person-name step (not in the original plan)\n\nCLAUDE.md rule 5 says victim names are masked before text reaches `data/final/`, but `pii.MASKS` has no name pattern, and the benign parents (bank alerts, "
+             f"train tickets, delivery updates) carry real-looking names: UPI payers, a ticket passenger, a delivery rider, a doctor. {len(nm)} parents ({int((nm.label == 0).sum())} benign, "
+             f"{int((nm.label == 1).sum())} scam) matched a short list of names found by reading the rare capitalised tokens of the parents file in context; their translations are dropped (the ledger shows how many were still alive at this step in each language; "
+             "the rest had already failed the marker check). "
+             f"Matched tokens: {', '.join(f'{k} x{v}' for k, v in sorted(tok.items()))}. **The list is curated, not exhaustive**: names the reading missed are still in the kept rows. The real fix is name masking in `pii.py` "
+             "(BUGS.md). To undo this step, empty `NAME_RX`.\n")
+    # ---- decision
+    r_ref = ref.set_index("model")
+    L.append(f"## Cue-only models: how much do surface cues separate the labels?\n\nEach model sees only surface cues (length, digit/mask share, latin share, URL), never the words; depth-3 tree, "
+             f"out-of-fold, 5-fold GroupKFold by template group; AUROC 0.5 means no label signal. Intervals are 95% group-bootstrap ({args.boot} resamples). **Reference 1** is the "
+             f"Hindi/Kannada training pool (existing `synth_india` rows + kept translations). **Reference 2** is real short English SMS: `uci_sms_spam` + `scam_ham_india` rows of at most {REF_MAX_LEN} characters "
+             f"({len(ref_df)} rows, {int(ref_df['label'].sum())} scam, none synthetic; all splits, cues only, no text model trained).\n")
+    rows = [{"language": "English", "set": f"REFERENCE: uci_sms_spam + scam_ham_india <= {REF_MAX_LEN} chars", "rows": len(ref_df), "scam": int(ref_df["label"].sum()),
+             **{short[k]: ci_str(r_ref.loc[k]) for k in models}}]
+    for (lang, name), r in res.items():
+        rows.append({"language": lang, "set": name, "rows": counts[(lang, name)][0], "scam": counts[(lang, name)][1], **{short[k]: ci_str(r.loc[k]) for k in models}})
+    L.append(md(pd.DataFrame(rows)))
+    base = res[("hindi", "synth_india only (existing rows)")].loc["digit/mask share only", "AUROC"]
+    L.append(f"\nCheck: the digit/mask-only AUROC on the existing Hindi `synth_india` rows is {base:.2f} here; CLAUDE.md quotes 0.58 ({'reproduced' if abs(base - 0.58) < 0.006 else 'NOT reproduced, investigate'}).\n")
+    dec = []
+    for lang in LANG_BLOCK:
+        c = res[(lang, SET_A)]
+        syn_len = res[(lang, 'synth_india only (existing rows)')].loc['length only', 'AUROC']
+        dec.append(f"- **{lang}**: combined-pool length-only AUROC {ci_str(c.loc['length only'])} (synth_india alone: {syn_len:.2f}; the English reference: {ci_str(r_ref.loc['length only'])}). "
+                   f"Models whose combined interval lies entirely above the English reference's interval: {', '.join(short[k] for k in over[lang]) if over[lang] else 'none'}. "
+                   f"Gate verdict: **{'clearly above the reference' if over[lang] else 'accept'}**. Length-bin sampling: **{'APPLIED (--length-match)' if lang in match_langs else 'not applied'}**.")
+    L.append("### Decision\n\nRule (instructions of 2026-10-07): decide against the English reference, not against 0.5. If the combined pool's cue AUROCs are at or below the English reference, accept and report "
+             "them; if clearly above (interval entirely above), sample the translated rows by length bin and re-measure.\n\n" + "\n".join(dec) +
+             "\n\nOne earlier instruction used a literal trigger instead (length-only AUROC clearly above the synth baseline, say > 0.65); that trigger " +
+             ("fires" if any(res[(l, SET_A)].loc["length only", "AUROC"] > 0.65 for l in LANG_BLOCK) else "does not fire") +
+             " here. The reference rule is the later and more specific instruction and is the one followed. The length-bin sampling is therefore **off** (it is a flag, `--length-match`, not a default). "
+             "Pass B below is why it should stay off.\n")
+    # ---- length-bin sampling cost
+    vr = []
+    for lang in LANG_BLOCK:
+        for vname, dd, sname, used in (("A: no length sampling", dA, SET_A, lang not in match_langs), ("B: length-bin sampled", dB, SET_B, lang in match_langs)):
+            f = kept(dd, lang)
+            nb, ns = int((f.label == 0).sum()), int((f.label == 1).sum())
+            c = res[(lang, sname)]
+            vr.append({"language": lang, "variant": vname + (" (OUTPUT)" if used else " (report only)"), "translated_benign": nb, "translated_scam": ns,
+                       "overall_scam_share_%": round(100 * (SYNTH_SCAM + ns) / (SYNTH_SCAM + SYNTH_BENIGN + nb + ns), 1), **{short[k]: ci_str(c.loc[k]) for k in models}})
+    L.append("### Pass B: what length-bin sampling would cost\n\nBenign translations are longer than scam ones, while the existing synth rows go the other way. Pass B keeps, per length bin "
+             f"({N_LEN_BINS} equal-mass bins of the pool's scam lengths, pool = existing `synth_india` rows + kept translations), as many translated benign rows as it takes for the pool's benign:scam ratio to be the same in "
+             "every bin, drops translated benign rows outside the scam length range, and never touches the existing synth rows. The scam trim to 15% is skipped in pass B (it would cut scam to 15% of an already reduced benign set), "
+             "so the overall scam share is shown against the <= 35% target.\n\n" + md(pd.DataFrame(vr)))
+    for lang in LANG_BLOCK:
+        L.append(f"\n{lang}, pass B bins (r = the largest benign:scam ratio every bin can reach):\n\n" + md(binsB[lang]))
+    # ---- cue means
+    cm = []
+    for lang in LANG_BLOCK:
+        sl = synth[synth.language == lang]
+        f = kept(dA, lang)
+        for name, df in (("synth_india only", sl[["text", "label"]]), ("translations, final", f.rename(columns={"translation": "text"})[["text", "label"]])):
+            cm.append(cue_means(df).assign(language=lang, set=name))
+    cm.append(cue_means(ref_df).assign(language="English", set="reference (short SMS)"))
+    cmt = pd.concat(cm)[["language", "set", "label", "rows", "median_len", "digit_share", "has_mask_token", "latin_share", "has_url"]]
+    L.append("\n## The cues behind those numbers\n\n" + md(cmt) + "\n\nThe translated benign rows are bank, OTP and delivery alerts (more digits, more mask tokens, more Latin abbreviations) and the scam rows are prose, so the cue gap comes "
+             "from what the parents are, not from the translation. The English reference has the same kind of gap and much larger.\n")
+    # ---- scam share and splits
+    sh, sp = [], []
+    for lang in LANG_BLOCK:
+        sl = synth[synth.language == lang]
+        f = kept(dA if lang not in match_langs else dB, lang)
+        nb, ns = int((f.label == 0).sum()), int((f.label == 1).sum())
+        sb, ss = int((sl.label == 0).sum()), int((sl.label == 1).sum())
+        sh.append({"language": lang, "synth_benign": sb, "synth_scam": ss, "translated_benign": nb, "translated_scam": ns, "translated_scam_%": round(100 * ns / (nb + ns), 1),
+                   "overall_scam_%": round(100 * (ss + ns) / (sb + ss + nb + ns), 1), "before_%": round(100 * ss / (sb + ss), 1), "target": "<= 35"})
+        sim = split_sim(f)
+        for split in ("train", "val", "test"):
+            sp.append({"language": lang, "split": split, "synth_india (existing)": int((sl.split == split).sum()), "translated scam (exact)": int(((f.label == 1) & (f.anchor_split == split)).sum()),
+                       "translated benign (expected, 5th pct)": f"{sim[split][0]:.0f} ({sim[split][1]:.0f})"})
+        assert (f[f.label == 1]["anchor_split"] != "").all(), "a scam translation without an anchor split"
+    L.append("## Scam share per language\n\n" + md(pd.DataFrame(sh)))
+    L.append("\n## Where the rows will land\n\nTranslations inherit the split of their English parent's `messages.csv` row (`anchor_split`), so an English twin in train never has its translation in test. "
+             "Benign parents without a twin (almost all) become fresh clusters at build time and take a hash bucket (80/10/10); the expected counts below simulate that.\n\n" + md(pd.DataFrame(sp)))
+    # ---- spot-check
+    sc_rows = []
+    for lang, code in LANG_CODE.items():
+        sheet = pd.read_csv(f"reports/spotcheck_{code}.csv", encoding="utf-8-sig")
+        for (lab, src), n in sheet.groupby(["label", "parent_source"]).size().items():
+            sc_rows.append({"sheet": f"spotcheck_{code}.csv", "label": lab, "parent_source": src, "rows": n})
+    L.append("\n## Spot-check sheets\n\n`reports/spotcheck_hi.csv` and `reports/spotcheck_kn.csv`, 50 rows each, drawn from the kept rows: 25 benign, 25 scam split over the two scam sources in proportion to what is "
+             "kept (at least 10 each), random within each stratum (seed 0), shuffled. Each row has the English parent, the translation, and three columns to fill in: `meaning_ok` (y/n: does the translation say what the "
+             "English says), `label_still_correct` (y/n: is the benign/scam label still right for the translated text), `notes`. Accept a language at >= 90% y on both columns. The files are UTF-8 with a BOM so Excel "
+             "shows the scripts correctly.\n\n" + md(pd.DataFrame(sc_rows)))
+    # ---- caveats
+    f_ben = final_all[final_all.label == 0]
+    L.append(f"\n## Caveats\n\n- **Automatic filters do not check meaning.** Only the native-speaker spot-check does; build_text.py waits for it.\n"
+             f"- **Benign diversity is low.** The kept benign translations (per language, about {int((final_all[(final_all.lang == 'hindi') & (final_all.label == 0)]).shape[0])}) come from {f_ben['template_id'].nunique()} template groups of one preview dataset "
+             "(provenance unknown); card-spend alerts and OTP messages dominate. They teach 'transactional alert in Hindi/Kannada = benign', which is the point, but not much beyond it.\n"
+             "- **Scam translations repeat English scam content already in `messages.csv`** (they are translations of those rows) and inherit their splits; val has 12 and test 5 scam parents in total, so val/test scam counts in Hindi/Kannada stay small.\n"
+             "- **Names**: see the person-name step above; the list is curated, and the existing `messages.csv` rows were not checked for names.\n"
+             "- **Leftover Latin is normal**: bank abbreviations (Txn, Avl Bal, A/c), brand and sender names stay Latin, as in the existing `synth_india` rows; only rows where most letters are Latin are dropped.\n")
+    open(FINAL_REPORT, "w").write("\n".join(L) + "\n")
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -599,5 +997,14 @@ if __name__ == "__main__":
     pp.add_argument("--seed", type=int, default=0)
     pp.add_argument("--scam-share", type=float, default=SCAM_SHARE, help="scam share of the translated rows (design choice)")
     pp.add_argument("--sweep", action="store_true", help="print parents / scam rate for a grid of cap values, write nothing")
+    fp = sub.add_parser("finalise")
+    fp.add_argument("--parents", help="default: the latest translate_in/parents_*.csv")
+    fp.add_argument("--raw", help="default: the latest translated/translated_raw_*.csv")
+    fp.add_argument("--scam-share", type=float, default=SCAM_SHARE, help="scam share of the translated rows")
+    fp.add_argument("--min-target-share", type=float, default=MIN_TARGET_SHARE, help="leftover English: minimum target-script share of the letters outside the protected spans")
+    fp.add_argument("--length-match", action="store_true",
+                    help="write the pass-B rows (length-bin sampling of the translated benign rows against the pool's scam lengths); off by default, see the report for its cost")
+    fp.add_argument("--boot", type=int, default=300, help="group-bootstrap resamples for the AUROC intervals")
+    fp.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
-    {"parents": run_parents}[args.cmd](args)
+    {"parents": run_parents, "finalise": run_finalise}[args.cmd](args)
