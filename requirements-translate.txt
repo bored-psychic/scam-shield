@@ -1,0 +1,26 @@
+# Environment for src/translate_indic.py (Mac, Python 3.13): .venv-translate. Not the main .venv (which has no dependency file yet; see BUGS.md).
+#   /Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13 -m venv .venv-translate
+#   .venv-translate/bin/pip install -r requirements-translate.txt
+# Versions are what the timing test ran with (2026-10-07).
+#
+# transformers is pinned to 4.49.0 on purpose, in both directions:
+#   - 4.51+ (tested 4.57.6): IndicTrans2's remote code (modeling_indictrans.py) reads past_key_values[0][0].shape, the legacy tuple cache, but
+#     generate() now passes a cache object, so every call fails with "'NoneType' object has no attribute 'shape'" (on MPS and CPU alike).
+#   - 5.x: IndicTransToolkit 1.1.1 no longer imports (transformers.tokenization_utils moved).
+#   Do not bump it without rerunning `translate_indic.py run --limit 50`.
+# tokenizers 0.21.x is what transformers 4.49 requires.
+torch==2.14.1                # macOS arm64 wheel; MPS backend used for fp16
+transformers==4.49.0
+tokenizers==0.21.4
+huggingface_hub==0.36.2
+safetensors==0.8.0
+sentencepiece==0.2.2
+indictranstoolkit==1.1.1     # builds with Cython; pre/post-processing of text and placeholders for IndicTrans2
+indic-nlp-library-itt==0.1.1
+sacremoses==0.2.0
+sacrebleu==2.6.0
+Cython==3.3.0
+regex==2026.9.29
+numpy==2.5.3
+pandas==3.0.6
+tqdm==4.70.1
