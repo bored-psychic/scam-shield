@@ -121,12 +121,7 @@ df[["template_id", "template_family", "company_key", "provenance", "note"]] = \
     df[["template_id", "template_family", "company_key", "provenance", "note"]].fillna("")
 
 # 3b. mask PII (README: ethics). Same tokens for every source so masking itself isn't a label signal.
-MASKS = [
-    (r"[\w.+-]+@[\w-]+\.[\w.]+", "<EMAIL>"),
-    (r"\b[\w.-]{2,}@(?:ok)?(?:sbi|hdfc|icici|axis|paytm|ybl|ibl|upi|apl|okaxis|okhdfcbank|okicici|oksbi)\b", "<UPI_ID>"),
-    (r"(?:\+91[\s-]?|\+92[\s-]?|\b0)?\b[6-9]\d{4}[\s-]?\d{5}\b", "<PHONE>"),
-    (r"\b(?:XX|xx|\*{2,})?\d{9,18}\b", "<ACCOUNT>"),
-]
+from pii import MASKS   # shared with translate_parents.py
 # web_scams.csv is already masked by extract_scams.PII, which tags UPI IDs <UPI>; unify so the token isn't source-specific
 df["text"] = df["text"].str.replace("<UPI>", "<UPI_ID>", regex=False)
 for pat, tok in MASKS:

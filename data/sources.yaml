@@ -1,0 +1,153 @@
+# Source registry. access: hf | kaggle | http | manual | scrape | local
+# verified: date the id/url last resolved (blank = not yet checked)
+
+- name: uci_sms_spam
+  module: text
+  access: hf
+  id: ucirvine/sms_spam
+  file: plain_text/train-00000-of-00001.parquet
+  licence: CC BY 4.0 (UCI)
+  expected_rows: 5574
+  verified: 2026-10-06
+
+- name: ealvaradob_phishing
+  module: text
+  access: hf
+  id: ealvaradob/phishing-dataset
+  file: combined_reduced.json
+  licence: apache-2.0
+  notes: email + SMS + URL + HTML mixed; URLs/HTML dropped for text module
+  verified: 2026-10-06
+
+- name: phishing_email
+  module: text
+  access: hf
+  id: zefang-liu/phishing-email-dataset
+  file: Phishing_Email.csv
+  licence: lgpl-3.0
+  expected_rows: 18650
+  verified: 2026-10-06
+
+- name: fake_job_postings
+  module: text
+  access: hf
+  id: victor/real-or-fake-fake-jobposting-prediction
+  file: fake_job_postings.csv
+  licence: cc0-1.0
+  expected_rows: 17880
+  notes: EMSCAD mirror
+  verified: 2026-10-06
+
+- name: scam_dialogue
+  module: text
+  access: hf
+  id: BothBosu/scam-dialogue
+  file: scam-dialogue_all.csv
+  licence: apache-2.0
+  notes: synthetic vishing call transcripts
+  verified: 2026-10-06
+
+- name: india_fraud_final
+  module: text
+  access: local
+  id: data/messages/india_fraud_detection_FINAL.csv
+  expected_rows: 3200
+
+- name: scam_ham_india
+  module: text
+  access: local
+  id: data/messages/scam_ham_india.csv
+  expected_rows: 2300
+
+- name: india_sms_otp_phishing
+  module: text
+  access: manual
+  id: gandharvbakshi/SMS-dataset-OTP-OTP_INTENT_Phishing
+  licence: mit
+  notes: gated on HF; request access, then set HF_TOKEN
+  verified: 2026-10-06
+
+- name: mendeley_smishing
+  module: text
+  access: manual
+  id: https://data.mendeley.com/datasets/f45bkkt8pr
+  notes: Mishra & Soni 2022 SMS Phishing Dataset; drop CSV in data/external/text/mendeley_smishing/
+
+- name: hinglish_conversations
+  module: indic
+  access: hf
+  id: Abhishekcr448/Hinglish-Everyday-Conversations-1M
+  file: hinglish_conversations.csv
+  licence: mit
+  notes: benign romanised Hinglish; sampled
+  verified: 2026-10-06
+
+- name: cmu_hinglish_dog
+  module: indic
+  access: hf
+  id: festvox/cmu_hinglish_dog
+  file: data/train-00000-of-00001.parquet
+  licence: cc-by-sa-3.0
+  notes: benign code-mixed dialogue
+  verified: 2026-10-06
+
+- name: android_malware_hf
+  module: apps
+  access: hf
+  id: srimeenakshiks/Android-Malware-Dataset
+  file: Android_Malware.csv
+  licence: mit
+  verified: 2026-10-06
+
+- name: iscx_url2016
+  module: urls
+  access: manual
+  id: https://www.unb.ca/cic/datasets/url-2016.html
+  notes: drop extracted CSVs in data/external/urls/iscx/
+
+- name: cicmaldroid2020
+  module: apps
+  access: manual
+  id: https://www.unb.ca/cic/datasets/maldroid-2020.html
+
+- name: drebin
+  module: apps
+  access: manual
+  id: https://drebin.mlsec.org/
+  notes: request from authors
+
+- name: synth_india
+  module: text
+  access: local
+  id: src/synth_india.py
+  notes: template-generated en/hinglish/hi/kn scam + benign pairs, is_synthetic=True, split by template_id
+
+- name: otp_sms_preview
+  module: text
+  access: hf
+  id: gandharvbakshi/SMS-dataset-sample-10k
+  file: sample_10k.csv
+  licence: "mit, but only as plain text in the preview README: its front matter has no --- delimiters, so HF shows no licence tag for the preview (API cardData is null). The parent set gandharvbakshi/SMS-dataset-OTP-OTP_INTENT_Phishing declares license:mit in HF metadata and the preview README says it is a subset of it. MIT covers the compiler's work; the SMS texts are 'collected from real-world sources' with no source licences stated."
+  downloaded: 2026-10-07
+  sha256: e5133915120cac8adb2cb5baff0ec9c96658fab961d943c32e11d757d0f222d9
+  hf_revision: 2b6de4910ab9337a92f1b672d2de8ed11c6a3805
+  expected_rows: 10000
+  provenance: unknown
+  notes: >-
+    NOT ingested as English messages. Used only as translation parents (src/translate_parents.py): rows with is_phishing_original False and
+    classification_status not 'synthetic', Latin script, English, 40-160 chars. The card says the full set mixes real-world SMS, LLM-labelled rows and synthetic
+    augmentation, and the unflagged rows show machine-randomised numbers (amounts like INR 040.27), so provenance is unknown. The preview's phishing, Hindi,
+    Kannada and other-script rows are not used. The full 73k set is gated (request access on HF); not requested.
+  verified: 2026-10-07
+
+- name: indictrans2_en_indic
+  module: models
+  access: manual
+  id: ai4bharat/indictrans2-en-indic-1B
+  licence: mit
+  hf_revision: 10e65a9951a1e922cd109a95e8aba9357b62144b
+  notes: >-
+    Translation model for src/translate_indic.py. Gated 'auto' on HF: accept the terms on the model page and log in (huggingface-cli login / HF_TOKEN)
+    on the 2nd laptop. Needs trust_remote_code, so pin the revision above. Distilled alternative: ai4bharat/indictrans2-en-indic-dist-200M, mit,
+    revision 173b94239f7c38886b2747b8d4a5db771a7e1232. Text pre/post-processing: IndicTransToolkit (VarunGumma/IndicTransToolkit, MIT), runs on the Mac only.
+  verified: 2026-10-07
