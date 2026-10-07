@@ -65,8 +65,8 @@ After any high-effort step, a fresh session should review the diff for leakage a
 1. ~~Account for the ~485-row jump.~~ Done (see above).
 2. ~~Near-duplicate clustering, `cluster_id` split, augmentation parents follow the split.~~ Done.
 3. ~~Freeze splits, rerun `augment.py`.~~ Done. `baseline.py` rerun 2026-10-07 with the `parent_hash` join: test F1 0.895 (was 0.934), real-only 0.894; `fake_job_postings` scam recall 0.19.
-4. ~~`src/sanity_checks.py` -> `reports/sanity.md`.~~ Written and run 2026-10-07 (about 7 min); interpretation pending *(Opus, high)*.
-5. URL head, with and without domain age, excluding `domain_conflict`, plus a fresh-OpenPhish test. *(Sonnet, medium)*
+4. ~~`src/sanity_checks.py` -> `reports/sanity.md`.~~ done 2026-10-07: Interpretation section in reports/sanity.md, commit 7c1c3df (Opus, high).
+5. URL head (`src/url_head.py` -> `reports/url_head.md`, 2026-10-07): done except two parts. The domain-age comparison is **blocked**: `enrich_domains.py` has covered 0% of the training rows (it started with URLhaus / OpenPhish; about 45k domains at 0.5 s each, roughly 6 h left). The fresh-OpenPhish test is only the 300 rows of the 2026-10-05 pull (held out, never trained on); it becomes fresh after more daily `pull_urls.py` + `build_urls.py` runs. *(Sonnet, medium)*
 6. Rule baseline for text and URLs. *(Haiku/Sonnet)*
 7. Fine-tuning on the 2nd laptop (MuRIL main, mDeBERTa comparison, bf16, max length 128). *(Sonnet, high)*
 
