@@ -534,6 +534,14 @@ def write_report(p, led, out, args, pool):
     A, C = stages["A: hash order (before)"], p
     cov = pd.DataFrame({"scam parents, stage A": A[A.label == 1]["rule"].value_counts(), "scam parents, written": C[C.label == 1]["rule"].value_counts()}).fillna(0).astype(int)
     bcat = pd.DataFrame({"benign parents, stage A": A[A.label == 0]["category"].value_counts(), "benign parents, written": C[C.label == 0]["category"].value_counts()}).fillna(0).astype(int)
+    syn = pd.read_csv("data/final/messages.csv", low_memory=False, usecols=["text", "label", "source", "language", "template_id"])
+    syn = syn[(syn["source"] == "synth_india") & (syn["language"] == "hindi")]
+    scf = cue_frame(syn["text"])
+    scf["label"] = syn["label"].to_numpy()
+    sauc = confound_report(syn.assign(template_id=syn["template_id"].astype(str))).set_index("model").loc["digit/mask share only"]
+    base_line = (f"\n\n**Baseline for the post-translation confound check:** the existing synth_india Hindi rows ({int((scf.label == 0).sum())} benign, {int((scf.label == 1).sum())} scam) "
+                 f"already have digit/mask share benign {scf[scf.label == 0]['digit_share'].mean():.1%} vs scam {scf[scf.label == 1]['digit_share'].mean():.1%}, and a digit/mask-share-only "
+                 f"model scores AUROC {sauc['AUROC']:.2f} (balanced accuracy {sauc['balanced_acc']:.2f}) on them; the translated rows are judged against this.")
     cues = ("These cues carry into the translations: protected numbers, amounts and mask tokens are restored verbatim. A gap is not an error (real transaction alerts do "
             "carry more digits than real scams) but a model can use it instead of the message.\n\n"
             "**What was done, and what was not.** Scam parents are chosen per fraud-mechanism bucket with a floor of 3 per bucket (so digital-arrest and KYC scams, which have "
@@ -544,7 +552,7 @@ def write_report(p, led, out, args, pool):
             + md(pd.DataFrame(cue_rows)) + "\n\nCue-only models on the English parents (each sees surface cues, never the words; depth-3 tree, 5-fold GroupKFold by template; "
             "AUROC 0.5 = no label signal). Length alone separates the classes at stage C (scam parents are shorter); length is matched after translation in `finalise`.\n\n"
             + md(pd.concat(model_rows)) + "\n\nCoverage kept (stage A -> written):\n\n" + md(cov.reset_index().rename(columns={"index": "rule"}))
-            + "\n\n" + md(bcat.reset_index().rename(columns={"index": "category"})))
+            + "\n\n" + md(bcat.reset_index().rename(columns={"index": "category"})) + base_line)
     L[-1] = L[-1].replace("@@CUES@@", cues)
     ex = led.scam_rows
     L.append("\n## SCAM RULE examples (random, 5 per cell)\n")

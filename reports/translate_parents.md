@@ -158,6 +158,8 @@ Coverage kept (stage A -> written):
 | lottery | 3 | 3 |
 | echallan | 2 | 2 |
 
+**Baseline for the post-translation confound check:** the existing synth_india Hindi rows (163 benign, 231 scam) already have digit/mask share benign 9.0% vs scam 5.1%, and a digit/mask-share-only model scores AUROC 0.58 (balanced accuracy 0.64) on them; the translated rows are judged against this.
+
 ## SCAM RULE examples (random, 5 per cell)
 
 **kept / hard:account_loss_threat / scam_ham_india** (3 rows)
