@@ -12,12 +12,15 @@ import numpy as np, pandas as pd
 #   .venv-translate/bin/python src/translate_indic.py run                              all parents -> data/external/indic/translated/
 #   ... run --stub                                                                     no model: identity "translation", to test the plumbing
 # Output rows carry status "ok" or the reason the row failed (marker_missing / marker_duplicated / stray_marker / empty / copied_source);
-# translate_parents.py finalise applies the content filters. The run resumes: rows already in --out are skipped.
+# translate_parents.py finalise applies the content filters. Rows that fail the marker check get ONE retry pass: greedy decoding, one sentence per
+# batch (columns first_status / retried / retry_status / recovery say what happened). The run resumes: rows already in --out are skipped, and a
+# rerun retries failed rows not yet retried.
 MODELS = {"1B": ("ai4bharat/indictrans2-en-indic-1B", "10e65a9951a1e922cd109a95e8aba9357b62144b"),
           "200M": ("ai4bharat/indictrans2-en-indic-dist-200M", "173b94239f7c38886b2747b8d4a5db771a7e1232")}   # revisions pinned: trust_remote_code runs the repo's code
 LANGS = {"hindi": "hin_Deva", "kannada": "kan_Knda"}
 OUT_DIR = "data/external/indic/translated"
 GEN = dict(use_cache=True, min_length=0, max_length=256, num_beams=5, num_return_sequences=1)   # the model card's settings
+GEN_GREEDY = dict(use_cache=True, min_length=0, max_length=256, num_beams=1, num_return_sequences=1, do_sample=False)   # retry pass
 TODAY = dt.date.today().isoformat()
 
 def gb(x):
@@ -79,7 +82,7 @@ class Translator:
     def _pre(self, protected, lang):
         return self.ip.preprocess_batch(protected, src_lang="eng_Latn", tgt_lang=lang)
 
-    def _run(self, pre):
+    def _run(self, pre, gen=None):
         """Model input strings (with language tags) -> decoded strings."""
         if self.stub:
             return [p.split(" ", 2)[2] for p in pre]
@@ -87,7 +90,7 @@ class Translator:
         inputs = self.tok(pre, truncation=True, padding="longest", return_tensors="pt", return_attention_mask=True).to(self.device)
         with torch.inference_mode(), warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            out = self.model.generate(**inputs, **GEN)
+            out = self.model.generate(**inputs, **(gen or GEN))
             if self.device == "mps":
                 torch.mps.synchronize()
         for x in w:
@@ -98,22 +101,23 @@ class Translator:
             self.stats["mps_peak_current_gb"] = max(self.stats["mps_peak_current_gb"], gb(torch.mps.current_allocated_memory()))
         return self.tok.batch_decode(out, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
-    def translate(self, protected, lang):
+    def translate(self, protected, lang, gen=None):
         """-> (list of toolkit-postprocessed strings with our markers still in, seconds for model + pre/post)."""
         t0 = time.time()
-        post = self.ip.postprocess_batch(self._run(self._pre(protected, lang)), lang=lang)
+        post = self.ip.postprocess_batch(self._run(self._pre(protected, lang), gen), lang=lang)
         return post, time.time() - t0
 
 def run_status(raw, spans, source):
+    """-> (translation or "", status, recovery). recovery = "tolerant_markers" when the markers came back transliterated and were accepted under protect.restore's strict rule."""
     import protect
     if not raw.strip():
-        return "", "empty"
+        return "", "empty", ""
     text, status = protect.restore(raw, spans)
-    if status != "ok":
-        return "", status
+    if status not in ("ok", "ok_tolerant"):
+        return "", status, ""
     if text.strip() == source.strip():
-        return text, "copied_source"   # came back untranslated
-    return text, "ok"
+        return text, "copied_source", ""   # came back untranslated
+    return text, "ok", "tolerant_markers" if status == "ok_tolerant" else ""
 
 def cmd_run(args):
     import protect
@@ -134,7 +138,7 @@ def cmd_run(args):
         print(f"resuming: {len(done)} (parent, language) rows already in {out}")
     tr = Translator(args.model, args.device, args.stub)
     print(f"{args.model}: device {tr.device}, dtype {tr.dtype}, load {tr.stats['load_seconds']} s, warm-up {tr.stats['warmup_seconds']} s", flush=True)
-    t_start, rows, batch_log = time.time(), [], []
+    t_start, batch_log = time.time(), []
     for lang_name, lang in LANGS.items():
         todo = par[[(pid, lang_name) not in done for pid in par["parent_id"]]]
         todo = todo.iloc[todo["protected"].str.len().argsort()]   # similar lengths together: less padding
@@ -144,69 +148,117 @@ def cmd_run(args):
             batch_log.append({"lang": lang_name, "batch": bi, "n": len(chunk), "seconds": secs})
             new = []
             for (_, r), raw in zip(chunk.iterrows(), post):
-                text, status = run_status(raw, r["spans"], r["text"])
+                text, status, rec = run_status(raw, r["spans"], r["text"])
                 new.append({"parent_id": r["parent_id"], "parent_hash": r["parent_hash"], "lang": lang_name, "label": r["label"], "parent_source": r["parent_source"],
-                            "protected": r["protected"], "raw_output": raw, "translation": text, "status": status, "batch_seconds": round(secs, 2), "model": args.model,
-                            "device": tr.device, "dtype": tr.dtype})
+                            "protected": r["protected"], "raw_output_first": raw, "raw_output": raw, "translation": text, "first_status": status, "status": status,
+                            "recovery": rec, "retried": False, "retry_status": "", "batch_seconds": round(secs, 2), "model": args.model, "device": tr.device, "dtype": tr.dtype})
             pd.DataFrame(new).to_csv(out, mode="a", header=not os.path.exists(out), index=False)
-            rows += new
             print(f"  {lang_name} batch {bi}: {len(chunk)} sentences in {secs:.1f} s ({secs / len(chunk):.2f} s/sentence); {sum(x['status'] == 'ok' for x in new)} ok", flush=True)
+    main_secs = time.time() - t_start
+    retry_log = retry_pass(tr, par, out)
     total = time.time() - t_start
     if args.report:
-        write_report(args, tr, par, n_all, rows, batch_log, total, out)
+        write_report(args, tr, par, n_all, pd.read_csv(out, keep_default_na=False), batch_log, retry_log, main_secs, total, out)
     print(f"wrote {out}")
 
-def write_report(args, tr, par, n_all, rows, batch_log, total, out):
-    res = pd.DataFrame(rows)
-    bl = pd.DataFrame(batch_log)
+def retry_pass(tr, par, out):
+    """ONE retry for every row whose status is not ok and that was not retried yet: greedy decoding, a batch of one sentence. Rewrites the CSV atomically."""
+    import protect
+    d = pd.read_csv(out, keep_default_na=False)
+    d["retried"] = d["retried"].astype(str) == "True"
+    todo = d[(d["status"] != "ok") & ~d["retried"]]
+    log = []
+    if todo.empty:
+        return log
+    src = par.set_index("parent_id")
+    print(f"retry pass: {len(todo)} failed rows, greedy, one sentence per batch", flush=True)
+    for idx, r in todo.iterrows():
+        row = src.loc[r["parent_id"]]
+        assert protect.protect(row["text"])[0] == r["protected"], "protect.py changed since the first pass"
+        post, secs = tr.translate([r["protected"]], LANGS[r["lang"]], GEN_GREEDY)
+        text, status, rec = run_status(post[0], row["spans"], row["text"])
+        d.loc[idx, ["raw_output", "retried", "retry_status"]] = [post[0], True, status]
+        d.loc[idx, "status"] = status
+        if status == "ok":
+            d.loc[idx, ["translation", "recovery"]] = [text, "greedy_retry" + ("+tolerant_markers" if rec else "")]
+        log.append({"parent_id": r["parent_id"], "lang": r["lang"], "label": r["label"], "first_status": r["first_status"], "retry_status": status, "seconds": secs})
+    tmp = out + ".tmp"
+    d.to_csv(tmp, index=False)
+    os.replace(tmp, out)
+    print(f"retry pass: {sum(x['retry_status'] == 'ok' for x in log)} of {len(log)} recovered", flush=True)
+    return log
+
+def md(df):
+    cells = [[str(c) for c in df.columns]] + [[f"{v:.3f}" if isinstance(v, (float, np.floating)) else str(v) for v in r] for r in df.itertuples(index=False)]
+    lines = ["| " + " | ".join(r) + " |" for r in cells]
+    lines.insert(1, "|" + "|".join(" --- " for _ in cells[0]) + "|")
+    return "\n".join(lines)
+
+def write_report(args, tr, par, n_all, d, batch_log, retry_log, main_secs, total, out):
+    d = d.assign(retried=d["retried"].astype(str) == "True")
+    bl, timing = pd.DataFrame(batch_log), bool(args.limit)
     dl = f"{OUT_DIR}/download_{args.model}.json"
     dl = json.load(open(dl)) if os.path.exists(dl) else None
     peak_rss = gb(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)   # bytes on macOS
-    n_sent = len(par)
-    per_lang = bl.groupby("lang").apply(lambda g: pd.Series({"batches": len(g), "sentences": int(g["n"].sum()), "seconds": g["seconds"].sum(),
-                                                             "s_per_sentence": g["seconds"].sum() / g["n"].sum(), "first_batch_s": g["seconds"].iloc[0],
-                                                             "median_batch_s": g["seconds"].median()}), include_groups=False)
-    s_per = bl["seconds"].sum() / bl["n"].sum()
-    full = n_all * len(LANGS) * s_per
-    ok = res.groupby("lang")["status"].apply(lambda s: (s == "ok").mean())
-    stat = res.groupby(["lang", "status"]).size().unstack(fill_value=0)
-    L = [f"# Translation timing test ({args.model}, {tr.device}, {tr.dtype})\n",
-         f"Generated by `src/translate_indic.py run --limit {args.limit}` on {TODAY}. {n_sent} sentences sampled from `{os.path.basename(args.parents or 'parents file')}` "
-         f"(seed {args.seed}), each translated into Hindi and Kannada, batch size {args.batch}, beam 5, max length 256. Output: `{out}`.\n",
+    s_per = bl["seconds"].sum() / max(1, bl["n"].sum())
+    rl = pd.DataFrame(retry_log)
+    per_lang = bl.groupby("lang").apply(lambda g: pd.Series({"batches": len(g), "sentences": int(g["n"].sum()), "seconds": g["seconds"].sum(), "s_per_sentence": g["seconds"].sum() / g["n"].sum(),
+                                                             "first_batch_s": g["seconds"].iloc[0], "median_batch_s": g["seconds"].median()}), include_groups=False)
+    L = [f"# {'Translation timing test' if timing else 'Translation run'} ({args.model}, {tr.device}, {tr.dtype})\n",
+         f"Generated by `src/translate_indic.py run{' --limit ' + str(args.limit) if timing else ''}` on {TODAY}. {len(par)} parents" + (f" sampled from {n_all} (seed {args.seed})" if timing else "") +
+         f", each translated into Hindi and Kannada, batch size {args.batch}, beam 5, max length 256. Markers are recovered with protect.restore (strict tolerant spelling), and rows that still fail get one greedy "
+         f"single-sentence retry. Output: `{out}` (columns first_status, retried, retry_status, recovery say what happened to each row).\n",
          "## Numbers\n",
-         f"- download: " + (f"{gb(dl['bytes']):.2f} GB, {dl['seconds']:.0f} s (revision {dl['revision'][:8]}; safetensors only, `pytorch_model.bin` skipped)" if dl else "not measured in this run"),
-         f"- model load (tokenizer + weights + move to {tr.device}): {tr.stats['load_seconds']} s; first-call warm-up (kernel compile, counted separately): {tr.stats['warmup_seconds']} s",
-         f"- translation: {bl['n'].sum()} sentence-translations in {bl['seconds'].sum():.0f} s model+pre/post time = **{s_per:.2f} s per sentence** (wall clock incl. CSV writes {total:.0f} s)",
+         "- download: " + (f"{gb(dl['bytes']):.2f} GiB, {dl['seconds']:.0f} s (revision {dl['revision'][:8]}; safetensors only)" if dl else "not measured in this run"),
+         f"- model load: {tr.stats['load_seconds']} s; first-call warm-up (counted separately): {tr.stats['warmup_seconds']} s",
+         f"- first pass: {bl['n'].sum()} translations in {bl['seconds'].sum():.0f} s model+pre/post = **{s_per:.2f} s per sentence**; retry pass: {len(rl)} rows in {rl['seconds'].sum() if len(rl) else 0:.0f} s; wall clock {total / 60:.0f} min",
          f"- peak memory: process RSS {peak_rss:.1f} GB (`ru_maxrss`); MPS driver allocation peak {tr.stats['mps_peak_driver_gb']:.1f} GB, MPS tensors peak {tr.stats['mps_peak_current_gb']:.1f} GB",
-         f"- projection for the full set: {n_all} parents x {len(LANGS)} languages = {n_all * len(LANGS)} translations x {s_per:.2f} s = **{full / 3600:.1f} h** "
-         f"({full / 60:.0f} min) plus load/warm-up; the 4-5 h limit {'is exceeded: use dist-200M' if full / 3600 > 4.5 else 'is not reached'}",
-         f"- MPS fallback to CPU for the whole model: {tr.stats['fallback_reason'] or 'none'}; individual ops that fell back to the CPU: {tr.stats['mps_op_fallbacks'] or 'none'}",
-         "\n## Per language\n", pd.DataFrame(per_lang).round(2).reset_index().to_markdown(index=False) if hasattr(pd.DataFrame, "to_markdown") and _has_tabulate() else per_lang.round(2).to_string(),
-         "\nRows by status (a failed row is a marker the model dropped, duplicated or invented, an empty output, or an untranslated copy):\n",
-         stat.to_string(), "\n" + ", ".join(f"{k}: {v:.0%} ok" for k, v in ok.items()) + " (the scam-share sweep assumed 85% of parents survive)\n"]
+         (f"- projection for the full set: {n_all} parents x {len(LANGS)} languages = {n_all * len(LANGS)} translations x {s_per:.2f} s = **{n_all * len(LANGS) * s_per / 3600:.1f} h** plus retries"
+          if timing else f"- full run: {len(d)} translations in {total / 60:.0f} min"),
+         f"- MPS fallback to CPU for the whole model: {tr.stats['fallback_reason'] or 'none'}; ops that fell back to the CPU: {tr.stats['mps_op_fallbacks'] or 'none'}",
+         "\n## Per language (first pass)\n", md(per_lang.round(2).reset_index())]
+    # failure rate by label per language
+    rows = []
+    for (lang, lab), g in d.groupby(["lang", "label"]):
+        rows.append({"language": lang, "label": ["benign", "scam"][lab], "rows": len(g), "failed_first_pass": int((g["first_status"] != "ok").sum()),
+                     "first_pass_fail_%": 100 * (g["first_status"] != "ok").mean(), "tolerant_markers_recovered": int(g["recovery"].str.contains("tolerant").sum()),
+                     "retried": int(g["retried"].sum()), "recovered_by_retry": int((g["retried"] & (g["status"] == "ok")).sum()),
+                     "failed_final": int((g["status"] != "ok").sum()), "final_fail_%": 100 * (g["status"] != "ok").mean()})
+    L += ["\n## Failure rate by label (first_pass = after the strict tolerant restore; final = after the greedy retry)\n", md(pd.DataFrame(rows)),
+          "\nFinal failure reasons:\n", md(d[d["status"] != "ok"].groupby(["lang", "label", "status"]).size().rename("rows").reset_index().assign(label=lambda x: x["label"].map({0: "benign", 1: "scam"}))
+                                            if (d["status"] != "ok").any() else pd.DataFrame({"note": ["no failed rows"]}))]
+    # scam share after drops (marker failures only; finalise applies the content filters and trims scam to ~15% of the translated rows)
+    m = pd.read_csv("data/final/messages.csv", low_memory=False, usecols=["source", "language", "label"])
+    syn = m[(m["source"] == "synth_india") & m["language"].isin(LANGS)].groupby(["language", "label"]).size()
+    shares = []
+    for lang in LANGS:
+        ok = d[(d["lang"] == lang) & (d["status"] == "ok")]
+        b, sc = int((ok["label"] == 0).sum()), int((ok["label"] == 1).sum())
+        sb, ss = int(syn.get((lang, 0), 0)), int(syn.get((lang, 1), 0))
+        shares.append({"language": lang, "translated_benign_ok": b, "translated_scam_ok": sc, "scam_share_of_translated_%": 100 * sc / max(1, b + sc), "synth_benign": sb, "synth_scam": ss,
+                       "overall_scam_share_%": 100 * (ss + sc) / (sb + ss + b + sc), "overall_before_translation_%": 100 * ss / (sb + ss)})
+    L += ["\n## Hindi / Kannada scam share after marker drops\n", "Existing synth_india rows are untouched; target is <= 35% overall. Content filters and the trim of scam rows to ~15% of the translated rows come later (`translate_parents.py finalise`).\n",
+          md(pd.DataFrame(shares))]
+    if len(rl):
+        L += ["\n## Rows retried (greedy, one sentence)\n", f"{len(rl)} retries, {int((rl['retry_status'] == 'ok').sum())} recovered. Row ids per language (also in the CSV: `retried` = True):\n"]
+        for lang in LANGS:
+            L.append(f"- {lang}: " + ", ".join(f"{r.parent_id}{'' if r.retry_status == 'ok' else '*'}" for r in rl[rl['lang'] == lang].itertuples()) + "  (* = still failed)")
+    L.append("\nRecovery paths among ok rows: " + ", ".join(f"{k or 'none'}: {v}" for k, v in d[d["status"] == "ok"]["recovery"].value_counts().items()))
     for lang_name in LANGS:
         L.append(f"\n## English to {lang_name.capitalize()}: 5 examples\n")
-        r = res[(res["lang"] == lang_name) & (res["status"] == "ok")]
+        r = d[(d["lang"] == lang_name) & (d["status"] == "ok")]
         pick = pd.concat([r[r["label"] == 0].head(3), r[r["label"] == 1].head(2)])
         for _, x in pick.iterrows():
             src = par[par["parent_id"] == x["parent_id"]].iloc[0]
-            L += [f"**{x['parent_id']}** ({'scam' if x['label'] else 'benign'}, {x['parent_source']})\n", f"- English: {src['text']}", f"- sent to the model: {x['protected']}",
+            L += [f"**{x['parent_id']}** ({'scam' if x['label'] else 'benign'}, {x['parent_source']}{', ' + x['recovery'] if x['recovery'] else ''})\n", f"- English: {src['text']}", f"- sent to the model: {x['protected']}",
                   f"- {lang_name}: {x['translation']}\n"]
-        bad = res[(res["lang"] == lang_name) & (res["status"] != "ok")].head(2)
-        for _, x in bad.iterrows():
-            L += [f"*failed row {x['parent_id']} ({x['status']})*: model output was `{x['raw_output']}`\n"]
+        for _, x in d[(d["lang"] == lang_name) & (d["status"] != "ok")].head(2).iterrows():
+            L += [f"*failed row {x['parent_id']} ({x['status']}, retried: {x['retried']})*: model output was `{x['raw_output']}`\n"]
     os.makedirs(os.path.dirname(args.report), exist_ok=True)
     open(args.report, "w", encoding="utf-8").write("\n".join(L) + "\n")
     print(f"wrote {args.report}")
-    print(f"  {s_per:.2f} s/sentence | projection {full / 3600:.2f} h for {n_all * len(LANGS)} translations | peak RSS {peak_rss:.1f} GB | "
-          + ", ".join(f"{k} {v:.0%} ok" for k, v in ok.items()))
-
-def _has_tabulate():
-    try:
-        import tabulate  # noqa: F401
-        return True
-    except ImportError:
-        return False
+    print(f"  {s_per:.2f} s/sentence | peak RSS {peak_rss:.1f} GB | final failure by label: " + "; ".join(f"{r['language']} {r['label']} {r['final_fail_%']:.0f}% (first pass {r['first_pass_fail_%']:.0f}%)" for r in rows))
+    print("  scam share after drops: " + "; ".join(f"{r['language']} {r['overall_scam_share_%']:.1f}% overall ({r['scam_share_of_translated_%']:.0f}% of translated)" for r in shares))
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

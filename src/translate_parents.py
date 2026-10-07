@@ -281,6 +281,11 @@ def build_pool(args):
     ben["label"], scam["label"] = 0, 1
     p = pd.concat([ben, scam[["text", "parent_source", "parent_is_synthetic", "sender", "rule", "label"]]], ignore_index=True)
     p["parent_hash"] = p["text"].map(text_hash)
+    # pii.MASKS only knows some UPI handles (@ybl, @okaxis, ...); merchant handles like dunzo.payu@axisbank or olamoney.payu@indus slip through. Drop those parents
+    # rather than translate an unmasked handle into the dataset (changing the shared masks would change existing rows' text hashes and splits: not done here).
+    leak = p["text"].str.contains(r"[\w.-]+@[\w.-]+", regex=True)
+    led.add("all", "drop parents with an unmasked @handle", len(p), len(p) - int(leak.sum()), "pii.MASKS misses handles such as @axisbank, @indus")
+    p = p[~leak].reset_index(drop=True)
     # exact duplicates (after masking, case and whitespace): keep the first
     dup = p.duplicated("parent_hash")
     led.add("all", "drop exact duplicates after masking", len(p), len(p) - dup.sum(), f"benign {int(dup[p.label == 0].sum())}, scam {int(dup[p.label == 1].sum())}")

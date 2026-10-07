@@ -68,19 +68,36 @@ def protect(text):
     return "".join(out), spans
 
 _MARKER = re.compile(r"[<\[]\s*ID\s*(\d+)\s*[>\]]", re.I)
+# When the model translates the marker instead of copying it, "ID" comes back transliterated: <ID51> -> <ಐಡಿ51>, <आई. डी. 51>. These spellings (the toolkit's own list
+# of Hindi failure cases plus the Kannada one seen in the 50-sentence test) are accepted only under the strict rule in restore().
+_ID_SPELL = r"(?:ID|आ[ईयइ]\s*\.?\s*डी\s*\.?|ऐ[टड]ि|आइडि|आयडी|ಐ\s*ಡಿ)"
+_TOLERANT = re.compile(r"[<\[]\s*" + _ID_SPELL + r"\s*(\d+)\s*[>\]]", re.I)
+_LEFTOVER = re.compile(_ID_SPELL + r"\s*\.?\s*\d|[<\[]\s*" + _ID_SPELL, re.I)
 
 def restore(out, spans):
-    """-> (text, "ok") or (None, reason). The model may respace or re-bracket a marker (< ID51 >, [ID51]); those are accepted. Each expected
-    marker must appear exactly once and no other marker may appear."""
+    """-> (text, "ok"), (text, "ok_tolerant") or (None, reason).
+    Exact path: markers spelled <ID51> (a model-added space or [ ] bracket is fine). Each expected marker must appear exactly once and no other
+    marker may appear; their order may change, because Hindi / Kannada word order differs from English.
+    Tolerant path, only when the exact path failed: markers whose "ID" came back transliterated are recovered ONLY if every marker is matched exactly
+    once, in the original order (51, 52, ...), nothing else that looks like a marker is left in the text, and nothing extra was matched. Anything
+    ambiguous keeps the exact path's failure reason."""
     canon = _MARKER.sub(lambda m: f"<ID{int(m.group(1))}>", out)
     seen = Counter(int(i) for i in re.findall(r"<ID(\d+)>", canon))
-    expect = range(FIRST, FIRST + len(spans))
-    if any(seen[i] == 0 for i in expect):
-        return None, "marker_missing"
-    if any(seen[i] > 1 for i in expect):
-        return None, "marker_duplicated"
-    if set(seen) - set(expect):
-        return None, "stray_marker"
-    for k, sp in enumerate(spans):
-        canon = canon.replace(f"<ID{FIRST + k}>", sp)
-    return canon, "ok"
+    expect = list(range(FIRST, FIRST + len(spans)))
+    if all(seen[i] == 1 for i in expect) and not set(seen) - set(expect):
+        for k, sp in enumerate(spans):
+            canon = canon.replace(f"<ID{FIRST + k}>", sp)
+        return canon, "ok"
+    reason = ("marker_missing" if any(seen[i] == 0 for i in expect) else "marker_duplicated" if any(seen[i] > 1 for i in expect) else "stray_marker")
+    found = list(_TOLERANT.finditer(out))
+    if not spans or [int(m.group(1)) for m in found] != expect:
+        return None, reason
+    rest = _TOLERANT.sub(" ", out)
+    if _LEFTOVER.search(rest):
+        return None, reason
+    pieces, pos = [], 0
+    for m, sp in zip(found, spans):
+        pieces += [out[pos:m.start()], sp]
+        pos = m.end()
+    pieces.append(out[pos:])
+    return "".join(pieces), "ok_tolerant"
