@@ -1,0 +1,16 @@
+# Fine-tuning environment for src/finetune.py (2nd laptop: Windows, RTX 5050 / Blackwell, Python 3.13).
+#   py -3.13 -m venv .venv-finetune && .venv-finetune\Scripts\pip install -r requirements-finetune.txt
+# torch comes from the CUDA 13.0 index (Blackwell sm_120 needs CUDA >= 12.8; cu130 needs NVIDIA driver >= 580).
+# On the Mac the same file installs the CPU/MPS torch from PyPI (no cu130 wheels for macOS), used only for the dry run.
+# pandas / numpy / scikit-learn / tldextract match the Mac .venv so textprep.model_text behaves identically.
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.14.1
+transformers==5.19.0
+tokenizers==0.23.2
+safetensors==0.8.0
+sentencepiece==0.2.2
+protobuf==7.36.2
+scikit-learn==1.9.1
+pandas==3.0.6
+numpy==2.5.3
+tldextract==5.4.0
