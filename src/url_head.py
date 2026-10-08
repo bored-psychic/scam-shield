@@ -1,11 +1,10 @@
-import math, os, re, sys, time
-from collections import Counter
-from urllib.parse import urlsplit
+import os, sys, time
 import joblib
 import numpy as np, pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import average_precision_score, f1_score, roc_auc_score
+from url_features import host_features, path_features   # shared with app.py
 
 # URL head: gradient boosting on lexical features of data/final/urls.csv -> reports/url_head.md,
 # data/final/url_preds.csv (scores for every row, for calibration / fusion), models/url_head.joblib.
@@ -26,80 +25,6 @@ from sklearn.metrics import average_precision_score, f1_score, roc_auc_score
 #   python src/url_head.py
 OUT, PRED_OUT, MODEL_OUT = "reports/url_head.md", "data/final/url_preds.csv", "models/url_head.joblib"
 SEED = 0
-
-# brand -> registered domains that genuinely own it. A brand token on any other domain is the lookalike signal.
-BRANDS = {
-    "sbi": ["onlinesbi.sbi", "sbi.co.in", "sbi.bank.in", "onlinesbi.com", "sbicard.com"], "onlinesbi": ["onlinesbi.sbi", "onlinesbi.com"],
-    "hdfcbank": ["hdfcbank.com"], "icicibank": ["icicibank.com"], "axisbank": ["axisbank.com"], "kotak": ["kotak.com"],
-    "paytm": ["paytm.com", "paytmbank.com"], "phonepe": ["phonepe.com"], "npci": ["npci.org.in"],
-    "indiapost": ["indiapost.gov.in"], "irctc": ["irctc.co.in"], "incometax": ["incometax.gov.in", "incometaxindia.gov.in"],
-    "uidai": ["uidai.gov.in"], "parivahan": ["parivahan.gov.in"], "flipkart": ["flipkart.com"], "cybercrime": ["cybercrime.gov.in"],
-    "epfindia": ["epfindia.gov.in"], "amazon": ["amazon.in", "amazon.com", "amazon.co.uk", "amazon.de"], "google": ["google.com", "google.co.in"],
-    "microsoft": ["microsoft.com", "live.com"], "apple": ["apple.com"], "paypal": ["paypal.com"], "facebook": ["facebook.com"],
-    "instagram": ["instagram.com"], "whatsapp": ["whatsapp.com"], "netflix": ["netflix.com"],
-}
-SUSPICIOUS = ["login", "signin", "verify", "secure", "account", "update", "kyc", "bank", "wallet", "confirm", "support", "otp",
-              "refund", "claim", "bonus", "prize", "free", "gift", "reward", "unlock", "suspend", "alert", "billing", "recover"]
-EXEC_EXT = {".exe", ".apk", ".php", ".html", ".htm", ".zip", ".sh", ".js", ".asp", ".aspx"}
-IP_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
-
-def entropy(s):
-    if not s:
-        return 0.0
-    c = Counter(s)
-    return -sum(v / len(s) * math.log2(v / len(s)) for v in c.values())
-
-def lev(a, b, cap=3):
-    """Levenshtein distance, capped (returns cap as soon as it can't be below it)."""
-    if abs(len(a) - len(b)) >= cap:
-        return cap
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        cur = [i]
-        for j, cb in enumerate(b, 1):
-            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
-        if min(cur) >= cap:
-            return cap
-        prev = cur
-    return min(prev[-1], cap)
-
-def host_features(host, reg):
-    labels = host.split(".")
-    reg_label = reg.split(".")[0]
-    toks = [t for t in re.split(r"[^a-z0-9]+", host) if t]
-    is_ip = bool(IP_RE.match(host))
-    f = {"host_len": len(host), "n_labels": len(labels), "subdomain_depth": 0 if is_ip else max(0, len(labels) - len(reg.split("."))),
-         "n_hyphens": host.count("-"), "n_digits": sum(c.isdigit() for c in host), "host_entropy": entropy(host),
-         "reg_label_len": len(reg_label), "reg_label_entropy": entropy(reg_label), "longest_label": max(map(len, labels)),
-         "has_ip": int(is_ip), "punycode": int("xn--" in host), "non_ascii": sum(ord(c) > 127 for c in host),
-         "n_suspicious_host": sum(k in host for k in SUSPICIOUS)}
-    f["digit_ratio"] = f["n_digits"] / max(1, len(host))
-    f["tld"] = reg.rsplit(".", 1)[-1] if "." in reg and not is_ip else ""
-    # brand lookalikes: a brand as a whole token or long substring on a domain that doesn't own it, and the smallest edit
-    # distance (cap 3) from a name token to a brand it isn't (exact matches on a legitimate domain score the cap)
-    off_tok = off_sub = 0
-    best = 3
-    for b, legit in BRANDS.items():
-        owns = reg in legit
-        if not owns and b in toks:
-            off_tok += 1
-        if not owns and len(b) >= 5 and b in host:
-            off_sub += 1
-        if not owns and len(b) >= 4 and not is_ip:
-            for t in {reg_label, *toks}:
-                if len(t) >= 4 and t != b:
-                    best = min(best, lev(t, b))
-    f.update(brand_token_offsite=off_tok, brand_substr_offsite=off_sub, brand_min_dist=best)
-    return f
-
-def path_features(url):
-    s = urlsplit(url if "://" in url else "http://" + url)
-    path, q = s.path, s.query
-    ext = os.path.splitext(path)[1].lower()
-    return {"url_len": len(url), "path_len": len(path), "n_slashes": path.count("/"), "query_len": len(q),
-            "n_params": q.count("&") + bool(q), "path_digits": sum(c.isdigit() for c in path + q), "path_entropy": entropy(path + q),
-            "has_at": int("@" in url), "n_pct": url.count("%"), "double_slash_path": int("//" in path),
-            "exec_ext": int(ext in EXEC_EXT), "n_suspicious_path": sum(k in (path + q).lower() for k in SUSPICIOUS)}
 
 def log(m):
     print(m, file=sys.stderr, flush=True)
@@ -235,6 +160,18 @@ for n in ("host-only (main)", "full URL (+ path/query)"):
     pred["score_" + ("host" if "host" in n else "full")] = scores[n].round(5)
 pred.to_csv(PRED_OUT, index=False)
 os.makedirs("models", exist_ok=True)
-joblib.dump({"model": models["host-only (main)"][0], "features": HOST, "top_tld": top_tld, "threshold": float(thr_main)}, MODEL_OUT)
+# reference = a typical benign host (train, phishing_vs_benign, label benign): median per feature, most frequent TLD code. app.py
+# explains one URL by the score change when each feature is replaced by its reference value (occlusion; features are correlated,
+# so single-feature effects understate shared signals).
+ref_rows = X.loc[base & (sp == "train") & (y == 0), HOST]
+reference = {c: float(ref_rows[c].median()) for c in HOST}
+reference["tld_code"] = int(ref_rows["tld_code"].mode().iloc[0])
+# second app level: the lowest val score at which val precision reaches 0.95 (val is 28% phishing, so this says little about
+# precision on real traffic); "threshold" above stays the max-F1 level. inf if val never reaches it.
+sv_main, yv_main = scores["host-only (main)"][base & (sp == "val")], y[base & (sp == "val")]
+hi_grid = [t for t in np.unique(np.quantile(sv_main, np.linspace(0.01, 0.999, 300))) if (yv_main[sv_main >= t].mean() >= 0.95)]
+thr_high = float(min(hi_grid)) if hi_grid else float("inf")
+joblib.dump({"model": models["host-only (main)"][0], "features": HOST, "top_tld": top_tld, "threshold": float(thr_main),
+             "threshold_high": thr_high, "reference": reference}, MODEL_OUT)
 print(md(res)); print(md(imp.head(12)))
 log(f"wrote {OUT}, {PRED_OUT}, {MODEL_OUT}")
