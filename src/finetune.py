@@ -9,14 +9,20 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_
 
 from textprep import model_text, URL_TOKEN, MAX_CHARS
 
-# Fine-tunes a multilingual encoder (MuRIL by default) as the text head. Runs on the 2nd laptop (RTX 5050, 8 GB, Windows);
-# the laptop only `git pull`s and runs this, it never edits code. Everything it writes goes back to the Mac, where all
-# evaluation runs (per-source, per-language, LOSO, adversarial, calibration).
+# Fine-tunes a multilingual encoder (MuRIL by default) as the text head. Runs on the 2nd laptop (RTX 5050, 8 GB, Windows)
+# or on Kaggle (P100 / T4, notebooks/kaggle_finetune.ipynb); both only `git pull` and run this, they never edit code.
+# Everything it writes goes back to the Mac, where all evaluation runs (per-source, per-language, LOSO, adversarial,
+# calibration).
 #   python src/finetune.py --smoke                     # 1 epoch on 2,000 train rows: checks the setup end to end
 #   python src/finetune.py                             # MuRIL, 3 epochs, the settings below
 #   python src/finetune.py --model mdeberta            # comparison runs: mdeberta, xlmr, or any HF model id
 #   python src/finetune.py --aug                       # also train on messages_aug.csv (homoglyph / leet / zero-width, train parents)
 #   python src/finetune.py --limit 50 --device cpu     # Mac dry run: 50 rows per split, no GPU
+#   python src/finetune.py --data-dir /kaggle/input/scam-shield-data/final --out /kaggle/working/models/muril_run1
+#
+# Precision (--precision, default auto): bf16 autocast on GPUs with compute capability >= 8.0 (RTX 5050, A100), fp16 autocast
+# + GradScaler below that (T4 7.5, P100 6.0), fp32 on CPU. Weights and optimizer state stay fp32 in every mode; the loss and
+# the softmax are computed in fp32.
 #
 # What it guarantees (CLAUDE.md rules 1, 2, 11):
 #   - split_map.csv is the frozen splits-v1 file (SHA-256 below) and messages.csv agrees with it row for row;
@@ -42,12 +48,28 @@ def sha256(path):
 
 
 def git_state():
+    """(commit, dirty) of the repo this file lives in, whatever the working directory; ("unknown", None) without git."""
+    repo = Path(__file__).resolve().parent
     try:
-        commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
-        dirty = bool(subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True).stdout.strip())
+        commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+        dirty = bool(subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=repo, capture_output=True, text=True).stdout.strip())
         return commit, dirty
     except (OSError, subprocess.CalledProcessError):
-        return None, None
+        return "unknown", None
+
+
+def pick_precision(requested, device):
+    """auto: bf16 on compute capability >= 8.0, else fp16; fp32 on CPU. Refuses combinations the hardware can't run."""
+    if device.type != "cuda":
+        if requested not in ("auto", "fp32"):
+            raise SystemExit(f"--precision {requested} needs a CUDA GPU; on CPU use fp32 (or auto)")
+        return "fp32"
+    cap = torch.cuda.get_device_capability(device)
+    if requested == "auto":
+        return "bf16" if cap >= (8, 0) else "fp16"
+    if requested == "bf16" and cap < (8, 0):
+        raise SystemExit(f"--precision bf16 needs compute capability >= 8.0; this GPU is {cap[0]}.{cap[1]} (use fp16 or auto)")
+    return requested
 
 
 def load_data(data_dir, use_aug):
@@ -117,14 +139,14 @@ def loader(texts, labels, batcher, batch, shuffle, seed):
 
 
 @torch.no_grad()
-def predict(model, texts, batcher, batch, device, amp):
+def predict(model, texts, batcher, batch, device, amp_dtype):
     """P(scam) for each text, in order."""
     model.eval()
     out = []
     for enc in loader(texts, [0] * len(texts), batcher, batch * 2, False, 0):
         enc.pop("labels")
         enc = {k: v.to(device) for k, v in enc.items()}
-        with torch.autocast(device.type, dtype=torch.bfloat16, enabled=amp):
+        with torch.autocast(device.type, dtype=amp_dtype or torch.float32, enabled=amp_dtype is not None):
             logits = model(**enc).logits
         out.append(torch.softmax(logits.float(), dim=-1)[:, 1].cpu().numpy())
     return np.concatenate(out) if out else np.zeros(0)
@@ -157,14 +179,19 @@ def main():
     ap.add_argument("--smoke", action="store_true", help="1 epoch, 2,000 train rows, val/test/adv capped at 500: a setup check, not a model")
     ap.add_argument("--limit", type=int, help="at most N rows per split (Mac dry run)")
     ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
-    ap.add_argument("--data-dir", default="data/final")
-    ap.add_argument("--out", help="output directory (default models/finetune/<model>_<UTC time>[_smoke])")
+    ap.add_argument("--precision", choices=["auto", "bf16", "fp16", "fp32"], default="auto",
+                    help="auto: bf16 if the GPU's compute capability >= 8.0, else fp16 (with GradScaler); fp32 on CPU")
+    ap.add_argument("--data-dir", default="data/final", help="folder with split_map.csv, messages.csv, messages_adv_test.csv "
+                    "(+ messages_aug.csv); relative to the working directory, or absolute (e.g. /kaggle/input/<dataset>/final)")
+    ap.add_argument("--out", help="run directory, created if missing, must be empty; relative or absolute "
+                    "(e.g. /kaggle/working/models/muril_run1). Default models/finetune/<model>_<UTC time>[_smoke]")
     args = ap.parse_args()
 
     model_id = MODELS.get(args.model, args.model)
     short = args.model if args.model in MODELS else model_id.split("/")[-1]
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = Path(args.out or f"models/finetune/{short}_{stamp}{'_smoke' if args.smoke else ''}")
+    out = Path(args.out or f"models/finetune/{short}_{stamp}{'_smoke' if args.smoke else ''}").expanduser().resolve()
+    data_dir = Path(args.data_dir).expanduser().resolve()
     if out.exists() and any(out.iterdir()):
         raise SystemExit(f"{out} exists and is not empty; pick another --out")
     out.mkdir(parents=True, exist_ok=True)
@@ -177,12 +204,19 @@ def main():
     device = torch.device("cuda" if args.device == "cuda" or (args.device == "auto" and torch.cuda.is_available()) else "cpu")
     if device.type == "cuda" and not torch.cuda.is_available():
         raise SystemExit("--device cuda but torch.cuda.is_available() is False (check the torch build: it needs a CUDA wheel)")
-    amp = device.type == "cuda" and torch.cuda.is_bf16_supported()   # bf16 autocast, fp32 master weights; fp32 on CPU
+    precision = pick_precision(args.precision, device)
+    amp_dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": None}[precision]   # autocast dtype; weights stay fp32
+    scaler = torch.amp.GradScaler("cuda") if precision == "fp16" else None   # fp16 only: bf16 has fp32's exponent range, fp32 needs none
+    gpu = torch.cuda.get_device_name(device) if device.type == "cuda" else None
+    cap = ".".join(map(str, torch.cuda.get_device_capability(device))) if device.type == "cuda" else None
     epochs = 1 if args.smoke else args.epochs
     seed_everything(args.seed)
 
     # ---------------------------------------------------------------- data
-    df, aug, adv, data_files = load_data(Path(args.data_dir), args.aug)
+    df, aug, adv, data_files = load_data(data_dir, args.aug)
+    log(f"device {device}{f' ({gpu}, compute capability {cap})' if gpu else ''}; precision {precision} "
+        f"(requested {args.precision}){'; fp16 GradScaler on' if scaler else ''}")
+    log(f"data {data_dir} -> run {out}")
     log(f"split_map.csv SHA-256 ok (splits-v1); messages.csv {len(df)} rows match it; no {'/'.join(GROUP_KEYS)} straddles splits")
     tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))
     if aug is not None:
@@ -193,7 +227,7 @@ def main():
     tr, va, te = sample(tr, caps.get("train"), args.seed), sample(va, caps.get("val"), args.seed), sample(te, caps.get("test"), args.seed)
     adv = sample(adv, caps.get("adv"), args.seed)
     log(f"train {len(tr)} ({int(tr['label'].sum())} scam{', incl. aug' if aug is not None else ''}), val {len(va)}, "
-        f"test {len(te)}, adv_test {len(adv)}; device {device}, bf16 {amp}")
+        f"test {len(te)}, adv_test {len(adv)}")
 
     X = {k: [model_text(t) for t in d["text"]] for k, d in (("train", tr), ("val", va), ("test", te), ("adv", adv))}   # rule 11
 
@@ -226,18 +260,25 @@ def main():
         for i, enc in enumerate(train_dl, 1):
             labels = enc.pop("labels").to(device)
             enc = {k: v.to(device) for k, v in enc.items()}
-            with torch.autocast(device.type, dtype=torch.bfloat16, enabled=amp):
+            with torch.autocast(device.type, dtype=amp_dtype or torch.float32, enabled=amp_dtype is not None):
                 logits = model(**enc).logits
             loss = loss_fn(logits.float(), labels)
             opt.zero_grad(set_to_none=True)
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
+            if scaler is None:   # bf16 / fp32
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                opt.step()
+            else:                # fp16: scale the loss so small gradients don't underflow, unscale before clipping
+                scaler.scale(loss).backward()
+                scaler.unscale_(opt)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(opt)   # skipped if the gradients hold inf/NaN; the scale then shrinks
+                scaler.update()
             sched.step()
             total, n = total + loss.item() * len(labels), n + len(labels)
             if i % 200 == 0:
                 log(f"  epoch {ep} step {i}/{len(train_dl)} loss {total / n:.4f} ({time.time() - t0:.0f} s)")
-        s_va = predict(model, X["val"], batcher, args.batch, device, amp)
+        s_va = predict(model, X["val"], batcher, args.batch, device, amp_dtype)
         rec = {"epoch": ep, "train_loss": round(total / max(n, 1), 4), "val_f1_at_0.5": round(f1_score(y_va, s_va >= 0.5, zero_division=0), 4),
                "val_auroc": round(roc_auc_score(y_va, s_va), 4) if len(set(y_va)) == 2 else None, "seconds": round(time.time() - t0)}
         history.append(rec)
@@ -252,7 +293,7 @@ def main():
     # ---------------------------------------------------------------- best epoch -> model/, cut-offs on val, predictions
     shutil.copytree(out / f"epoch_{best['epoch']}", out / "model")
     model = AutoModelForSequenceClassification.from_pretrained(out / "model").to(device)
-    s = {k: predict(model, X[k], batcher, args.batch, device, amp) for k in ("val", "test", "adv")}
+    s = {k: predict(model, X[k], batcher, args.batch, device, amp_dtype) for k in ("val", "test", "adv")}
     t_susp, t_likely = thresholds(y_va, s["val"])
     log(f"best epoch {best['epoch']} (val F1@0.5 {best['val_f1_at_0.5']}); val-chosen cut-offs: suspicious >= {t_susp:.3f}, likely scam >= {t_likely:.3f}")
 
@@ -279,8 +320,10 @@ def main():
         "rows": {"train": len(tr), "train_scam": int(counts[1]), "val": len(va), "test": len(te), "adv_test": len(adv)},
         "class_weights": [round(float(w), 4) for w in weights],
         "train_truncated_share_by_source": trunc,
-        "device": torch.cuda.get_device_name(0) if device.type == "cuda" else platform.processor() or "cpu",
-        "dtype": "bf16 autocast, fp32 weights" if amp else "fp32",
+        "device": gpu or platform.processor() or "cpu", "gpu_name": gpu, "gpu_compute_capability": cap,
+        "precision": precision, "precision_requested": args.precision,
+        "dtype": {"bf16": "bf16 autocast, fp32 weights", "fp16": "fp16 autocast + GradScaler, fp32 weights", "fp32": "fp32"}[precision],
+        "fp16_final_loss_scale": float(scaler.get_scale()) if scaler else None,
         "versions": {"python": platform.python_version(), "torch": torch.__version__, "cuda": torch.version.cuda,
                      "transformers": transformers.__version__, "tokenizers": tokenizers.__version__,
                      "scikit-learn": sklearn.__version__, "pandas": pd.__version__, "numpy": np.__version__},
