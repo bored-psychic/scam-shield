@@ -83,10 +83,10 @@ After any high-effort step, a fresh session should review the diff for leakage a
 
 ### Next, in this order (from 2026-10-10)
 
-1. **Spot-check (blocker).** The native-speaker sheets `reports/spotcheck_hi.csv`, `spotcheck_kn.csv` are still with the user; they block the translation rebuild and `splits-v2`.
-2. **`splits-v2`** (rebuild with the translations, see the Hindi/Kannada item above; rule 10 comes first).
-3. **Kaggle smoke run** (`ARGS = "--model muril --smoke"`): check the loss falls and val AUROC > 0.5, and that fp16 + GradScaler and the P100/T4 GPU cell behave. Use the Kaggle dataset rebuilt from the `splits-v2` data (update `SPLIT_MAP_SHA256` in `finetune.py` together with CLAUDE.md first, or it refuses).
-4. **MuRIL at max-len 128 vs 256**, decided on val.
+1. **Kaggle smoke run now, on splits-v1** (`ARGS = "--model muril --smoke"`; data = the current `scam-shield-data`; `SPLIT_MAP_SHA256` unchanged). Pass = the log shows fp16 + GradScaler on and a T4 (compute capability 7.5); the loss falls, no NaN; val AUROC well above 0.5; `fp16_final_loss_scale` in `shield_meta.json` is in the thousands; the outputs zip downloads.
+2. **Spot-check (blocker).** The native-speaker sheets `reports/spotcheck_hi.csv`, `spotcheck_kn.csv` are still with the user; they block the translation rebuild and `splits-v2`.
+3. **`splits-v2` rebuild + tag.** Rebuild with the translations (see the Hindi/Kannada item above; rule 10 comes first). In the **same commit**, update `SPLIT_MAP_SHA256` in `finetune.py` and the hash in this file; re-upload `final/` to the Kaggle dataset.
+4. **Full MuRIL, max-len 128 vs 256, on Kaggle**, compared on val.
 5. **Evaluation on the Mac** (per-source, per-language, LOSO, adversarial, calibration).
 6. **Decide D1-D18** in `docs/ARCHITECTURE.md`.
 
