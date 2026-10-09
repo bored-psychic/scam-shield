@@ -6,8 +6,9 @@ import tldextract
 # src/pull_gambling.py). Used by build_urls.py (labels), gambling_lookup.py (lookup files) and gambling_report.py.
 # Everything here treats entries as strings: nothing is resolved or visited (CLAUDE.md rule 8).
 #
-# What the label means: "this registered domain is on both gambling lists" = a gambling *category*, not "scam". Licensed
-# operators (bet365, betfair, fanduel) are on the lists. The class exists so the Links engine and a later URL-head can tell
+# What the label means: a gambling *category*, not "scam": the registered domain is on both gambling lists, or the user decided
+# `gambling_spam` for it in reports/gambling_manual_review.csv (2026-10-10 policy: operators, result / tip sites and affiliate,
+# bonus and odds sites count; only B2B or unrelated sites are benign). Licensed operators (bet365, betfair, fanduel) are on the lists. The class exists so the Links engine and a later URL-head can tell
 # "gambling site" from "phishing site"; is_bad stays phishing / malware only (build_urls.py).
 
 RAW = "data/raw"
@@ -125,8 +126,10 @@ def india_hit(host):
     return "weak" if weak else None
 
 # ---- manual review sheet -----------------------------------------------------------------------------------------------------
-REVIEW_PATH = "reports/gambling_manual_review.csv"
-REVIEW_COLS = ["domain", "suggested_label", "reason", "india", "decision"]
+REVIEW_PATH = os.environ.get("GAMBLING_REVIEW_PATH", "reports/gambling_manual_review.csv")   # env override is for tests only
+# decision = the user's column (blank until marked). search_evidence / suggested_decision / confidence were added by a web-search pass
+# (search result titles and snippets only, no site opened); they are suggestions and never feed a label by themselves.
+REVIEW_COLS = ["domain", "suggested_label", "reason", "india", "decision", "search_evidence", "suggested_decision", "confidence"]
 INFO_SITES = {"chessandpoker.com", "casinobonustips.com", "casinovendordirectory.com", "betexplorer.com"}
 
 def _review_row(reg, listed_regs):
@@ -154,18 +157,31 @@ def write_review_sheet(domains, listed_regs, path=REVIEW_PATH):
         w = csv.writer(f)
         w.writerow(REVIEW_COLS)
         for d in sorted(domains):
-            w.writerow([*_review_row(d, listed_regs), ""])
+            w.writerow([*_review_row(d, listed_regs), "", "", "", ""])
 
 def append_review_rows(domains, listed_regs, path=REVIEW_PATH):
     """Add pending domains that are not yet in the sheet. Existing rows (and the user's decisions) are never touched."""
-    have = set(pd.read_csv(path, keep_default_na=False, dtype=str)["domain"])
-    todo = sorted(set(domains) - have)
+    cur = pd.read_csv(path, keep_default_na=False, dtype=str)
+    todo = sorted(set(domains) - set(cur["domain"]))
     if todo:
         with open(path, "a", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             for d in todo:
-                w.writerow([*_review_row(d, listed_regs), ""])
+                row = dict(zip(["domain", "suggested_label", "reason", "india"], _review_row(d, listed_regs)))
+                w.writerow([row.get(c, "") for c in cur.columns])   # follows the sheet's own column order
     return todo
+
+def read_review_suggestions(path=REVIEW_PATH):
+    """{domain: suggested_decision} from the search pass ('' if the sheet has no such column or the row was not searched)."""
+    if not os.path.exists(path):
+        return {}
+    r = pd.read_csv(path, keep_default_na=False, dtype=str)
+    return {row.domain: row.suggested_decision.strip().lower() for row in r.itertuples()} if "suggested_decision" in r else {}
+
+def decision_provenance(decision, suggested):
+    """A decision that equals the search suggestion is 'search_review' (accepted from the search pass); anything else the user
+    decided is 'manual_review'. A suggestion of 'unsure' can never be accepted, so it is always manual."""
+    return "search_review" if decision and decision == suggested and suggested in ("gambling_spam", "benign") else "manual_review"
 
 def read_review(path=REVIEW_PATH):
     """{domain: (decision, india)}; decision is '' until the user has marked the row."""

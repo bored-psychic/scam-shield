@@ -18,8 +18,8 @@ By split: test 48.1% of 2,555, train 46.6% of 20,708, val 45.4% of 2,586.
 
 | label | rows | has a subdomain | median host length | has a hyphen | has a digit |
 |---|---|---|---|---|---|
-| benign | 42,132 | 20.2% | 13 | 6.4% | 5.4% |
-| gambling_spam | 25,929 | 0.0% | 16 | 25.4% | 32.6% |
+| benign | 42,089 | 20.2% | 13 | 6.4% | 5.4% |
+| gambling_spam | 25,972 | 0.0% | 16 | 25.4% | 32.6% |
 | phishing | 19,757 | 51.5% | 19 | 22.8% | 24.8% |
 
 - **Subdomain depth / `n_labels`:** every gambling_spam row is a bare registered domain (like the Tranco benign rows), while a large share of phishing and ealvaradob-benign rows carry subdomains. A head trained on this would read depth and label count as class cues.

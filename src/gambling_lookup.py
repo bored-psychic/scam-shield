@@ -59,7 +59,7 @@ for d in sorted(both):
 review = gl.read_review()
 for d, (decision, india) in sorted(review.items()):
     if decision == "gambling_spam" and (india == "yes" or d.endswith(".in") or gl.india_hit(d)):
-        seed[d] = "manual review"
+        seed[d] = "review sheet"
 india_json = {
     "snapshot": info["ut1_date"],
     "rule": ("substring of the host, lower case. 'strong' = one strong token or two different India tokens; 'weak' = a single weak token "
@@ -68,8 +68,9 @@ india_json = {
     "strong_tokens": list(gl.INDIA_STRONG), "weak_tokens": list(gl.INDIA_WEAK),
     "exempt_suffixes": list(gl.INDIA_EXEMPT_SUFFIXES), "allow_domains": sorted(gl.INDIA_ALLOW),
     "seed_domains": [{"domain": d, "basis": b} for d, b in seed.items()],
-    "note": ("Seed = domains on BOTH lists that are .in or carry a strong token, plus domains marked gambling_spam in "
-             "reports/gambling_manual_review.csv that are India-flavoured. The 45 review domains are not in it until marked."),
+    "note": ("Seed = domains on BOTH lists that are .in or carry a strong token, plus domains decided gambling_spam in "
+             "reports/gambling_manual_review.csv that are India-flavoured (india = yes, .in or a token). Review domains with a blank "
+             "decision are not in it."),
 }
 json.dump(india_json, open("data/final/gambling_india.json", "w"), indent=1)
 
@@ -100,8 +101,8 @@ md = [
     f"## `data/final/gambling_platform_hosts.tsv`\n\n- {len(ph):,} host-level entries on hosting platforms ({ph.platform_suffix.nunique()} suffixes, e.g. "
     f"{', '.join(ph.platform_suffix.value_counts().head(6).index)}), kept out of the registered-domain set above.\n",
     "## `data/final/gambling_india.json`\n",
-    f"- seed domains: {len(seed)} ({sum(b != 'manual review' for b in seed.values())} from the lists, "
-    f"{sum(b == 'manual review' for b in seed.values())} from the manual review; the 16 India-flavoured review domains join once marked `gambling_spam`)",
+    f"- seed domains: {len(seed)} ({sum(b != 'review sheet' for b in seed.values())} from the lists, "
+    f"{sum(b == 'review sheet' for b in seed.values())} from the review sheet decisions, provenance search_review or manual_review)",
     f"- rule: strong tokens {list(gl.INDIA_STRONG)}, weak tokens {list(gl.INDIA_WEAK)} (never on their own), exempt suffixes {list(gl.INDIA_EXEMPT_SUFFIXES)}, "
     f"allow-list {sorted(gl.INDIA_ALLOW)} (the three false positives found in the Tranco top 100k)",
     f"- Tranco top 100k: **{len(strong_hits)} strong matches**, {len(weak_hits)} weak-only. Weak-only domains are about two thirds gambling by eye "

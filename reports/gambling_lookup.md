@@ -14,10 +14,10 @@ Built by `src/gambling_lookup.py` from the 2026-10-09 snapshots (UT1 sha256 `9f2
 
 ## `data/final/gambling_india.json`
 
-- seed domains: 101 (101 from the lists, 0 from the manual review; the 16 India-flavoured review domains join once marked `gambling_spam`)
+- seed domains: 121 (101 from the lists, 20 from the review sheet decisions, provenance search_review or manual_review)
 - rule: strong tokens ['satta', 'sattaking', 'dpboss'], weak tokens ['matka', 'kalyan'] (never on their own), exempt suffixes ['gov.in', 'nic.in', 'edu.in', 'ac.in', 'res.in'], allow-list ['jansatta.com', 'loksatta.com', 'sattacademy.com'] (the three false positives found in the Tranco top 100k)
 - Tranco top 100k: **78 strong matches**, 21 weak-only. Weak-only domains are about two thirds gambling by eye (matka420.in, matka420.live, matkafasi.com, kalyanjewellers.net, aurinkomatkat.fi, matkaji.net, matkavip.com, amarmatka.co, appamatka.in, bossmatka.me, chartkalyan.co.in, kalyanjewellers.company ...), which is why they never match alone.
-- urls.csv reg_domains hit by the rule (strong / weak) by label and provenance: {('strong', 'benign', 'pending_review'): 17, ('strong', 'gambling_spam', 'list_confirmed'): 1, ('weak', 'benign', 'pending_review'): 1, ('weak', 'phishing', 'source_label'): 2}
+- urls.csv reg_domains hit by the rule (strong / weak) by label and provenance: {('strong', 'gambling_spam', 'list_confirmed'): 1, ('strong', 'gambling_spam', 'search_review'): 17, ('weak', 'gambling_spam', 'search_review'): 1, ('weak', 'phishing', 'source_label'): 2}
 - Recall caveat: the rule only sees names with these tokens; it measures nothing about Indian gambling sites with other names (cricket / IPL / colour-prediction apps ...).
 
 ## Came back through the token exception (19)
