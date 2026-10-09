@@ -4,7 +4,7 @@
 # Keys under "expect" (all optional):
 #   cred_request  bool      the OTP / PIN / CVV request rule fires (True) or must stay quiet (False)
 #   tags          list      tactic tags that must be present        no_tags   list   tags that must be absent
-#   min_level     0|1|2     verdict at least Safe / Suspicious / Likely scam (needs both models; skipped if they can't load)
+#   min_level     0|1|2     verdict at least No warning signs found / Suspicious / Likely scam (needs both models; skipped if they can't load)
 #   urls          list      extract_urls() output, exactly         link_kinds  list   kind of each link: model / shortener / free
 #   prep_has      list      substrings that must appear in textprep.model_text(text)    prep_lacks   list   ... must not appear
 # Model-dependent expectations are limited to what a rule guarantees (min_level after a hard rule); no entry asserts a model score.

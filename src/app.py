@@ -24,7 +24,7 @@ from textprep import URL_TOKEN, MAX_CHARS, extract_urls, model_text, replace_url
 # Tactic tags are hand-written regexes: they explain the message, they do not feed the score.
 ROOT = Path(__file__).resolve().parent.parent
 TEXT_MODEL_PATH, URL_MODEL_PATH = ROOT / "models" / "text_baseline.joblib", ROOT / "models" / "url_head.joblib"
-LEVELS = ["Safe", "Suspicious", "Likely scam"]
+LEVELS = ["No warning signs found", "Suspicious", "Likely scam"]   # level 0 is never called "Safe": it only means nothing strong was found
 GRAM_COLS = ["n-gram (_ = word edge)", "pushes toward", "contribution"]
 URL_COLS = ["url", "host", "score", "verdict"]
 FEAT_COLS = ["feature", "value", "typical benign", "effect on score", "what it measures"]
@@ -402,8 +402,8 @@ def banner_html(r, text_model, url_model):
         parts.append("raised to Suspicious by the OTP / PIN / CVV rule")
     sub = "; ".join(parts) + ("; both heads flagged it" if both else "")
     unjudged = any(l["level"] is None for l in r["links"])
-    caveat = ("No strong scam signals found" + (" in what could be checked" if unjudged else "") +
-              ". That is not a guarantee, so verify through the official app or number.") if r["level"] == 0 else ""
+    caveat = ("This only means no strong warning signs were found" + (" in what could be checked" if unjudged else "") +
+              ". It is not a guarantee, so verify through the official app or number.") if r["level"] == 0 else ""
     return (f"<div style='background:{COLORS[r['level']]};color:#fff;border-radius:10px;padding:14px 18px'>"
             f"<div style='font-size:1.6em;font-weight:700'>{LEVELS[r['level']]}</div>"
             f"<div style='font-size:.9em;opacity:.95'>{sub}</div>"
@@ -492,7 +492,7 @@ def build_ui(text_model, url_model):
         gr.Examples(EXAMPLES, inp, label="Examples (made-up; none is a real message)")
         gr.Markdown("**Limits.** Baseline models: scores are not calibrated probabilities and the cut-offs were picked on validation data. "
                     "The text model was trained mostly on English. Combining the two heads is a simple placeholder rule. "
-                    "A 'Safe' result only means no strong signal was found. See `reports/` for measured performance.")
+                    "A 'No warning signs found' result only means no strong signal was found. See `reports/` for measured performance.")
         outs = [banner, flag, tags, grams, urls, feats, note]
         go.click(lambda t: run(t, text_model, url_model), inp, outs)
     return demo
