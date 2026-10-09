@@ -254,7 +254,7 @@ So the link level comes from a ladder (the numbers are for you to set, D14):
 ## 8. Roadmap (demo at the end of each phase)
 
 Running in parallel the whole time:
-- **Laptop fine-tuning** (CLAUDE.md tasks 2–3). Do a MuRIL *smoke run* on `splits-v1`. The **shipped** MuRIL is trained after `splits-v2` (rule 10), which waits on your spot-check.
+- **Kaggle fine-tuning** (CLAUDE.md step 7). Do a MuRIL *smoke run* on `splits-v1`. The **shipped** MuRIL is trained after `splits-v2` (rule 10), which waits on your spot-check.
 - **Real-message collection**, starting week 1 (D7).
 - **Daily** `refresh_feeds`.
 

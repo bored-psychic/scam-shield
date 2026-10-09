@@ -5,3 +5,4 @@ __pycache__/
 models/
 .venv-translate/
 .venv-finetune/
+.DS_Store
