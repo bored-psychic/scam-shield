@@ -9,7 +9,7 @@ Hybrid ML detector for India-specific scams: a text head (fine-tuned multilingua
 ## Machines
 
 - **Mac (M2 Air, 16GB):** source of truth. All code edits, data pipeline, baselines, URL model, sanity checks, Ollama work (`qwen2.5:7b`, `OLLAMA_CONTEXT_LENGTH=8192`), calibration, explanations, evaluation, frontend.
-- **Kaggle (T4 x2, free tier):** the main fine-tuning GPU (MuRIL, mDeBERTa-v3-base). `notebooks/kaggle_finetune.ipynb` clones the private repo with the `GH_TOKEN` Kaggle secret (read-only, never printed or left in `.git/config`) and runs `src/finetune.py`. Data comes from the **private** Kaggle dataset `scam-shield-data` (`final/`: `split_map.csv`, `messages.csv`, `messages_adv_test.csv`, + `messages_aug.csv` for `--aug`). T4 is compute capability 7.5, so `--precision auto` picks fp16 with `torch.amp.GradScaler` (bf16 needs >= 8.0). Never edit code there; download the zipped run (no `epoch_*`) and copy it back to the Mac, where all evaluation runs.
+- **Kaggle (T4 x2, free tier):** the main fine-tuning GPU (MuRIL, mDeBERTa-v3-base). `notebooks/kaggle_finetune.ipynb` clones the private repo with the `GH_TOKEN` Kaggle secret (read-only, never printed or left in `.git/config`) and runs `src/finetune.py`. Data comes from the **private** Kaggle dataset `scam-shield-data`, mounted at `/kaggle/input/datasets/<user>/<slug>/` (the notebook finds the folder by globbing `split_map.csv`; `final/`: `split_map.csv`, `messages.csv`, `messages_adv_test.csv`, + `messages_aug.csv` for `--aug`). T4 is compute capability 7.5, so `--precision auto` picks fp16 with `torch.amp.GradScaler` (bf16 needs >= 8.0). Never edit code there; download the zipped run (no `epoch_*`) and copy it back to the Mac, where all evaluation runs.
 - **2nd laptop (RTX 5050, 8GB VRAM, Windows):** set up and usable by hand for fine-tuning (`--precision auto` picks bf16), but no longer the main route; the SSH route is parked. Only `git pull` on it, never edit there. Same outputs as Kaggle, copied back to the Mac.
 
 ## Hard rules
@@ -83,7 +83,7 @@ After any high-effort step, a fresh session should review the diff for leakage a
 
 ### Next, in this order (from 2026-10-10)
 
-1. **Kaggle smoke run now, on splits-v1** (`ARGS = "--model muril --smoke"`; data = the current `scam-shield-data`; `SPLIT_MAP_SHA256` unchanged). Pass = the log shows fp16 + GradScaler on and a T4 (compute capability 7.5); the loss falls, no NaN; val AUROC well above 0.5; `fp16_final_loss_scale` in `shield_meta.json` is in the thousands; the outputs zip downloads.
+1. ~~**Kaggle smoke run, on splits-v1.**~~ Done 2026-10-09: T4 (compute capability 7.5), fp16 + GradScaler, val AUROC 0.921, F1 0.727, 25 s per epoch. Kaggle had transformers 5.16.1 / torch 2.11, not the pins (transformers 5.19.0 / torch 2.14.1), so the smoke run used different versions from `requirements-finetune.txt`; the versions are recorded in `shield_meta.json`. Decide before step 4 whether the Kaggle runs should install the pinned versions.
 2. **Spot-check (blocker).** The native-speaker sheets `reports/spotcheck_hi.csv`, `spotcheck_kn.csv` are still with the user; they block the translation rebuild and `splits-v2`.
 3. **`splits-v2` rebuild + tag.** Rebuild with the translations (see the Hindi/Kannada item above; rule 10 comes first). In the **same commit**, update `SPLIT_MAP_SHA256` in `finetune.py` and the hash in this file; re-upload `final/` to the Kaggle dataset.
 4. **Full MuRIL, max-len 128 vs 256, on Kaggle**, compared on val.

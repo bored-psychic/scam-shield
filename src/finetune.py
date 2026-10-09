@@ -304,7 +304,7 @@ def main():
                   "label": adv["label"].astype(int).to_numpy(), "score": s["adv"]}).to_csv(out / "predictions_adv_test.csv", index=False, encoding="utf-8")
 
     commit, dirty = git_state()
-    import transformers, tokenizers, sklearn
+    import transformers, tokenizers, sklearn, tldextract
     meta = {
         "model_name": model_id, "short_name": short,
         "textprep": {"url_token": URL_TOKEN, "max_chars": MAX_CHARS},   # the same key app.py checks on the baseline bundle
@@ -326,7 +326,7 @@ def main():
         "fp16_final_loss_scale": float(scaler.get_scale()) if scaler else None,
         "versions": {"python": platform.python_version(), "torch": torch.__version__, "cuda": torch.version.cuda,
                      "transformers": transformers.__version__, "tokenizers": tokenizers.__version__,
-                     "scikit-learn": sklearn.__version__, "pandas": pd.__version__, "numpy": np.__version__},
+                     "tldextract": tldextract.__version__, "scikit-learn": sklearn.__version__, "pandas": pd.__version__, "numpy": np.__version__},
         "checkpoint_mb": {p.name: dir_mb(p) for p in sorted(out.glob("epoch_*"))},
         "created_utc": stamp, "command": " ".join(sys.argv),
     }
