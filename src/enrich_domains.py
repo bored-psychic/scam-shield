@@ -9,8 +9,9 @@ limit = int(sys.argv[1]) if len(sys.argv) > 1 else 500
 
 os.makedirs(os.path.dirname(CACHE), exist_ok=True)
 cache = json.load(open(CACHE)) if os.path.exists(CACHE) else {}
-urls = pd.read_csv("data/final/urls.csv", usecols=["reg_domain", "has_ip"])
-todo = [d for d in urls.loc[~urls["has_ip"], "reg_domain"].unique() if d not in cache][:limit]
+urls = pd.read_csv("data/final/urls.csv", usecols=["reg_domain", "has_ip", "label"])
+urls = urls[urls["label"] != "gambling_spam"]   # 26k list domains, no model uses their age; not worth the RDAP traffic
+todo =[d for d in urls.loc[~urls["has_ip"], "reg_domain"].unique() if d not in cache][:limit]
 print(f"{len(cache)} cached, querying {len(todo)}")
 
 for i, dom in enumerate(todo):

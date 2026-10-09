@@ -37,8 +37,11 @@ P = pd.DataFrame([path_features(u) for u in df["url_noscheme"]], index=df.index)
 log(f"features: {time.time() - t0:.0f}s")
 
 # ---- populations ----
-df["task"] = np.select([df["source"].isin(["ealvaradob", "tranco"]) & ~df["domain_conflict"], df["source"] == "openphish", df["source"] == "urlhaus"],
-                       ["phishing_vs_benign", "openphish_heldout", "urlhaus_heldout"], "excluded_domain_conflict")
+# gambling_spam rows and the benign rows still waiting for the manual review (reports/gambling_manual_review.csv) are kept out of
+# this binary phishing head until it is deliberately retrained on them (BUGS.md: subdomain-depth / TLD shortcuts of the new class)
+df["task"] = np.select([df["label"] == "gambling_spam", df["provenance"] == "pending_review",
+                        df["source"].isin(["ealvaradob", "tranco"]) & ~df["domain_conflict"], df["source"] == "openphish", df["source"] == "urlhaus"],
+                       ["excluded_gambling_spam", "excluded_pending_review", "phishing_vs_benign", "openphish_heldout", "urlhaus_heldout"], "excluded_domain_conflict")
 base = df["task"] == "phishing_vs_benign"
 sp = df["split"].astype(str)
 y = (df["label"] == "phishing").astype(int)   # urlhaus (malware) is only ever scored, never trained on
@@ -141,7 +144,8 @@ out = ["# URL head\n",
        f"fit on the train split of the phishing-vs-benign population only. Thresholds are chosen on val (max F1) and applied unchanged to test and to "
        f"the held-out feeds. Domain-grouped splits from `urls.csv`.\n",
        "## Row accounting\n\n" + f"{n_total} rows in `urls.csv`. `excluded_domain_conflict` rows (a registered domain with both benign and bad rows, from "
-       "ealvaradob / tranco) are dropped from training and evaluation; `openphish_heldout` and `urlhaus_heldout` are scored only.\n\n" + md(acct),
+       "ealvaradob / tranco) are dropped from training and evaluation, and so are `excluded_gambling_spam` (the gambling category, see "
+       "`reports/urls_gambling.md`) and `excluded_pending_review`; `openphish_heldout` and `urlhaus_heldout` are scored only.\n\n" + md(acct),
        "\n## Results\n\n`ealvaradob-only AUROC` is the fair within-source number (both labels from the same feed). "
        "`tranco-benign vs ealvaradob-phish AUROC` mixes sources (popular bare domains against the phishing feed): a high value there with a low "
        "ealvaradob-only value would mean the model learned the source. OpenPhish and URLhaus have no benign rows, so only recall is shown; read it "

@@ -105,6 +105,51 @@
   id: https://www.unb.ca/cic/datasets/url-2016.html
   notes: drop extracted CSVs in data/external/urls/iscx/
 
+- name: ut1_gambling
+  module: urls
+  access: http
+  id: https://dsi.ut-capitole.fr/blacklists/download/gambling.tar.gz
+  file: gambling/domains
+  licence: CC BY-SA 4.0
+  expected_rows: 47818
+  snapshot: data/raw/ut1_gambling_2026-10-09.tar.gz
+  sha256: 9f21a3a77811d8c498052e4c93f50ce25ce9a12bec739c2e31882393e70074a4
+  notes: >-
+    Universite Toulouse Capitole blacklist (F. Prigent), category gambling; domains only, a leading dot means the domain and
+    its subdomains. Licence resolved 2026-10-09 from https://dsi.ut-capitole.fr/blacklists/index_en.php: the rendered licence
+    block (badge and text link, rel="license") points to CC BY-SA 4.0; the same page also carries an HTML-commented-out RDF
+    block that says BY-NC-SA 4.0, which is not rendered and treated as stale metadata. Conservative use: attribution kept here,
+    derived files (gambling_spam rows, data/final/gambling_*) stay inside this private, non-commercial project and are not
+    redistributed. A web-categorisation list, not a scam list (its own page says so).
+  verified: 2026-10-09
+
+- name: blocklistproject_gambling
+  module: urls
+  access: http
+  id: https://raw.githubusercontent.com/blocklistproject/Lists/master/gambling.txt
+  licence: Unlicense (public domain; repository LICENSE)
+  expected_rows: 342623
+  snapshot: data/raw/blocklistproject_gambling_2026-10-09.txt
+  sha256: d583202e86eb80f8cb6311e65d10f36e472d921d7cac5ff18e98d7dd0b9cf439
+  notes: >-
+    Hosts-format file ("0.0.0.0 domain"), header dated 2026-07-20 ("updated by upstream monitoring"); auto-aggregated, so 92% of
+    it is not in UT1. Includes subdomains on hosting platforms (pages.dev, cloudfront.net, com.de ...), kept host-level only.
+  verified: 2026-10-09
+
+- name: tranco_top100k
+  module: urls
+  access: http
+  id: https://tranco-list.eu/top-1m.csv.zip
+  licence: see https://tranco-list.eu (terms not re-checked on 2026-10-09; the project already uses the same list for urls.csv)
+  expected_rows: 100000
+  snapshot: data/raw/tranco_top100k_2026-10-09.txt
+  sha256: 86f2e5c01bbc457978dbfae8c23b5e694008c53ddeef90909867c57f91918e61
+  notes: >-
+    First 100,000 rows (rank,domain) of the list downloaded 2026-10-09, saved by src/pull_gambling.py as .txt (build_urls.py
+    globs data/raw/*.csv). Used only for the gambling lookup rule and the list-overlap counts; the benign Tranco rows in urls.csv
+    still come from the 2026-10-05 top-20k file (98.5% overlap).
+  verified: 2026-10-09
+
 - name: cicmaldroid2020
   module: apps
   access: manual
