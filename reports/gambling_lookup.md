@@ -4,7 +4,8 @@ Built by `src/gambling_lookup.py` from the 2026-10-09 snapshots (UT1 sha256 `9f2
 
 ## `data/final/gambling_domains.tsv`
 
-- 362,444 registered domains: both lists 25,977, UT1 only 21,474, Blocklist Project only 314,993
+- 362,487 registered domains: both lists 25,977, UT1 only 21,474, Blocklist Project only 314,993, review-sheet decisions 43 (`search_review` 36, `manual_review` 7)
+- the review-sheet domains are decided `gambling_spam` and are added whatever their Tranco rank (14 are in the top 10,000, 3 are outside the top 100k); tag `search_review` = the decision equals the search suggestion, `manual_review` = it overrides it.
 - **Tranco rule:** a Blocklist-Project-only hit in the Tranco top 10,000 is ignored (a lone hit from the auto-aggregated list on a popular site) unless the registered domain contains a gambling token (`bet|casino|satta|sattaking|dpboss|poker|slot|rummy`). 85 domains fall under the rule: **19 come back** (token in the name), **66 stay ignored**. Both groups are listed at the end.
 - **still in, in the Tranco top 10,000:** 74 on both lists, 11 on UT1 only and 19 Blocklist-Project-only (token exception); the `tranco_rank` column lets the engine tighten this without a rebuild. Highest ranked, both lists: b-cdn.net, wordpress.com, onelink.me, okta.com, free.fr, mundodeportivo.com, nesine.com, betway.co.za, forebet.com, casinoplus.com.ph, caliente.mx, flashscore.fr, betano.pe, betpawa.ug. Several are general platforms (wordpress.com, okta.com, b-cdn.net ...), so a list hit on a top-ranked domain is weak evidence; that is the Links ladder's rule to set.
 

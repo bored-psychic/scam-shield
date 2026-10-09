@@ -4,11 +4,15 @@ import gambling_lists as gl
 
 # Lookup files for the Links engine blocklist, built from the same snapshots as the gambling_spam class (gambling_lists.py).
 # Strings only: nothing is resolved or visited (CLAUDE.md rule 8). Run from the project root: python src/gambling_lookup.py
-#   data/final/gambling_domains.tsv         domain, lists (both | ut1 | blp), tranco_rank (top 100k only, else empty)
-#                                           = union of the two lists as registered domains, EXCEPT Blocklist-Project-only domains
-#                                           in the Tranco top 10k (a lone auto-aggregated hit on a popular site is ignored) UNLESS the
-#                                           registered domain contains a gambling token (GAMBLING_TOKENS); both groups are listed in
-#                                           reports/gambling_lookup.md
+#   data/final/gambling_domains.tsv         domain, lists (both | ut1 | blp | search_review | manual_review), tranco_rank (top 100k
+#                                           only, else empty) = union of the two lists as registered domains, EXCEPT Blocklist-Project-
+#                                           only domains in the Tranco top 10k (a lone auto-aggregated hit on a popular site is ignored)
+#                                           UNLESS the registered domain contains a gambling token (GAMBLING_TOKENS); both groups are
+#                                           listed in reports/gambling_lookup.md. PLUS every domain decided gambling_spam in
+#                                           reports/gambling_manual_review.csv, tagged with the same provenance build_urls.py gives it
+#                                           (search_review = decision equals the search suggestion, else manual_review), whatever its
+#                                           Tranco rank: a decision is the user's, the Tranco rule only filters lone list hits.
+#                                           The `lists` column holds the tag of whatever supports the entry.
 #   data/final/gambling_platform_hosts.tsv  host-level entries on hosting platforms (pages.dev, cloudfront.net, com.de ...): a
 #                                           registered-domain entry would cover every tenant
 #   data/final/gambling_india.json          India seed list + token rule (UT1 and the Blocklist Project barely cover Satta / Matka);
@@ -39,7 +43,20 @@ for d in sorted(ut | bl):
             continue
         returned.append((d, r))
     rows.append((d, lists, "" if r is None else int(r)))
-look = pd.DataFrame(rows, columns=["domain", "lists", "tranco_rank"])
+# review-sheet decisions (reports/gambling_manual_review.csv); a domain already in through a list keeps its list tag
+review, sugg = gl.read_review(), gl.read_review_suggestions()
+in_lookup = {d for d, _, _ in rows}
+rev_rows, rev_already = [], []
+for d, (decision, india) in sorted(review.items()):
+    if decision != "gambling_spam":
+        continue
+    if d in in_lookup:
+        rev_already.append(d)
+        continue
+    r = rank.get(d)
+    rev_rows.append((d, gl.decision_provenance(decision, sugg.get(d, "")), "" if r is None else int(r)))
+look = pd.DataFrame(rows + rev_rows, columns=["domain", "lists", "tranco_rank"]).sort_values("domain", kind="stable")
+assert look["domain"].is_unique
 os.makedirs("data/final", exist_ok=True)
 look.to_csv("data/final/gambling_domains.tsv", sep="\t", index=False)
 
@@ -56,7 +73,6 @@ for d in sorted(both):
         seed[d] = "both lists, .in registered domain"
     elif gl.india_hit(d) == "strong":
         seed[d] = "both lists, India token"
-review = gl.read_review()
 for d, (decision, india) in sorted(review.items()):
     if decision == "gambling_spam" and (india == "yes" or d.endswith(".in") or gl.india_hit(d)):
         seed[d] = "review sheet"
@@ -91,7 +107,11 @@ md = [
     f"Built by `src/gambling_lookup.py` from the {info['ut1_date']} snapshots (UT1 sha256 `{info['ut1_sha256'][:12]}`, Blocklist Project `{info['blp_sha256'][:12]}`). "
     "Gambling *category*, not a scam verdict. Strings only.\n",
     "## `data/final/gambling_domains.tsv`\n",
-    f"- {len(look):,} registered domains: both lists {sizes.get('both', 0):,}, UT1 only {sizes.get('ut1', 0):,}, Blocklist Project only {sizes.get('blp', 0):,}",
+    f"- {len(look):,} registered domains: both lists {sizes.get('both', 0):,}, UT1 only {sizes.get('ut1', 0):,}, Blocklist Project only {sizes.get('blp', 0):,}, "
+    f"review-sheet decisions {len(rev_rows)} (`search_review` {sizes.get('search_review', 0)}, `manual_review` {sizes.get('manual_review', 0)})"
+    + (f"; {len(rev_already)} decided domains were already in through a list" if rev_already else ""),
+    f"- the review-sheet domains are decided `gambling_spam` and are added whatever their Tranco rank ({sum(1 for _, _, r in rev_rows if r != '' and r <= TRANCO_IGNORE_BLP_ONLY)} are in the top "
+    f"{TRANCO_IGNORE_BLP_ONLY:,}, {sum(1 for _, _, r in rev_rows if r == '')} are outside the top 100k); tag `search_review` = the decision equals the search suggestion, `manual_review` = it overrides it.",
     f"- **Tranco rule:** a Blocklist-Project-only hit in the Tranco top {TRANCO_IGNORE_BLP_ONLY:,} is ignored (a lone hit from the auto-aggregated list on a "
     f"popular site) unless the registered domain contains a gambling token (`{GAMBLING_TOKENS.pattern}`). {len(omitted) + len(returned)} domains fall under the rule: "
     f"**{len(returned)} come back** (token in the name), **{len(omitted)} stay ignored**. Both groups are listed at the end.",
