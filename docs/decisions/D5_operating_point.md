@@ -229,9 +229,9 @@ Step 1 of §4 turns every [estimate] in §1.3 into an exact count.
 
 ---
 
-## Decisions (user, 2026-10-10)
+## Decisions
 
-- **D5:** as amended: two targets, template-weighted, final verdict, recall floor 0.90, ship gate 10%, Can't-judge <= 10%, language cap.
-- **D5b:** promo_gray separated; relabel in splits-v2.
-- **D5c:** feedback stores nothing by default; opt-in study mode saves masked text locally.
-- **D7:** target 400+ English templates, ~150 per language.
+- **D5:** two targets (Likely scam <= 1%, Suspicious+ <= 5% of hard-legit), counted per independent template, on the final verdict; recall floor 0.90 for Suspicious; ship gate 10%; Can't-judge <= 10% on hard-legit; language cap (text model alone max Suspicious in hi/kn/Hinglish until >= 150 real-dev templates in that language). Targets are design targets until real-dev exists.
+- **D5b:** brand promos separated as promo_gray (not scam, not benign); relabel in splits-v2.
+- **D5c:** dispute button stores nothing by default; opt-in study/volunteer mode saves masked text + verdict + user label locally.
+- **D7 target:** 400+ independent English hard-legit templates, ~150 per language.
