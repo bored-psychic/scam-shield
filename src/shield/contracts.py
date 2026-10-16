@@ -1,10 +1,10 @@
 from enum import Enum
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # The one answer shape every module returns (docs/ARCHITECTURE.md §2 "Contracts", docs/decisions/README.md D4). The web app, the JSON API,
 # tests and future scorers read a Report and nothing else. Bump SCHEMA_VERSION on any change a consumer would notice.
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"   # v2 (2026-10-17): Evidence.span and Evidence.tag, for the in-message underlines and the radar labels
 
 
 class Level(str, Enum):
@@ -39,8 +39,20 @@ class Evidence(_Strict):
     title: str = Field(min_length=1, max_length=120)   # one plain sentence
     detail: str = ""
     quote: str | None = None     # an exact piece of the user's input, if the evidence points at one
+    # Where the quote sits in the ORIGINAL input text: [start, end), counted in Unicode code points (Python str indexing, so text[start:end] == quote).
+    # JavaScript strings count UTF-16 units, so an emoji before the quote shifts every offset: the frontend must index with Array.from(text), never text.slice().
+    span: tuple[int, int] | None = None
+    tag: str = Field(min_length=1, max_length=24)   # short radar label, e.g. "OTP request"
     source: str | None = None    # where a fact came from, e.g. "OpenPhish feed, 2026-10-09"
     sent: str | None = None      # what a live check sent out, e.g. "domain xyz.in -> rdap.nixiregistry.in"; None = nothing left the machine
+
+    @model_validator(mode="after")
+    def _span_goes_with_quote(self):
+        if (self.span is None) != (self.quote is None):
+            raise ValueError("span and quote are either both set or both None")
+        if self.span is not None and not self.span[0] < self.span[1]:
+            raise ValueError("span must have start < end")
+        return self
 
 
 class Meta(_Strict):
@@ -54,7 +66,7 @@ class Meta(_Strict):
 
 
 class Report(_Strict):
-    schema_version: Literal["1"] = "1"
+    schema_version: Literal["2"] = "2"
     module: Module
     level: Level
     score: float | None = None
