@@ -1,0 +1,71 @@
+import re
+from shield.contracts import Evidence, Effect, Level, Meta, Report
+
+# Adapter: the loose dict that router.analyse() returns -> the typed Report (shield.contracts). Pure function, no I/O; analyse() is untouched.
+_LEVEL = {0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM}
+_BY_LEVEL = {2: Effect.DANGER, 1: Effect.CAUTION, 0: Effect.NEUTRAL}
+_TAG_TITLES = {"authority": "Claims to be from a bank, government body or company", "urgency": "Pushes you to act quickly",
+               "payment": "Asks for money or payment details", "isolation": "Tells you to keep this secret or delete it"}
+_TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
+                0: "The wording does not resemble known scam messages"}
+_URL_TITLES = {2: "The link looks like known phishing links", 1: "The link looks somewhat like phishing links",
+               0: "The link does not look like known phishing links"}
+
+
+def _level(n):
+    return Level.CANT_JUDGE if n is None else _LEVEL[n]
+
+def _in_text(text, phrase):
+    """phrase as it appears in text, or None. cred_requests() and tactic_tags() return their matches lower-cased (and tactic_tags runs on
+    PII-masked text), so look for the phrase ignoring case and quote the user's own spelling; a cue that is not in the text (a mask token)
+    gives None."""
+    if not phrase:
+        return None
+    m = re.search(re.escape(phrase), text, re.I)
+    return m.group(0) if m else None
+
+def _link_report(l, text):
+    kind, level = l["kind"], l["level"]
+    def ev(id_, effect, title):
+        return Evidence(id=id_, module="links", effect=effect, title=title, detail=l["note"] or "", quote=l["url"] if l["url"] in text else None)
+    if kind == "shortener":
+        e = ev("link.shortener", Effect.UNKNOWN, "Shortened link: its real destination is hidden")
+    elif kind == "free" and level is None:
+        e = ev("link.free_hosting", Effect.UNKNOWN, "Free hosting: the domain says nothing about this site")
+    elif kind == "free" and level == 1:
+        e = ev("link.free_hosting_keyword", Effect.CAUTION, "Free-hosted site with a brand or scam word in its name")
+    elif kind == "model" and level is not None:
+        e = ev("model.url", _BY_LEVEL[level], _URL_TITLES[level])
+    elif kind == "model":   # a link with no parseable host: the URL model dropped it
+        e = ev("link.unscored", Effect.UNKNOWN, "The link could not be read, so it was not checked")
+    else:
+        raise ValueError(f"unexpected link in analyse() output: kind={kind!r}, level={level!r}")
+    return Report(module="links", level=_level(level), score=l["score"], evidence=[e])
+
+def to_report(text: str, r: dict) -> Report:
+    level = _level(r["level"])
+    flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
+    ev = []
+    for hit in r["cred_request"]:
+        ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title="Asks you to share an OTP, PIN or CVV",
+                           quote=_in_text(text, hit)))
+    for tag, cues in r["tags"].items():
+        if cues:
+            ev.append(Evidence(id=f"tactic.{tag}", module="messages", effect=Effect.CAUTION if flagged else Effect.NEUTRAL,
+                               title=_TAG_TITLES.get(tag, f"Uses a {tag} tactic"), detail="Matched: " + ", ".join(cues),
+                               quote=next((q for c in cues if (q := _in_text(text, c))), None)))
+    if r["text_score"] is not None:
+        lo, hi = r["text_thresholds"]
+        ev.append(Evidence(id="model.text", module="messages", effect=_BY_LEVEL[r["text_level"]], title=_TEXT_TITLES[r["text_level"]],
+                           detail=f"score {r['text_score']:.3f} (Suspicious from {lo:.3f}, Likely scam from {hi:.3f})"))
+    children = [_link_report(l, text) for l in r["links"]]
+
+    # reasons: only warnings, rule hits first, then the links, then the tactic tags, then the text model
+    child_ev = [e for c in children for e in c.evidence]
+    ordered = ([e for e in ev if e.id.startswith("rule.")] + child_ev + [e for e in ev if e.id.startswith("tactic.")]
+               + [e for e in ev if e.id == "model.text"])
+    reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
+    if level == Level.CANT_JUDGE and not reasons:
+        reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
+    meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False))
+    return Report(module="messages", level=level, score=r["text_score"], evidence=ev, reasons=reasons, children=children, meta=meta)
