@@ -140,7 +140,8 @@ README.md
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install requests pandas tldextract pyyaml pyarrow huggingface_hub beautifulsoup4 scikit-learn datasketch
+pip install -r requirements.txt
+pip install -e .
 export URLHAUS_KEY=your_key_here   # never commit keys
 python src/pull_urls.py
 python src/enrich_domains.py 500   # optional, RDAP lookups, cached; repeat to cover more domains

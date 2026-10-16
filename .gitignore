@@ -6,3 +6,5 @@ models/
 .venv-translate/
 .venv-finetune/
 .DS_Store
+*.egg-info/
+build/
