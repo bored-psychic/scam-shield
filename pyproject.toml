@@ -11,6 +11,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "anthropic==1.11.0",
     "datasketch==2.0.0",
+    "fastapi==0.143.0",
     "gradio==6.29.1",
     "huggingface_hub==2.1.1",
     "joblib==1.6.0",
@@ -21,7 +22,11 @@ dependencies = [
     "requests==2.34.2",
     "scikit-learn==1.9.1",
     "tldextract==5.4.0",
+    "uvicorn==0.54.0",
 ]
+
+[project.optional-dependencies]
+dev = ["httpx==0.28.1"]   # fastapi.testclient (tests/test_api.py)
 
 [tool.setuptools]
 package-dir = {"" = "src"}

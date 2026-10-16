@@ -25,10 +25,11 @@ def _level(n):
 def _in_text(text, phrase):
     """(quote, span) of phrase in text, or (None, None). cred_requests() and tactic_tags() return their matches lower-cased (and tactic_tags runs on
     PII-masked text), so look for the phrase ignoring case and quote the user's own spelling; a cue that is not in the text (a mask token)
-    gives (None, None). span is [start, end) in code points (str indexing), the same measure as text[start:end] == quote."""
+    gives (None, None). span is [start, end) in code points (str indexing), the same measure as text[start:end] == quote.
+    Whole words first, so the cue "pin" points at "PIN" and not at the inside of "shipping"; only if no whole-word match exists, any match."""
     if not phrase:
         return None, None
-    m = re.search(re.escape(phrase), text, re.I)
+    m = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, re.I) or re.search(re.escape(phrase), text, re.I)
     return (m.group(0), (m.start(), m.end())) if m else (None, None)
 
 def _link_report(l, text):

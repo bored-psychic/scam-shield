@@ -1,4 +1,4 @@
-import os, sys
+import os, re, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 import pandas as pd
 import app
@@ -11,13 +11,16 @@ from tricky_inputs import INPUTS
 #   A1 JSON round-trip   A2 level mapping   A3 child levels   A4 reasons   A5 quotes are exact substrings   A6 DANGER -> flagged
 #   A7 NO_WARNING_SIGNS -> no DANGER / CAUTION   A8 top level >= judged children
 #   A9 text[span] == quote (code points)   A10 every Evidence has a tag of 1-24 characters   A11 tactic titles are the neutral ones exactly when the level is NO_WARNING_SIGNS
-# Two "extra" inputs are appended: an emoji before the quote (A9 with astral characters) and a genuine bank alert (A11).
+#   A12 a rule.* / tactic.* span does not start or end inside a word (the cue "pin" must not point into "shipping"; re \w semantics)
+# Three "extra" inputs are appended: an emoji before the quote (A9 with astral characters), a genuine bank alert (A11) and a message where
+# "shipping" comes before the real "PIN" (A12).
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 FLAGGED = (Level.SUSPICIOUS, Level.LIKELY_SCAM)
 NEUTRAL_TITLES = {"Mentions a bank, government body or company", "Uses time words (common in genuine alerts too)",
                   "Mentions money or payments (normal in genuine bank alerts)", "Mentions keeping something private"}
 EXTRA = ["\U0001F600 Dear customer \U0001F600, share your OTP now to avoid account block: http://sbi-kyc-verify.xyz/login",
-         "Rs. 2,500 debited from A/c XX1234. Never share your OTP with anyone. -HDFC Bank"]
+         "Rs. 2,500 debited from A/c XX1234. Never share your OTP with anyone. -HDFC Bank",
+         "Your shipping update: share the PIN 4821 with our agent to confirm delivery today."]
 LEVEL_OF_INT = {None: Level.CANT_JUDGE, 0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM}
 
 def all_evidence(rep):
@@ -56,6 +59,15 @@ def check(text, r, rep):
         bad["A11"] = f"no-warning verdict with a non-neutral tactic title: {[x for x in tactic_titles if x not in NEUTRAL_TITLES]}"
     if rep.level in FLAGGED and any(x in NEUTRAL_TITLES for x in tactic_titles):
         bad["A11"] = f"flagged verdict ({rep.level.value}) with a neutral tactic title: {[x for x in tactic_titles if x in NEUTRAL_TITLES]}"
+    inside = []
+    for e in ev:
+        if e.span is None or not e.id.startswith(("rule.", "tactic.")):
+            continue
+        (s, t), q = e.span, e.quote
+        if (re.match(r"\w", q[0]) and s > 0 and re.match(r"\w", text[s - 1])) or (re.match(r"\w", q[-1]) and t < len(text) and re.match(r"\w", text[t])):
+            inside.append((e.id, e.quote, repr(text[max(0, s - 3):t + 3])))
+    if inside:
+        bad["A12"] = f"span starts or ends inside a word: {inside}"
     return bad
 
 def inputs():
@@ -72,7 +84,7 @@ def inputs():
 def run():
     tm, um = app.load_text_model(), app.load_url_model()
     items = inputs()
-    fails = {f"A{i}": [] for i in range(1, 12)}
+    fails = {f"A{i}": [] for i in range(1, 13)}
     dist = {}
     for kind, name, text in items:
         r = app.analyse(text, tm, um)

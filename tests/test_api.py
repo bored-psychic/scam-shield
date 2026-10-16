@@ -1,0 +1,137 @@
+import os, socket, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
+from fastapi.testclient import TestClient
+from shield.api.main import app
+from shield.contracts import Report, SCHEMA_VERSION
+from shield.core.report import to_report
+from shield.core.router import analyse
+from shield.links.lexical import load_url_model
+from shield.messages.text_head import load_text_model
+from textprep import extract_urls
+from tricky_inputs import INPUTS
+
+# python tests/test_api.py   (from the project root; needs both models; no pytest required, but pytest collects test_api() too)
+# Runs the app in-process (TestClient inside `with`, so the lifespan loads the models once) and checks, each printed PASS / FAIL:
+#   T1 GET /api/health   T2 every tricky input over HTTP == to_report(analyse(...)) except meta.ms   T3 response validates as a Report (schema "2", ms rounded)
+#   T4 empty / whitespace-only text -> 422   T5 over 20,000 characters -> 422 (20,000 is still fine)   T6 wrong method -> 405
+#   T7 no network: sockets patched to record + refuse every connection / lookup, link-bearing inputs still answer 200 with 0 attempts
+#   T8 unknown body field -> 422
+EMPTY = {"detail": "Paste a message to check."}
+TOO_LONG = {"detail": "Message is too long (max 20,000 characters)."}
+LINK_IDS = ["shortener-keywords", "free-hosting-brand", "userinfo-trick"]   # one link of each kind: shortener, free hosting, URL model
+
+
+def post(c, text):
+    return c.post("/api/analyse", json={"text": text})
+
+def without_ms(d):
+    d = dict(d, meta=dict(d["meta"]))
+    d["meta"].pop("ms")
+    return d
+
+def t1(c, ref):
+    r = c.get("/api/health")
+    return [] if (r.status_code, r.json()) == (200, {"status": "ok", "schema_version": "2"}) and SCHEMA_VERSION == "2" else [f"{r.status_code} {r.text}"]
+
+def t2(c, ref):
+    tm, um = ref
+    bad = []
+    for x in INPUTS:
+        r = post(c, x["text"])
+        want = to_report(x["text"], analyse(x["text"], tm, um)).model_dump(mode="json")
+        if r.status_code != 200:
+            bad.append(f"{x['id']}: status {r.status_code}")
+        elif without_ms(r.json()) != without_ms(want):
+            bad.append(f"{x['id']}: response differs from to_report(analyse(...))")
+    return bad
+
+def t3(c, ref):
+    bad = []
+    for x in INPUTS:
+        j = post(c, x["text"]).json()
+        rep = Report.model_validate(j)
+        ms = j["meta"]["ms"]
+        if rep.schema_version != "2" or j["schema_version"] != "2":
+            bad.append(f"{x['id']}: schema_version {j['schema_version']}")
+        if not isinstance(ms, float) or ms < 0 or round(ms, 1) != ms:
+            bad.append(f"{x['id']}: meta.ms {ms!r} is not a non-negative number rounded to 1 decimal")
+    return bad
+
+def t4(c, ref):
+    return [f"{text!r}: {r.status_code} {r.text}" for text in ("", "   \n\t  ") if (r := post(c, text)).status_code != 422 or r.json() != EMPTY]
+
+def t5(c, ref):
+    bad = [f"20001 chars: {r.status_code} {r.text}" for r in [post(c, "a" * 20001)] if r.status_code != 422 or r.json() != TOO_LONG]
+    bad += [f"20000 chars: {r.status_code}" for r in [post(c, "a" * 20000)] if r.status_code != 200]
+    return bad
+
+def t6(c, ref):
+    return [f"{m} {p}: {r.status_code}" for m, p in (("GET", "/api/analyse"), ("POST", "/api/health")) if (r := c.request(m, p)).status_code != 405]
+
+def t7(c, ref):
+    texts = {x["id"]: x["text"] for x in INPUTS}
+    assert all(extract_urls(texts[i]) for i in LINK_IDS), "T7 inputs must contain links"
+    attempts, names = [], ("connect", "connect_ex")
+    saved_methods = {n: socket.socket.__dict__.get(n) for n in names}   # None = inherited from the C base class
+    saved_funcs = {n: getattr(socket, n) for n in ("create_connection", "getaddrinfo", "gethostbyname")}
+    def refuse(name):
+        def f(*a, **k):
+            attempts.append(name)
+            raise OSError(f"T7: outbound network call blocked ({name})")
+        return f
+    try:
+        for n in names:
+            setattr(socket.socket, n, refuse(n))
+        for n in saved_funcs:
+            setattr(socket, n, refuse(n))
+        try:
+            socket.create_connection(("127.0.0.1", 9))
+            return ["the guard is not live: create_connection did not raise"]
+        except OSError:
+            pass
+        attempts.clear()   # the line above was the probe
+        bad = []
+        for i in LINK_IDS:
+            r = post(c, texts[i])
+            if r.status_code != 200:
+                bad.append(f"{i}: status {r.status_code}")
+            elif not r.json()["children"]:
+                bad.append(f"{i}: no link was analysed")
+        if attempts:
+            bad.append(f"outbound attempts during analysis: {attempts}")
+        return bad
+    finally:
+        for n, f in saved_methods.items():
+            delattr(socket.socket, n) if f is None else setattr(socket.socket, n, f)
+        for n, f in saved_funcs.items():
+            setattr(socket, n, f)
+
+def t8(c, ref):
+    r = c.post("/api/analyse", json={"text": "hi", "x": 1})
+    return [] if r.status_code == 422 else [f"{r.status_code} {r.text}"]
+
+CHECKS = [("T1", "GET /api/health", t1), ("T2", "every tricky input over HTTP == to_report(analyse(...)), ignoring meta.ms", t2),
+          ("T3", "responses validate as Report v2, meta.ms rounded", t3), ("T4", "empty and whitespace-only text -> 422", t4),
+          ("T5", "20,001 characters -> 422 (20,000 -> 200)", t5), ("T6", "wrong method -> 405", t6),
+          ("T7", "no outbound network during analysis", t7), ("T8", "unknown body field -> 422", t8)]
+
+def run():
+    ref = (load_text_model(), load_url_model())   # a second, independent copy of the models: the HTTP layer must not change a result
+    out = []
+    with TestClient(app) as c:
+        for tid, what, fn in CHECKS:
+            out.append((tid, what, fn(c, ref)))
+    return out
+
+def test_api():
+    bad = [f"{tid}: {b}" for tid, _, bs in run() for b in bs]
+    assert not bad, "\n".join(bad)
+
+if __name__ == "__main__":
+    results = run()
+    for tid, what, bad in results:
+        print(f"{'FAIL' if bad else 'PASS'} {tid} {what}")
+        for b in bad[:10]:
+            print("    " + b.encode("ascii", "backslashreplace").decode()[:300])
+    print(f"\n{sum(not b for _, _, b in results)}/{len(results)} passed")
+    sys.exit(1 if any(b for _, _, b in results) else 0)
