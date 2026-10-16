@@ -83,19 +83,44 @@ def path_features(url):
             "has_at": int("@" in url), "n_pct": url.count("%"), "double_slash_path": int("//" in path),
             "exec_ext": int(ext in EXEC_EXT), "n_suspicious_path": sum(k in (path + q).lower() for k in SUSPICIOUS)}
 
-def parse_url(url):
-    """(host, registered domain) exactly as build_urls.parse derives them; ('', '') if there is no host."""
+HOST_NORMS = ("none", "strip_www")
+WWW_LABEL = re.compile(r"^www[1-9]?\.")   # "www." and "www1." .. "www9."
+
+def normalise_host(host, mode="none", reg=None):
+    """Optional host normalisation before featurising. "none" (default) returns the host unchanged. "strip_www" removes ONE leading
+    www / www1..www9 label ("www.www.a.com" -> "www.a.com"). `reg` is the registered domain of `host`; the label is kept when it is part
+    of it (reg "www.com" or "www.co.uk": host == reg) so the result still ends with `reg`. Without `reg` the label is kept when
+    nothing with a dot would be left."""
+    if mode == "none":
+        return host
+    if mode != "strip_www":
+        raise ValueError(f"host_norm must be one of {HOST_NORMS}, got {mode!r}")
+    m = WWW_LABEL.match(host)
+    if not m:
+        return host
+    rest = host[m.end():]
+    if reg is not None:
+        return rest if rest == reg or rest.endswith("." + reg) else host
+    return rest if "." in rest else host
+
+def parse_url(url, host_norm="none"):
+    """(host, registered domain) exactly as build_urls.parse derives them; ('', '') if there is no host. host_norm="strip_www" drops a
+    leading www label from the host returned (the registered domain is unaffected); the default leaves the output unchanged."""
     try:
         s = urlsplit(url if "://" in url else "http://" + url)
         host = (s.hostname or "").lower()
     except ValueError:   # e.g. an unbalanced '[' in a pasted fragment
         return "", ""
-    return host, (tld_ext(host).registered_domain or host) if host else ""
+    if not host:
+        return "", ""
+    reg = tld_ext(host).registered_domain or host
+    return normalise_host(host, host_norm, reg), reg
 
-def host_row(url, top_tld):
+def host_row(url, top_tld, host_norm="none"):
     """Host-only feature dict for one URL, with the same tld_code the model was trained on (top_tld = the 40 most
-    frequent train TLDs in order, saved in models/url_head.joblib; anything else is code len(top_tld)). None if no host."""
-    host, reg = parse_url(url)
+    frequent train TLDs in order, saved in models/url_head.joblib; anything else is code len(top_tld)). None if no host.
+    host_norm: see normalise_host (the default is today's behaviour)."""
+    host, reg = parse_url(url, host_norm)
     if not host:
         return None
     f = host_features(host, reg)
