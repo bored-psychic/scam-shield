@@ -1,0 +1,233 @@
+<title>Scam Shield Meter Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky level switch, then one section per meter family (dial, ring, shield, radar), three glass variant cards each. Single dark look, same tokens as the globe prototype. */
+:root {
+  --bg: #04060A; --ink: #EDF1F7; --muted: #8A94A6; --faint: #4A5363; --line: rgba(255,255,255,.08);
+  --green: #3DD68C; --amber: #F2B13B; --red: #FF3B3B; --grey: #7C8696;
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px;
+  background-image: radial-gradient(60% 40% at 50% 0%, rgba(255,59,59,.10), transparent 70%); background-attachment: fixed; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 60px; display: grid; gap: 22px; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+h1 { margin: 4px 0 6px; font-size: clamp(26px, 4vw, 36px); letter-spacing: -.03em; font-weight: 600; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); line-height: 1.55; max-width: 70ch; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between;
+  padding: 10px; border-radius: 18px; background: rgba(8,11,17,.6); -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 10px 30px rgba(0,0,0,.4); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255,255,255,.03); border: 1px solid var(--line); }
+.seg button { font: 500 13.5px var(--sans); color: var(--muted); background: transparent; border: 0; border-radius: 10px; padding: 8px 12px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.seg button i { width: 8px; height: 8px; border-radius: 50%; }
+.seg button[aria-pressed="true"] { color: var(--ink); background: rgba(255,255,255,.08); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+.replay { font: 500 13.5px var(--sans); color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 12px; padding: 9px 14px; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+
+section { display: grid; gap: 12px; }
+.fam { display: flex; align-items: baseline; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.fam h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; font-weight: 600; }
+.fam span { color: var(--muted); font-size: 14px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.card { border-radius: 24px; padding: 14px; display: grid; gap: 10px; align-content: start;
+  background: radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.05), transparent 50%), rgba(10,13,20,.35);
+  border: 1px solid var(--line); box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 12px 40px rgba(0,0,0,.35); }
+.stagebox { height: 236px; display: grid; place-items: center; align-content: center; gap: 8px; border-radius: 18px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.04); overflow: hidden; position: relative; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.num { font: 500 11px var(--mono); color: var(--faint); }
+.desc { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.word { font: 600 15px var(--sans); letter-spacing: -.01em; text-align: center; display: flex; gap: 8px; align-items: center; justify-content: center; }
+.chip { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; }
+svg { overflow: visible; }
+
+/* shared motion */
+.t-rot { transform-box: view-box; transition: transform 1.3s cubic-bezier(.3,1.45,.55,1); }
+.t-dash { transition: stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1); }
+.t-fade { transition: opacity .5s ease, stroke-width .5s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes wave { to { transform: translateX(-160px); } }
+@keyframes scan { 0% { top: 6%; } 100% { top: 92%; } }
+
+/* radar */
+.radar { width: 190px; height: 190px; border-radius: 50%; position: relative; border: 1px solid rgba(255,255,255,.10);
+  background: radial-gradient(circle, transparent 32%, rgba(255,255,255,.06) 33%, transparent 34%, transparent 65%, rgba(255,255,255,.06) 66%, transparent 67%); }
+.radar .sweep { position: absolute; inset: 0; border-radius: 50%; animation: spin 2.6s linear infinite; }
+.radar .blip { position: absolute; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; opacity: 0; transform: scale(.3); transition: opacity .3s, transform .4s cubic-bezier(.3,1.8,.5,1); }
+.radar .blip.on { opacity: 1; transform: none; }
+.radar .lbl { position: absolute; font: 500 10.5px var(--mono); white-space: nowrap; padding: 2px 6px; border-radius: 6px; background: rgba(4,6,10,.8); border: 1px solid rgba(255,255,255,.12);
+  opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s; }
+.radar .lbl.on { opacity: 1; transform: none; }
+.radar .core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px var(--ink); }
+
+/* scanner */
+.scanner { width: 260px; padding: 16px 16px 14px; border-radius: 18px; position: relative; overflow: hidden; display: grid; gap: 9px;
+  background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.10); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+.scanner .ln { display: flex; gap: 6px; }
+.scanner .ln span { height: 9px; border-radius: 5px; background: rgba(255,255,255,.13); transition: background .3s, box-shadow .3s; }
+.scanner .ln span.hit { box-shadow: 0 0 10px var(--hc); }
+.scanner .beam { position: absolute; left: 0; right: 0; height: 2px; animation: scan 1.6s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; transition-delay: 0s !important; } }
+@media (max-width: 520px) { .seg button { padding: 8px 9px; font-size: 12.5px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Scam Shield · result screen · round 2</div>
+    <h1>Meter options: dial, ring, shield, radar</h1>
+    <p class="lede">Three takes on each of the four you picked. All of them keep D4: no percentage, the meter can only land in the zone of the verdict word, and a grey “Can't judge” state. Switch the level to see each one move.</p>
+  </header>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Verdict level">
+      <button type="button" data-l="0"><i style="background:var(--green)"></i>No warning signs</button>
+      <button type="button" data-l="1"><i style="background:var(--amber)"></i>Suspicious</button>
+      <button type="button" data-l="2" aria-pressed="true"><i style="background:var(--red)"></i>Likely scam</button>
+      <button type="button" data-l="3"><i style="background:var(--grey)"></i>Can't judge</button>
+    </div>
+    <button type="button" class="replay" id="replay">↻ Replay</button>
+  </div>
+
+  <div id="families"></div>
+</div>
+
+<script>
+const LV = [["No warning signs found", "#3DD68C"], ["Suspicious", "#F2B13B"], ["Likely scam", "#FF3B3B"], ["Can't judge", "#7C8696"]];
+const ZC = ["#3DD68C", "#F2B13B", "#FF3B3B"];
+const ICON = [
+  '<path d="M5 12.5l4.2 4.2L19 7" stroke="#04060A" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  '<path d="M12 6.5v7M12 17v.5" stroke="#04060A" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+  '<path d="M7.5 7.5l9 9M16.5 7.5l-9 9" stroke="#04060A" stroke-width="2.6" fill="none" stroke-linecap="round"/>',
+  '<path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.9M12 17v.4" stroke="#04060A" stroke-width="2.4" fill="none" stroke-linecap="round"/>'];
+const ico = (l, s = 16) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}">${ICON[l]}</svg>`;
+const word = l => `<div class="word" style="color:${LV[l][1]}"><span class="chip" style="background:${LV[l][1]}">${ico(l)}</span>${LV[l][0]}</div>`;
+const pt = (cx, cy, r, a) => [cx + r * Math.cos(a * Math.PI / 180), cy - r * Math.sin(a * Math.PI / 180)];
+const f = n => n.toFixed(1);
+const arc = (cx, cy, r, a0, a1) => { const [x0, y0] = pt(cx, cy, r, a0), [x1, y1] = pt(cx, cy, r, a1); return `M${f(x0)} ${f(y0)} A${r} ${r} 0 ${Math.abs(a0 - a1) > 180 ? 1 : 0} 1 ${f(x1)} ${f(y1)}`; };
+const arcLen = (r, deg) => 2 * Math.PI * r * deg / 360;
+let uid = 0;
+
+const FAMILIES = [
+ { title: "1 · Dial", sub: "a needle or marker on a curved scale", variants: [
+  { name: "Classic gauge", desc: "Three thick zones, tick marks and a needle that overshoots and settles. The current one.",
+    html: l => { const r = 78, cx = 100, cy = 104, zones = [[176, 124], [116, 64], [56, 4]];
+      const ticks = Array.from({ length: 19 }, (_, i) => { const a = 180 - i * 10, [x0, y0] = pt(cx, cy, r, a), [x1, y1] = pt(cx, cy, r - 16, a); return `<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x1)}" y2="${f(y1)}" stroke="rgba(255,255,255,.14)"/>`; }).join("");
+      return `<svg viewBox="0 0 200 116" width="250">${ticks}${zones.map(([a0, a1], i) => `<path d="${arc(cx, cy, r, a0, a1)}" fill="none" stroke-width="13" stroke-linecap="round" stroke="${l === 3 ? "#7C8696" : ZC[i]}" class="t-fade z" data-z="${i}" opacity=".18"/>`).join("")}
+        <g class="t-rot n" style="transform-origin:100px 104px;transform:rotate(-90deg);${l === 3 ? "opacity:0" : ""}"><path d="M100 104 L97.2 101 L100 40 L102.8 101 Z" fill="#EDF1F7"/><circle cx="100" cy="104" r="7" fill="#EDF1F7"/><circle cx="100" cy="104" r="2.6" fill="#04060A"/></g></svg>${word(l)}`; },
+    go: (el, l) => { el.querySelector(".n").style.transform = `rotate(${[-60, 0, 60, -90][l]}deg)`; el.querySelectorAll(".z").forEach(z => { const on = +z.dataset.z === l; z.setAttribute("opacity", on ? 1 : .18); z.style.filter = on ? `drop-shadow(0 0 6px ${ZC[l]})` : ""; }); } },
+  { name: "Minimal arc", desc: "One thin gradient line and a glowing marker that slides to its zone. No needle, very quiet.",
+    html: l => { const id = "g" + (++uid), r = 80, cx = 100, cy = 100;
+      return `<svg viewBox="0 0 200 120" width="250"><defs><linearGradient id="${id}" x1="0" x2="1"><stop offset="0" stop-color="${l === 3 ? "#7C8696" : "#3DD68C"}"/><stop offset=".5" stop-color="${l === 3 ? "#7C8696" : "#F2B13B"}"/><stop offset="1" stop-color="${l === 3 ? "#7C8696" : "#FF3B3B"}"/></linearGradient></defs>
+        <path d="${arc(cx, cy, r, 200, -20)}" fill="none" stroke="url(#${id})" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+        ${[126.7, 53.3].map(a => { const [x0, y0] = pt(cx, cy, r + 7, a), [x1, y1] = pt(cx, cy, r - 7, a); return `<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x1)}" y2="${f(y1)}" stroke="rgba(255,255,255,.25)"/>`; }).join("")}
+        <g class="t-rot n" style="transform-origin:100px 100px;transform:rotate(-110deg);${l === 3 ? "opacity:0" : ""}"><circle cx="100" cy="20" r="9" fill="${LV[l][1]}" style="filter:drop-shadow(0 0 10px ${LV[l][1]})"/><circle cx="100" cy="20" r="3.5" fill="#fff"/></g>
+        <foreignObject x="40" y="58" width="120" height="50"><div xmlns="http://www.w3.org/1999/xhtml" style="display:grid;place-items:center;height:100%"><div style="width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:${LV[l][1]};box-shadow:0 0 24px ${LV[l][1]}66">${ico(l, 22)}</div></div></foreignObject></svg>
+        <div class="word" style="color:${LV[l][1]}">${LV[l][0]}</div>`; },
+    go: (el, l) => { el.querySelector(".n").style.transform = `rotate(${[-73.3, 0, 73.3, -110][l]}deg)`; } },
+  { name: "HUD dial", desc: "A dark glass dial face with zone icons instead of numbers; a glowing trail follows the needle.",
+    html: l => { const r = 62, cx = 100, cy = 92, len = arcLen(r, 260);
+      const icons = [176.7, 90, 3.3].map((a, i) => { const [x, y] = pt(cx, cy, 42, a); return `<g transform="translate(${f(x - 8)} ${f(y - 8)})" opacity="${l === 3 ? .25 : (i === l ? 1 : .3)}"><rect width="16" height="16" rx="5" fill="${ZC[i]}"/><g transform="translate(2 2) scale(.5)">${ICON[i]}</g></g>`; }).join("");
+      return `<svg viewBox="0 0 200 172" width="186"><circle cx="${cx}" cy="${cy}" r="78" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.12)"/><circle cx="${cx}" cy="${cy}" r="72" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="8"/>
+        <path d="${arc(cx, cy, r, 220, -40)}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="6" stroke-linecap="round"/>
+        <path class="t-dash tr" d="${arc(cx, cy, r, 220, -40)}" fill="none" stroke="${LV[l][1]}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${len} ${len}" stroke-dashoffset="${len}" data-len="${len}" style="filter:drop-shadow(0 0 6px ${LV[l][1]})"/>
+        ${icons}
+        <g class="t-rot n" style="transform-origin:100px 92px;transform:rotate(-130deg);${l === 3 ? "opacity:0" : ""}"><path d="M100 92 L98 90 L100 34 L102 90 Z" fill="${LV[l][1]}" style="filter:drop-shadow(0 0 6px ${LV[l][1]})"/></g>
+        <circle cx="${cx}" cy="${cy}" r="9" fill="#0B0E14" stroke="rgba(255,255,255,.3)"/>
+        </svg><div class="word" style="color:${LV[l][1]}">${LV[l][0]}</div>`; },
+    go: (el, l) => { el.querySelector(".n").style.transform = `rotate(${[-86.7, 0, 86.7, -130][l]}deg)`; const t = el.querySelector(".tr"); t.style.strokeDashoffset = +t.dataset.len * (1 - [1 / 6, 3 / 6, 5 / 6, 0][l]); } },
+ ]},
+
+ { title: "2 · Ring", sub: "a circle that fills or lights up", variants: [
+  { name: "Activity ring", desc: "A 270° ring filling one, two or three thirds, with the verdict icon in the middle.",
+    html: l => { const C = 2 * Math.PI * 64, len = C * .75;
+      return `<svg viewBox="0 0 160 160" width="170"><g transform="rotate(135 80 80)"><circle cx="80" cy="80" r="64" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${l === 3 ? "4 10" : `${len} ${C}`}"/>
+        <circle class="t-dash p" cx="80" cy="80" r="64" fill="none" stroke="${LV[l][1]}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${len} ${C}" stroke-dashoffset="${len}" data-len="${len}" style="filter:drop-shadow(0 0 8px ${LV[l][1]})"/></g>
+        <foreignObject x="50" y="50" width="60" height="60"><div xmlns="http://www.w3.org/1999/xhtml" style="display:grid;place-items:center;height:100%"><div style="width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:${LV[l][1]}">${ico(l, 24)}</div></div></foreignObject></svg>
+        <div class="word" style="color:${LV[l][1]}">${LV[l][0]}</div>`; },
+    go: (el, l) => { const p = el.querySelector(".p"); p.style.strokeDashoffset = +p.dataset.len * (1 - [.34, .67, 1, 0][l]); } },
+  { name: "Stacked rings", desc: "Apple-style concentric rings: green inside, amber in the middle, red outside. Riskier messages close more rings.",
+    html: l => { const rs = [[34, 0], [50, 1], [66, 2]];
+      return `<svg viewBox="0 0 160 160" width="175"><g transform="rotate(-90 80 80)">${rs.map(([r, i]) => { const C = 2 * Math.PI * r;
+        return `<circle cx="80" cy="80" r="${r}" fill="none" stroke="${l === 3 ? "#7C8696" : ZC[i]}" stroke-opacity=".14" stroke-width="12"/>
+          <circle class="t-dash rg" data-i="${i}" cx="80" cy="80" r="${r}" fill="none" stroke="${ZC[i]}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C} ${C}" stroke-dashoffset="${C}" data-len="${C}" style="filter:drop-shadow(0 0 6px ${ZC[i]})"/>`; }).join("")}</g>
+        <foreignObject x="62" y="62" width="36" height="36"><div xmlns="http://www.w3.org/1999/xhtml" style="display:grid;place-items:center;height:100%"><div style="width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:${LV[l][1]}">${ico(l, 18)}</div></div></foreignObject></svg>
+        <div class="word" style="color:${LV[l][1]}">${LV[l][0]}</div>`; },
+    go: (el, l) => el.querySelectorAll(".rg").forEach(c => { const i = +c.dataset.i, on = l !== 3 && i <= l; c.style.transitionDelay = `${i * 250}ms`; c.style.strokeDashoffset = on ? 0 : c.dataset.len; }) },
+  { name: "Segmented ring", desc: "A full ring cut into three arcs; the matching arc thickens and glows, the verdict sits big in the middle.",
+    html: l => { const segs = [[215, 105], [95, -15], [-25, -135]];
+      return `<svg viewBox="0 0 160 160" width="185">${segs.map(([a0, a1], i) => `<path class="t-fade sg" data-i="${i}" d="${arc(80, 80, 62, a0, a1)}" fill="none" stroke="${l === 3 ? "#7C8696" : ZC[i]}" stroke-width="7" stroke-linecap="round" opacity=".22"/>`).join("")}
+        <foreignObject x="34" y="45" width="92" height="70"><div xmlns="http://www.w3.org/1999/xhtml" style="height:100%;display:grid;place-items:center;align-content:center;gap:6px;text-align:center">
+          <div style="width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:${LV[l][1]}">${ico(l, 18)}</div>
+          <div style="font:600 12px Geist,sans-serif;color:${LV[l][1]};line-height:1.15">${LV[l][0]}</div></div></foreignObject></svg>`; },
+    go: (el, l) => el.querySelectorAll(".sg").forEach(s => { const on = +s.dataset.i === l; s.setAttribute("opacity", on ? 1 : .22); s.setAttribute("stroke-width", on ? 14 : 7); s.style.filter = on ? `drop-shadow(0 0 8px ${ZC[l]})` : ""; }) },
+ ]},
+
+ { title: "4 · Shield", sub: "the Scam Shield logo shows the verdict", variants: [
+  { name: "Liquid fill", desc: "The shield fills with moving liquid: a little, half, or nearly full.",
+    html: l => { const id = "c" + (++uid), sh = "M80 8 L142 30 V76 C142 118 114 142 80 154 C46 142 18 118 18 76 V30 Z";
+      const wave = (y, cls, op) => `<path fill="${LV[l][1]}" opacity="${op}" d="M0 ${y} Q20 ${y - 6} 40 ${y} T80 ${y} T120 ${y} T160 ${y} T200 ${y} T240 ${y} T280 ${y} T320 ${y} V400 H0 Z" style="animation:wave ${cls === "w1" ? 2.6 : 4}s linear infinite ${cls === "w2" ? "reverse" : ""}"/>`;
+      return `<svg viewBox="0 0 160 162" width="140"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>
+        <g clip-path="url(#${id})"><g class="lq" style="transform:translateY(170px);transition:transform 1.4s cubic-bezier(.2,.8,.2,1)">${wave(0, "w1", 1)}${wave(4, "w2", .5)}</g></g>
+        <path d="${sh}" fill="rgba(255,255,255,.03)" stroke="${LV[l][1]}" stroke-width="2.5" ${l === 3 ? 'stroke-dasharray="6 6"' : ""} style="filter:drop-shadow(0 0 8px ${LV[l][1]}66)"/></svg>${word(l)}`; },
+    go: (el, l) => { el.querySelector(".lq").style.transform = `translateY(${[112, 72, 26, 170][l]}px)`; } },
+  { name: "Layered bands", desc: "Three bands stacked inside the shield light up from the bottom: green, then amber, then red.",
+    html: l => { const id = "c" + (++uid), sh = "M80 8 L142 30 V76 C142 118 114 142 80 154 C46 142 18 118 18 76 V30 Z", bands = [[106, 50, 0], [58, 46, 1], [8, 48, 2]];
+      return `<svg viewBox="0 0 160 162" width="140"><defs><clipPath id="${id}"><path d="${sh}"/></clipPath></defs>
+        <g clip-path="url(#${id})">${bands.map(([y, h, i]) => `<rect class="bd" data-i="${i}" x="0" y="${y + 2}" width="160" height="${h - 4}" fill="${l === 3 ? "#7C8696" : ZC[i]}" opacity=".08" style="transition:opacity .45s"/>`).join("")}</g>
+        <path d="${sh}" fill="none" stroke="${LV[l][1]}" stroke-width="2.5" ${l === 3 ? 'stroke-dasharray="6 6"' : ""} style="filter:drop-shadow(0 0 8px ${LV[l][1]}66)"/></svg>${word(l)}`; },
+    go: (el, l) => el.querySelectorAll(".bd").forEach(b => { const i = +b.dataset.i, on = l !== 3 && i <= l; b.style.transitionDelay = `${i * 280}ms`; b.setAttribute("opacity", on ? .9 : .08); }) },
+  { name: "Cracking shield", desc: "Whole and calm when nothing's found, cracked when suspicious, split apart and glowing red when it's likely a scam.",
+    html: l => { const L = "M80 8 L74 40 L88 62 L72 88 L86 112 L80 154 C46 142 18 118 18 76 V30 Z", R = "M80 8 L142 30 V76 C142 118 114 142 80 154 L86 112 L72 88 L88 62 L74 40 Z", crack = "M80 8 L74 40 L88 62 L72 88 L86 112 L80 154";
+      const st = `fill="${LV[l][1]}22" stroke="${LV[l][1]}" stroke-width="2.5" stroke-linejoin="round" ${l === 3 ? 'stroke-dasharray="6 6"' : ""}`;
+      return `<svg viewBox="0 0 160 162" width="140" style="filter:drop-shadow(0 0 12px ${LV[l][1]}55)">
+        ${l === 0 || l === 3 ? `<path d="M80 8 L142 30 V76 C142 118 114 142 80 154 C46 142 18 118 18 76 V30 Z" ${st}/><g class="hl"></g><g class="hr"></g>` : `<path class="hl" d="${L}" ${st} style="transform-box:view-box;transform-origin:80px 154px;transition:transform .9s cubic-bezier(.3,1.5,.5,1) .25s"/>
+        <path class="hr" d="${R}" ${st} style="transform-box:view-box;transform-origin:80px 154px;transition:transform .9s cubic-bezier(.3,1.5,.5,1) .25s"/>`}
+        <path class="ck" d="${crack}" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="170" stroke-dashoffset="170" style="transition:stroke-dashoffset .7s ease;opacity:${l === 1 || l === 2 ? .85 : 0}"/></svg>${word(l)}`; },
+    go: (el, l) => { el.querySelector(".ck").style.strokeDashoffset = l === 1 || l === 2 ? 0 : 170;
+      el.querySelector(".hl").style.transform = l === 2 ? "translateX(-9px) rotate(-7deg)" : "none"; el.querySelector(".hr").style.transform = l === 2 ? "translateX(9px) rotate(7deg)" : "none"; } },
+ ]},
+
+ { title: "8 · Radar", sub: "scanning for warning signs", variants: [
+  { name: "Sweep and blips", desc: "A radar sweep; one blip appears for each warning sign found. Calm green sweep and no blips when nothing's found.",
+    html: l => { const blips = [[30, 40], [68, 32], [72, 70], [38, 74], [58, 18]];
+      return `<div class="radar"><div class="sweep" style="background:conic-gradient(from 0deg, ${LV[l][1]}66, transparent 25%);${l === 3 ? "animation:none;opacity:.3" : ""}"></div>
+        ${blips.map(([x, y], i) => `<div class="blip b" data-i="${i}" style="left:${x}%;top:${y}%;background:${LV[l][1]};box-shadow:0 0 10px ${LV[l][1]}"></div>`).join("")}<div class="core"></div></div>${word(l)}`; },
+    go: (el, l) => { const n = [0, 2, 5, 0][l]; el.querySelectorAll(".b").forEach(b => { b.style.transitionDelay = `${300 + b.dataset.i * 220}ms`; b.classList.toggle("on", +b.dataset.i < n); }); } },
+  { name: "Labelled blips", desc: "Same radar, but each blip is tagged with the warning sign it stands for, so the radar doubles as the reasons list.",
+    html: l => { const sets = [[], [["Pressure", 30, 34]], [["OTP request", 24, 30], ["Fake link", 58, 44], ["Secrecy", 34, 72]], []];
+      return `<div class="radar"><div class="sweep" style="background:conic-gradient(from 0deg, ${LV[l][1]}55, transparent 25%);${l === 3 ? "animation:none;opacity:.3" : ""}"></div>
+        ${sets[l].map(([t, x, y], i) => `<div class="blip b" data-i="${i}" style="left:${x}%;top:${y}%;background:${LV[l][1]};box-shadow:0 0 10px ${LV[l][1]}"></div><div class="lbl b" data-i="${i}" style="left:${x + 4}%;top:${y - 3}%;color:${LV[l][1]}">${t}</div>`).join("")}
+        <div class="core"></div></div>${word(l)}`; },
+    go: (el, l) => el.querySelectorAll(".b").forEach(b => { b.style.transitionDelay = `${350 + b.dataset.i * 300}ms`; b.classList.add("on"); }) },
+  { name: "Scanner beam", desc: "A mini copy of the message with a scan line passing over it; risky phrases light up as the beam crosses them.",
+    html: l => { const rows = [[60, 34, 80], [44, 70, 50], [90, 46], [38, 64, 58]], hits = [[], [[1, 1]], [[0, 1], [1, 2], [3, 0]], []];
+      const hit = (r, s) => hits[l].some(([a, b]) => a === r && b === s);
+      return `<div class="scanner" style="${l === 3 ? "filter:blur(1.2px)" : ""}">${rows.map((row, r) => `<div class="ln">${row.map((w, s) => `<span class="${hit(r, s) ? "hx" : ""}" data-d="${r}" style="width:${w}px"></span>`).join("")}</div>`).join("")}
+        <div class="beam" style="background:linear-gradient(90deg, transparent, ${LV[l][1]}, transparent);box-shadow:0 0 16px 2px ${LV[l][1]}88;${l === 3 ? "animation:none;top:50%;opacity:.4" : ""}"></div></div>
+        ${l === 0 ? `<div class="word" style="color:${LV[0][1]}"><span class="chip" style="background:${LV[0][1]}">${ico(0)}</span>Nothing risky found</div>` : word(l)}`; },
+    go: (el, l) => el.querySelectorAll(".hx").forEach(s => { s.style.transitionDelay = `${200 + s.dataset.d * 260}ms`; s.style.background = LV[l][1]; s.style.setProperty("--hc", LV[l][1]); s.classList.add("hit"); }) },
+ ]},
+];
+
+let level = 2;
+function render() {
+  document.getElementById("families").innerHTML = FAMILIES.map((fam, fi) => `<section>
+      <div class="fam"><h2>${fam.title}</h2><span>${fam.sub}</span></div>
+      <div class="grid">${fam.variants.map((v, vi) => `<article class="card">
+        <div class="stagebox" data-f="${fi}" data-v="${vi}" role="img" aria-label="${v.name}: ${LV[level][0]}">${v.html(level)}</div>
+        <div class="head"><h3>${v.name}</h3><span class="num">${fam.title.split(" ")[0]}${"abc"[vi]}</span></div>
+        <p class="desc">${v.desc}</p></article>`).join("")}</div></section>`).join("");
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll(".stagebox").forEach(el => FAMILIES[+el.dataset.f].variants[+el.dataset.v].go(el, level))));
+}
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  level = +b.dataset.l; document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b)); render();
+}));
+document.getElementById("replay").addEventListener("click", render);
+render();
+</script>
