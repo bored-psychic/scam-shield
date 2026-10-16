@@ -1,26 +1,39 @@
 import os, re, sys
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
+HERE = os.path.dirname(os.path.abspath(globals().get("__file__", "tests/test_contracts.py")))   # exec()-ed from the project root there is no __file__: tests/ relative to the cwd
+sys.path[:0] = [os.path.join(HERE, "..", "src"), HERE]
+import hashlib, json
 import pandas as pd
-import app
+from shield import config
 from shield.contracts import Effect, Level, LEVEL_RANK, Report
+from shield.core.advice import ADVICE, GAMBLING_ADVICE
 from shield.core.report import to_report
+from shield.core.router import analyse
+from shield.examples import EXAMPLES
+from shield.links.lexical import load_url_model
+from shield.messages.text_head import load_text_model
 from tricky_inputs import INPUTS
 
-# python tests/test_contracts.py   (from the project root; needs both models). For every tricky input, every app.EXAMPLES entry and 300 val rows
+# python tests/test_contracts.py   (from the project root; needs both models; needs no Gradio: everything comes from shield.*). For every tricky input, every shield.examples.EXAMPLES entry and 300 val rows
 # (messages.csv rows whose split_map split is "val", sample random_state=0; never test rows): r = analyse(...), rep = to_report(text, r), then
 #   A1 JSON round-trip   A2 level mapping   A3 child levels   A4 reasons   A5 quotes are exact substrings   A6 DANGER -> flagged
 #   A7 NO_WARNING_SIGNS -> no DANGER / CAUTION   A8 top level >= judged children
 #   A9 text[span] == quote (code points)   A10 every Evidence has a tag of 1-24 characters   A11 tactic titles are the neutral ones exactly when the level is NO_WARNING_SIGNS
 #   A12 a rule.* / tactic.* span does not start or end inside a word (the cue "pin" must not point into "shipping"; re \w semantics)
+#   A13 advice: a top-level Report has 1-5 non-empty items, == ADVICE[level] with GAMBLING_ADVICE first iff category == "gambling"; children have none
+#   A14 meta.models has text, url, gambling_lookup; text / url end in 8 hex chars that match the SHA-256 of the model files, the same dict in every Report,
+#       and model_versions() was computed once (cache misses == 1)
 # Three "extra" inputs are appended: an emoji before the quote (A9 with astral characters), a genuine bank alert (A11) and a message where
-# "shipping" comes before the real "PIN" (A12).
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+# "shipping" comes before the real "PIN" (A12). They are the only inputs counted in the level table.
+# Two probes are checked for A13 / A14 but not counted in the table: a betting promo (category "gambling", so the gambling advice line is exercised)
+# and a one-word message (Can't judge).
+ROOT = os.path.join(HERE, "..")
 FLAGGED = (Level.SUSPICIOUS, Level.LIKELY_SCAM)
 NEUTRAL_TITLES = {"Mentions a bank, government body or company", "Uses time words (common in genuine alerts too)",
                   "Mentions money or payments (normal in genuine bank alerts)", "Mentions keeping something private"}
 EXTRA = ["\U0001F600 Dear customer \U0001F600, share your OTP now to avoid account block: http://sbi-kyc-verify.xyz/login",
          "Rs. 2,500 debited from A/c XX1234. Never share your OTP with anyone. -HDFC Bank",
          "Your shipping update: share the PIN 4821 with our agent to confirm delivery today."]
+PROBES = [("gambling", "Big IPL offer! Deposit Rs 500 and play now: https://bet365.com/promo"), ("cant-judge", "ok")]
 LEVEL_OF_INT = {None: Level.CANT_JUDGE, 0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM}
 
 def all_evidence(rep):
@@ -70,6 +83,22 @@ def check(text, r, rep):
         bad["A12"] = f"span starts or ends inside a word: {inside}"
     return bad
 
+def expected_advice(rep):
+    return ([GAMBLING_ADVICE] if rep.category == "gambling" else []) + ADVICE[rep.level]
+
+def check_advice(rep):
+    """A13."""
+    bad = []
+    if not 1 <= len(rep.advice) <= 5 or any(not isinstance(a, str) or not a.strip() for a in rep.advice):
+        bad.append(f"{len(rep.advice)} items, or an empty one: {rep.advice}")
+    if rep.advice != expected_advice(rep):
+        bad.append(f"advice for {rep.level.value} / category {rep.category!r} is not ADVICE[level] (+ gambling line first): {rep.advice}")
+    if (GAMBLING_ADVICE in rep.advice) != (rep.category == "gambling"):
+        bad.append(f"gambling line present = {GAMBLING_ADVICE in rep.advice}, category {rep.category!r}")
+    if any(c.advice != [] for c in rep.children):
+        bad.append(f"a child Report has advice: {[c.advice for c in rep.children]}")
+    return bad
+
 def inputs():
     msgs = pd.read_csv(os.path.join(ROOT, "data", "final", "messages.csv"), usecols=["text", "text_hash"])
     sm = pd.read_csv(os.path.join(ROOT, "data", "final", "split_map.csv"))
@@ -77,21 +106,52 @@ def inputs():
     val = val[val["split"] == "val"]
     assert set(val["split"]) == {"val"}
     val = val.sample(300, random_state=0)
-    out = [("tricky", x["id"], x["text"]) for x in INPUTS] + [("example", f"example-{i}", e[0]) for i, e in enumerate(app.EXAMPLES)]
+    out = [("tricky", x["id"], x["text"]) for x in INPUTS] + [("example", f"example-{i}", e[0]) for i, e in enumerate(EXAMPLES)]
     out += [("val", f"val-{h[:8]}", t) for h, t in zip(val["text_hash"], val["text"])]
     return out + [("extra", f"extra-{i}", x) for i, x in enumerate(EXTRA)]
 
+def sha8(path):
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()[:8]
+
+def check_models(reps):
+    """A14, over every Report made in this run."""
+    bad = []
+    first = reps[0].meta.models
+    snapshot = json.load(open(config.GAMBLING_INDIA_PATH))["snapshot"]
+    want = {"text": f"{config.TEXT_MODEL_KIND} {sha8(config.TEXT_MODEL_PATH)}", "url": f"{config.URL_MODEL_KIND} {sha8(config.URL_MODEL_PATH)}", "gambling_lookup": snapshot}
+    if first != want:
+        bad.append(f"meta.models {first}, wanted {want} (hashes recomputed here from the model files)")
+    if set(first) != {"text", "url", "gambling_lookup"} or not all(re.fullmatch(r"\S+ [0-9a-f]{8}", first[k]) for k in ("text", "url")):
+        bad.append(f"meta.models has the wrong keys or value shape: {first}")
+    different = sum(r.meta.models != first for r in reps)
+    if different:
+        bad.append(f"{different} of {len(reps)} Reports have a different meta.models")
+    misses = config.model_versions.cache_info().misses
+    if misses != 1:
+        bad.append(f"model_versions() was computed {misses} times, not once")
+    return bad
+
 def run():
-    tm, um = app.load_text_model(), app.load_url_model()
+    tm, um = load_text_model(), load_url_model()
     items = inputs()
-    fails = {f"A{i}": [] for i in range(1, 13)}
-    dist = {}
+    fails = {f"A{i}": [] for i in range(1, 15)}
+    dist, reps = {}, []
     for kind, name, text in items:
-        r = app.analyse(text, tm, um)
+        r = analyse(text, tm, um)
         rep = to_report(text, r)
+        reps.append(rep)
         dist[(kind, rep.level)] = dist.get((kind, rep.level), 0) + 1
         for a, msg in check(text, r, rep).items():
             fails[a].append(f"{kind} {name}: {msg}")
+        fails["A13"] += [f"{kind} {name}: {m}" for m in check_advice(rep)]
+    for name, text in PROBES:   # not in the level table
+        rep = to_report(text, analyse(text, tm, um))
+        reps.append(rep)
+        fails["A13"] += [f"probe {name}: {m}" for m in check_advice(rep)]
+        exercised = (rep.category == "gambling" and rep.level in FLAGGED) if name == "gambling" else rep.level == Level.CANT_JUDGE
+        if not exercised:
+            fails["A13"].append(f"probe {name}: category {rep.category!r}, level {rep.level.value}: the probe no longer exercises its branch")
+    fails["A14"] += [f"{m}" for m in check_models(reps)]
     return items, fails, dist
 
 def test_contracts():

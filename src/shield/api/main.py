@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 
+from shield.config import model_versions
 from shield.contracts import SCHEMA_VERSION
 from shield.core.report import to_report
 from shield.core.router import analyse
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     app.state.text_model = load_text_model()   # once per process, not per request
     app.state.url_model = load_url_model()
     load_gambling()   # the gambling lookup (362k domains) is read once here, so the first request does not pay for it
+    model_versions()  # the model-file hashes for Report.meta.models, likewise computed once
     yield
 
 

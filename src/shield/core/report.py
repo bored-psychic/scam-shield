@@ -1,7 +1,10 @@
 import re
+from shield.config import model_versions
 from shield.contracts import Evidence, Effect, Level, Meta, Report
+from shield.core.advice import advice_for
 
-# Adapter: the loose dict that router.analyse() returns -> the typed Report (shield.contracts). Pure function, no I/O; analyse() is untouched.
+# Adapter: the loose dict that router.analyse() returns -> the typed Report (shield.contracts). No per-call I/O (model_versions() reads the
+# model files once per process and is cached); analyse() is untouched.
 _LEVEL = {0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM}
 _BY_LEVEL = {2: Effect.DANGER, 1: Effect.CAUTION, 0: Effect.NEUTRAL}
 _TAG_TITLES = {"authority": "Claims to be from a bank, government body or company", "urgency": "Pushes you to act quickly",
@@ -82,6 +85,8 @@ def to_report(text: str, r: dict) -> Report:
     reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
     if level == Level.CANT_JUDGE and not reasons:
         reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
-    meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False))
+    meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False),
+                models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
-    return Report(module="messages", level=level, score=r["text_score"], category=category, evidence=ev, reasons=reasons, children=children, meta=meta)
+    return Report(module="messages", level=level, score=r["text_score"], category=category, evidence=ev, reasons=reasons,
+                  advice=advice_for(level, category), children=children, meta=meta)

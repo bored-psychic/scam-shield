@@ -1,4 +1,4 @@
-# Tricky inputs for src/app.py and src/textprep.py. Each entry is a message that has gone wrong, or could, with what must hold.
+# Tricky inputs for src/shield/ (the checker behind the app and the API) and src/textprep.py. Each entry is a message that has gone wrong, or could, with what must hold.
 # Run: python tests/test_tricky_inputs.py     (from the project root; also collected by pytest)
 #
 # Keys under "expect" (all optional):

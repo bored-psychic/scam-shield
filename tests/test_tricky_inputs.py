@@ -1,6 +1,10 @@
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
-import app
+from shield.core.router import analyse
+from shield.links.lexical import load_url_model
+from shield.messages.rules import cred_requests
+from shield.messages.tactics import tactic_tags
+from shield.messages.text_head import load_text_model
 from textprep import extract_urls, model_text
 from tricky_inputs import INPUTS
 
@@ -8,15 +12,15 @@ from tricky_inputs import INPUTS
 # models and are skipped (and said so) when they can't load, e.g. models/text_baseline.joblib is missing or predates <URL> preprocessing.
 def _models():
     try:
-        return app.load_text_model(), app.load_url_model()
+        return load_text_model(), load_url_model()
     except SystemExit as e:
         print(f"[skip level checks] {e}")
         return None, None
 
 def check(entry, tm, um):
     t, e, bad = entry["text"], entry["expect"], []
-    cred = app.cred_requests(t)
-    tags = {k: bool(v) for k, v in app.tactic_tags(t, cred).items()}
+    cred = cred_requests(t)
+    tags = {k: bool(v) for k, v in tactic_tags(t, cred).items()}
     if "cred_request" in e and bool(cred) != e["cred_request"]:
         bad.append(f"cred_request {bool(cred)} (hits {cred}), wanted {e['cred_request']}")
     bad += [f"tag {k} missing" for k in e.get("tags", []) if not tags[k]]
@@ -27,7 +31,7 @@ def check(entry, tm, um):
     bad += [f"model_text lacks {s!r}: {prep!r}" for s in e.get("prep_has", []) if s not in prep]
     bad += [f"model_text still has {s!r}: {prep!r}" for s in e.get("prep_lacks", []) if s in prep]
     if tm is not None and ("min_level" in e or "link_kinds" in e):
-        r = app.analyse(t, tm, um)
+        r = analyse(t, tm, um)
         if "link_kinds" in e and [l["kind"] for l in r["links"]] != e["link_kinds"]:
             bad.append(f"link kinds {[l['kind'] for l in r['links']]}, wanted {e['link_kinds']}")
         if "min_level" in e and (r["level"] is None or r["level"] < e["min_level"]):

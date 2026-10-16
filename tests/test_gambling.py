@@ -19,8 +19,8 @@ from url_features import parse_url
 #   G10 fusion with stub models   G11 over HTTP with the real models   G12 load time and memory
 # Beyond the spec: G13 all 1,338 platform hosts are reachable   G14 the 121 India seed domains match   G15 the rule in gambling_india.json
 # agrees with gambling_lists.india_hit (the build-time rule)   G16 platform roots: only the owner's part of a host is read by the name rule
-# User review of the Tranco top 10k, 2026-10-17: G17 the 13 GAMBLING_NOT_GAMBLING domains never match   G18 the 8 GAMBLING_PLATFORM_ROOTS are host-level
-# only   G19 operators that must stay flagged still match by "list"
+# User review of the Tranco top 10k, 2026-10-17: G17 the 13 GAMBLING_NOT_GAMBLING domains never match   G18 the 9 GAMBLING_PLATFORM_ROOTS are host-level
+# only   G19 operators that must stay flagged still match by "list"   G20 150m.com (a free web host, added 2026-10-17) is a hosting root too
 URL_GAMBLING = "https://bet365.com/"
 
 
@@ -228,6 +228,11 @@ def g18():
 def g19():
     return [b for d in ("bet365.com", "1xbet.com", "dpboss.tax", "stake.com", "fanduel.com") for b in expect(f"https://{d}/", "list")], ""
 
+def g20():
+    # 150m.com (user decision 2026-10-17): a free web host, on the domain list but host-level only, like tripod.com
+    return (expect("https://somebody.150m.com/", None) + expect("https://150m.com/", None) + expect("https://satta-news.150m.com/", "india_token")
+            + ([] if "150m.com" in GAMBLING_PLATFORM_ROOTS and "150m.com" in load_gambling().domains else ["150m.com must be a platform root AND still on the domain list"])), ""
+
 CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com -> None (allow-listed)", g2), ("G3", "a WordPress blog -> None (platform root)", g3),
           ("G4", "the first listed platform host -> platform_host", g4), ("G5", "a Satta name on an unlisted domain -> india_token", g5),
           ("G6", "kalyanjewellers.net -> None (one weak token)", g6), ("G7", "sattaresults.gov.in -> None (exempt)", g7),
@@ -237,8 +242,9 @@ CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com
           ("G13", "every listed platform host is reachable through match()", g13), ("G14", "the India seed domains match", g14),
           ("G15", "runtime India rule == gambling_lists.india_hit", g15), ("G16", "platform roots: only the owner's part of a host is read", g16),
           ("G17", "the 13 reviewed non-gambling domains (and www.) -> None", g17),
-          ("G18", "the 8 reviewed hosting roots: host-level only (somebody.<root> -> None unless listed)", g18),
-          ("G19", "bet365.com, 1xbet.com, dpboss.tax, stake.com, fanduel.com still -> list", g19)]
+          ("G18", "the 9 hosting roots (8 reviewed + 150m.com): host-level only (somebody.<root> -> None unless listed)", g18),
+          ("G19", "bet365.com, 1xbet.com, dpboss.tax, stake.com, fanduel.com still -> list", g19),
+          ("G20", "somebody.150m.com and 150m.com -> None (hosting root); satta-news.150m.com -> india_token", g20)]
 
 def run():
     return [(gid, what, *fn()) for gid, what, fn in CHECKS]

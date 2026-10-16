@@ -12,10 +12,12 @@ from textprep import extract_urls
 #   1. the lookup domains in the Tranco top 10k that were not hosting-platform roots: under G1 each one made a link Suspicious, whatever its
 #      popularity, so this was the list for the user to review (okta.com is a login provider, not a casino). The user decided on 2026-10-17:
 #      GAMBLING_PLATFORM_ROOTS (8, host-level only) and GAMBLING_NOT_GAMBLING (13) are exempt, the other 96 stay flagged; the "decision" column
-#      shows it, and the script asserts that match() agrees with every row.
+#      shows it, and the script asserts that match() agrees with every row. 150m.com (a free web host, rank 71,514) was added to
+#      GAMBLING_PLATFORM_ROOTS the same day, after this review; it is outside the top 10k, so it is a note, not a row (AFTER_REVIEW).
 #   2. how many val and test messages contain a link that now matches, by basis. Counts only: no message text, no domain, is written.
 # Nothing is fetched or resolved (CLAUDE.md rule 8); messages are only read, never used to fit anything (rule 1: the real test set is untouched).
 TOP = 10_000
+AFTER_REVIEW = {"150m.com"}   # in the exempt constants but not in the top-10k table: added later, user decision 2026-10-17
 OUT = "reports/gambling_app_check.md"
 
 D_ROOT, D_NOT, D_FLAG = "exempt: platform (host-level only)", "exempt: not gambling", "flagged (gambling operator / lottery)"
@@ -32,7 +34,9 @@ top = top.assign(root=top["domain"].isin(old_roots), decision=[decision(d) for d
                  word=[gl.keyword_candidate(d) for d in top["domain"]])
 review = top[~top["root"]]
 assert (review["flagged"] == (review["decision"] == D_FLAG)).all(), "match() disagrees with the review decision for a top-10k domain"
-assert GAMBLING_PLATFORM_ROOTS | GAMBLING_NOT_GAMBLING <= set(review["domain"]), "a reviewed domain is not in the top-10k review list"
+assert (GAMBLING_PLATFORM_ROOTS | GAMBLING_NOT_GAMBLING) - set(review["domain"]) == AFTER_REVIEW, "an exempt domain other than AFTER_REVIEW is not in the top-10k review list"
+late = look[look["domain"].isin(AFTER_REVIEW)].set_index("domain")["rank"]
+assert set(late.index) == AFTER_REVIEW and (late > TOP).all(), "an AFTER_REVIEW domain is missing from the lookup or is in the top 10k (then it belongs in the table)"
 n_root, n_not, n_flag = (int((review["decision"] == d).sum()) for d in (D_ROOT, D_NOT, D_FLAG))
 
 # ---- messages: val and test only
@@ -77,6 +81,8 @@ md = [
     f"Under G1 *Tranco popularity never lowers a hit*, so a link to any of the **{n_flag} flagged domains** gets \"Suspicious - gambling or betting site\". "
     f"By name, {int(review['word'].sum())} of the {len(review)} look like gambling sites (a gambling word in the name, `gambling_lists.KW_RX` minus its look-alike list) and "
     f"{int((~review['word']).sum())} do not; the column was a hint for the review, not a decision.",
+    f"- Exempt after the review, outside the top {TOP:,}: {', '.join(f'`{d}` (Tranco rank {int(r):,})' for d, r in late.items())}. User decision 2026-10-17: a free web host like "
+    "`tripod.com`, so it is in `GAMBLING_PLATFORM_ROOTS` too (host-level only). It is not one of the rows or counts above; it was the only val / test message with a gambling hit left.",
     f"- By list: {', '.join(f'{k} {v}' for k, v in review['lists'].replace('', 'review sheet').value_counts().items())}. "
     "Domains below the top 10k on the lists were not reviewed.\n",
     *fmt(review), "",

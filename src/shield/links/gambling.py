@@ -20,7 +20,10 @@ GAMBLING_VERDICT = "Suspicious - gambling or betting site"
 #                            domain list, only at host level (gambling_platform_hosts.tsv) and by the India token rule on the owner's part
 #   GAMBLING_NOT_GAMBLING    not gambling sites (ISPs, CDNs, login provider, media, sports-score sites): never match, same step as allow_domains
 # The other 96 stay flagged. Lower-ranked domains on the lists were not reviewed (BUGS.md).
-GAMBLING_PLATFORM_ROOTS = frozenset({"tripod.com", "eu.cc", "amebaownd.com", "b-cdn.net", "imgix.net", "wasabisys.com", "itch.io", "free.fr"})
+# "150m.com" is not one of the 8 reviewed: user decision 2026-10-17, a free web host like tripod.com (Tranco rank 71,514, outside the top 10k);
+# it was the one val / test message with a gambling hit left.
+GAMBLING_PLATFORM_ROOTS = frozenset({"tripod.com", "eu.cc", "amebaownd.com", "b-cdn.net", "imgix.net", "wasabisys.com", "itch.io", "free.fr",
+                                     "150m.com"})
 GAMBLING_NOT_GAMBLING = frozenset({"onelink.me", "okta.com", "uol.com.br", "orange.fr", "sfr.fr", "mundodeportivo.com", "about.com",
                                    "itv.com", "dhnet.be", "sofascore.com", "flashscore.fr", "flashscore.com.br", "livescore.in"})
 

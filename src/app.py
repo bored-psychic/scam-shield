@@ -4,13 +4,11 @@ import argparse, html
 import pandas as pd
 import gradio as gr
 from textprep import MAX_CHARS
-# Detection logic lives in src/shield/ (moved out of this file verbatim). analyse, load_text_model, load_url_model, cred_requests and
-# tactic_tags are imported here so tests/ can keep calling them as `app.<name>`.
+# Detection logic lives in src/shield/ (moved out of this file verbatim); this file is the Gradio UI only, and the tests import from shield.* directly.
 from shield.core.verdict import LEVELS
 from shield.core.router import analyse
+from shield.examples import EXAMPLES
 from shield.messages.text_head import load_text_model
-from shield.messages.rules import cred_requests
-from shield.messages.tactics import tactic_tags
 from shield.links.gambling import load_gambling
 from shield.links.lexical import load_url_model
 from shield.links.platforms import CANT_VERIFY, CANT_JUDGE
@@ -132,13 +130,6 @@ def run(text, text_model, url_model):
     return (banner_html(r, text_model, url_model), flag_html(r), tags_html(r), grams_df(r), urls_df(r),
             r["breakdown"] if r["breakdown"] is not None else no_feats, note_md(r))
 
-
-EXAMPLES = [
-    ["Dear SBI customer, your account will be blocked within 24 hours. Complete KYC immediately: http://sbi-kyc-verify-now.xyz/login"],
-    ["URGENT: This is Mumbai Police cyber crime. A parcel in your name contains illegal items. Stay on the call, do not tell anyone, and transfer Rs 25000 to clear your name."],
-    ["HDFC Bank: Rs 3,200 spent on Card ending 4321 at RELIANCE RETAIL on 28-02-26. Avl Lmt: Rs 75,000. Not you? Call the number on the back of your card."],
-    ["http://secure-paytm-wallet-update.top/refund"],
-]
 
 def build_ui(text_model, url_model):
     with gr.Blocks(title="Scam check (MVP)") as demo:
