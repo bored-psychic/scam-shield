@@ -1,0 +1,48 @@
+import re
+from pii import mask_text
+from url_features import parse_url
+from textprep import URL_TOKEN, MAX_CHARS, extract_urls, model_text, replace_urls
+from shield.core.verdict import LEVELS, r3, level_of, fuse
+from shield.messages.rules import cred_requests
+from shield.messages.tactics import tactic_tags
+from shield.links.lexical import url_notes
+from shield.links.platforms import assess_link
+
+MAX_TEXT_CHARS, MAX_URLS = 20000, 10
+MIN_PROSE_WORDS = 3   # fewer words than this once links are removed -> a bare link, the text head has nothing to read
+
+def analyse(text, text_model, url_model):
+    text = (text or "")[:MAX_TEXT_CHARS]
+    urls = extract_urls(text, MAX_URLS)
+    prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
+    cred = cred_requests(text)
+    r = {"urls": urls, "cred_request": cred, "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
+         "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": []}
+    if prose_words >= MIN_PROSE_WORDS:
+        prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
+        r["text_thresholds"] = tuple(r3(t) for t in text_model.thresholds)
+        r["text_score"] = r3(text_model.score(prepared))
+        r["text_level"] = level_of(r["text_score"], *r["text_thresholds"])
+        r["grams"] = text_model.explain(prepared, k=14)
+        r["truncated"] = len(prepared) >= MAX_CHARS
+    # one entry per link, in input order: shorteners and free hosting are assessed by rule, the rest go to the URL model
+    r["links"] = [{"url": u, "host": parse_url(u)[0], "score": None, "level": None, "verdict": "", "note": "", "kind": "model",
+                   **(assess_link(u) or {})} for u in urls]
+    by_url = {l["url"]: l for l in r["links"] if l["kind"] == "model"}
+    if by_url:
+        scored, X = url_model.score_many(list(by_url))
+        for row in scored.itertuples():
+            l = by_url[row.url]
+            l["score"], l["level"] = float(row.score), int(row.level)
+            l["verdict"] = LEVELS[l["level"]] if l["level"] else "not flagged"
+        if len(scored):
+            top = int(scored["score"].idxmax())
+            r["top_score"], r["top_url"] = float(scored.loc[top, "score"]), scored.loc[top, "url"]
+            r["breakdown"] = url_model.breakdown(X.iloc[top])
+            r["notes"] = url_notes(r["top_url"])
+    levels = [l["level"] for l in r["links"] if l["level"] is not None]
+    r["url_level"] = max(levels) if levels else None
+    r["level"] = fuse(r["text_level"], r["url_level"])
+    if cred and (r["level"] is None or r["level"] < 1):   # hard rule: at least Suspicious, whatever the scores say
+        r["level"], r["escalated"] = 1, True
+    return r

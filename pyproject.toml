@@ -25,3 +25,7 @@ dependencies = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 py-modules = ["textprep", "url_features", "pii"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["shield*"]
