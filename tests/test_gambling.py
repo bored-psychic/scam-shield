@@ -7,7 +7,7 @@ from shield.api.main import app
 from shield.config import GAMBLING_DOMAINS_PATH, GAMBLING_PLATFORM_HOSTS_PATH
 from shield.contracts import Report
 from shield.core.router import analyse
-from shield.links.gambling import GAMBLING_VERDICT, load_gambling, registered_domain
+from shield.links.gambling import GAMBLING_NOT_GAMBLING, GAMBLING_PLATFORM_ROOTS, GAMBLING_VERDICT, load_gambling, registered_domain
 from url_features import parse_url
 
 # python tests/test_gambling.py   (from the project root; needs the two models and the lookup files from src/gambling_lookup.py)
@@ -19,6 +19,8 @@ from url_features import parse_url
 #   G10 fusion with stub models   G11 over HTTP with the real models   G12 load time and memory
 # Beyond the spec: G13 all 1,338 platform hosts are reachable   G14 the 121 India seed domains match   G15 the rule in gambling_india.json
 # agrees with gambling_lists.india_hit (the build-time rule)   G16 platform roots: only the owner's part of a host is read by the name rule
+# User review of the Tranco top 10k, 2026-10-17: G17 the 13 GAMBLING_NOT_GAMBLING domains never match   G18 the 8 GAMBLING_PLATFORM_ROOTS are host-level
+# only   G19 operators that must stay flagged still match by "list"
 URL_GAMBLING = "https://bet365.com/"
 
 
@@ -188,7 +190,9 @@ def g13():
 def g14():
     import json
     seeds = [s["domain"] for s in json.load(open(os.path.join(os.path.dirname(GAMBLING_DOMAINS_PATH), "gambling_india.json")))["seed_domains"]]
-    return [f"{d}: {match(f'https://{d}/')}" for d in seeds if match(f"https://{d}/") is None], f"{len(seeds)} seed domains"
+    decided = [d for d in seeds if d in GAMBLING_NOT_GAMBLING]   # the user's top-10k review (2026-10-17) overrides the seed list for these
+    seeds = [d for d in seeds if d not in GAMBLING_NOT_GAMBLING]
+    return [f"{d}: {match(f'https://{d}/')}" for d in seeds if match(f"https://{d}/") is None], f"{len(seeds)} seed domains match; {len(decided)} skipped as reviewed non-gambling: {decided or 'none'}"
 
 def g15():
     rng, doms = random.Random(1), list(tsv()["domain"])
@@ -204,6 +208,26 @@ def g16():
     return (expect("https://wordpress.com/", None) + expect("https://www.wordpress.com/", None) + expect("https://satta-news.wordpress.com/", "india_token")
             + expect("https://myblog.wordpress.com/satta-king", None) + expect("https://bit.ly/sattaking", None)), ""
 
+def g17():
+    bad = [b for d in sorted(GAMBLING_NOT_GAMBLING) for u in (f"https://{d}/", f"https://www.{d}/x") for b in expect(u, None)]
+    return bad, f"{len(GAMBLING_NOT_GAMBLING)} domains, 2 URLs each"
+
+def g18():
+    hosts = set(pd.read_csv(GAMBLING_PLATFORM_HOSTS_PATH, sep="\t", dtype=str, keep_default_na=False)["host"])
+    bad, listed = [], []
+    for d in sorted(GAMBLING_PLATFORM_ROOTS):
+        bad += expect(f"https://{d}/", None)                       # the root itself is never matched by the domain list
+        host = f"somebody.{d}"
+        if host in hosts:
+            listed.append(host)
+        bad += expect(f"https://{host}/", "platform_host" if host in hosts else None)
+        bad += expect(f"https://{d}/satta-king", None)             # the name rule reads the owner's part of the host only, and a root has none
+        bad += expect(f"https://satta-news.{d}/", "india_token")   # ... but a subdomain below the root is the owner's part
+    return bad, f"{len(GAMBLING_PLATFORM_ROOTS)} roots; somebody.<root> in the platform-hosts file: {listed or 'none'}"
+
+def g19():
+    return [b for d in ("bet365.com", "1xbet.com", "dpboss.tax", "stake.com", "fanduel.com") for b in expect(f"https://{d}/", "list")], ""
+
 CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com -> None (allow-listed)", g2), ("G3", "a WordPress blog -> None (platform root)", g3),
           ("G4", "the first listed platform host -> platform_host", g4), ("G5", "a Satta name on an unlisted domain -> india_token", g5),
           ("G6", "kalyanjewellers.net -> None (one weak token)", g6), ("G7", "sattaresults.gov.in -> None (exempt)", g7),
@@ -211,7 +235,10 @@ CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com
           ("G10", "fusion with stub models: gambling is Suspicious, never Likely scam on its own", g10),
           ("G11", "API: link.gambling evidence, category, level", g11), ("G12", "lookup load time and memory", g12),
           ("G13", "every listed platform host is reachable through match()", g13), ("G14", "the India seed domains match", g14),
-          ("G15", "runtime India rule == gambling_lists.india_hit", g15), ("G16", "platform roots: only the owner's part of a host is read", g16)]
+          ("G15", "runtime India rule == gambling_lists.india_hit", g15), ("G16", "platform roots: only the owner's part of a host is read", g16),
+          ("G17", "the 13 reviewed non-gambling domains (and www.) -> None", g17),
+          ("G18", "the 8 reviewed hosting roots: host-level only (somebody.<root> -> None unless listed)", g18),
+          ("G19", "bet365.com, 1xbet.com, dpboss.tax, stake.com, fanduel.com still -> list", g19)]
 
 def run():
     return [(gid, what, *fn()) for gid, what, fn in CHECKS]

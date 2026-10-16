@@ -12,8 +12,17 @@ from shield.links.platforms import FREE_HOSTING, SHORTENERS
 #   data/final/gambling_platform_hosts.tsv  gambling HOSTS on shared hosting platforms (pages.dev, cloudfront.net, com.de ...)
 #   data/final/gambling_india.json          Satta / Matka name rule (the lists barely cover India)
 # They are built by src/gambling_lookup.py. The lists are a gambling CATEGORY, not a scam verdict (licensed operators are on them), and
-# Tranco popularity never lowers a hit (G1); the one reviewed exception is a hosting platform's root, see match().
+# Tranco popularity never lowers a hit (G1); the reviewed exceptions are the two constants below, see match().
 GAMBLING_VERDICT = "Suspicious - gambling or betting site"
+
+# User decision 2026-10-17, review of reports/gambling_app_check.md (the 117 lookup domains in the Tranco top 10k that were not platform roots):
+#   GAMBLING_PLATFORM_ROOTS  hosting roots (free sites, CDNs, storage): treated exactly like the other platform roots, never matched by the
+#                            domain list, only at host level (gambling_platform_hosts.tsv) and by the India token rule on the owner's part
+#   GAMBLING_NOT_GAMBLING    not gambling sites (ISPs, CDNs, login provider, media, sports-score sites): never match, same step as allow_domains
+# The other 96 stay flagged. Lower-ranked domains on the lists were not reviewed (BUGS.md).
+GAMBLING_PLATFORM_ROOTS = frozenset({"tripod.com", "eu.cc", "amebaownd.com", "b-cdn.net", "imgix.net", "wasabisys.com", "itch.io", "free.fr"})
+GAMBLING_NOT_GAMBLING = frozenset({"onelink.me", "okta.com", "uol.com.br", "orange.fr", "sfr.fr", "mundodeportivo.com", "about.com",
+                                   "itv.com", "dhnet.be", "sofascore.com", "flashscore.fr", "flashscore.com.br", "livescore.in"})
 
 _LISTS = {"both": "the UT1 and Blocklist Project gambling lists", "ut1": "the UT1 gambling list", "blp": "the Blocklist Project gambling list"}
 _REVIEW = "Marked as a gambling site in this project's manual review"
@@ -33,9 +42,9 @@ class GamblingLookup:
     def __init__(self, domains, platform_hosts, platform_suffixes, india):
         self.domains = domains                      # registered domain -> detail sentence
         self.platform_hosts = platform_hosts        # host on a hosting platform -> detail sentence
-        self.platform_suffixes = platform_suffixes  # hosting platforms and shorteners: their root is never matched by the domain list
+        self.platform_suffixes = platform_suffixes | GAMBLING_PLATFORM_ROOTS  # hosting platforms and shorteners: their root is never matched by the domain list
         self.strong, self.weak = tuple(india["strong_tokens"]), tuple(india["weak_tokens"])
-        self.exempt, self.allow = tuple(india["exempt_suffixes"]), frozenset(india["allow_domains"])
+        self.exempt, self.allow = tuple(india["exempt_suffixes"]), frozenset(india["allow_domains"]) | GAMBLING_NOT_GAMBLING
 
     def _platform(self, host):
         """(suffix, matched host) if host is on a hosting platform: the longest suffix of host that is a platform, and the listed host
@@ -60,7 +69,7 @@ class GamblingLookup:
         if not host:
             return None
         reg = registered_domain(host)
-        # 1. reviewed exceptions: government / academic hosts and the three known false positives
+        # 1. reviewed exceptions: government / academic hosts, the three known false positives, GAMBLING_NOT_GAMBLING (merged into self.allow)
         if reg in self.allow or any(host == s or host.endswith("." + s) for s in self.exempt):
             return None
         # 2. a hosting platform or shortener hosts anyone's site, so its root is never matched by the domain list (wordpress.com is on both
