@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict
 from shield.contracts import SCHEMA_VERSION
 from shield.core.report import to_report
 from shield.core.router import analyse
+from shield.links.gambling import load_gambling
 from shield.links.lexical import load_url_model
 from shield.messages.text_head import load_text_model
 
@@ -33,6 +34,7 @@ class AnalyseRequest(BaseModel):
 async def lifespan(app: FastAPI):
     app.state.text_model = load_text_model()   # once per process, not per request
     app.state.url_model = load_url_model()
+    load_gambling()   # the gambling lookup (362k domains) is read once here, so the first request does not pay for it
     yield
 
 

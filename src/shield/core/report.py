@@ -12,7 +12,8 @@ _NEUTRAL_TAG_TITLES = {"authority": "Mentions a bank, government body or company
 # Short radar labels (Evidence.tag), by evidence id.
 _TAGS = {"rule.otp_request": "OTP request", "tactic.authority": "Authority claim", "tactic.urgency": "Urgency", "tactic.payment": "Payment ask",
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
-         "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link"}
+         "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
+         "link.gambling": "Gambling site"}
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
                 0: "The wording does not resemble known scam messages"}
 _URL_TITLES = {2: "The link looks like known phishing links", 1: "The link looks somewhat like phishing links",
@@ -33,10 +34,11 @@ def _in_text(text, phrase):
     return (m.group(0), (m.start(), m.end())) if m else (None, None)
 
 def _link_report(l, text):
-    kind, level = l["kind"], l["level"]
-    def ev(id_, effect, title):
+    # the evidence about the link itself follows its normal assessment (base_level); a gambling hit only floors the link's level at Suspicious (router.analyse)
+    kind, level = l["kind"], l["base_level"]
+    def ev(id_, effect, title, detail=None):
         at = text.find(l["url"])   # a refanged link (hxxp, [.]) is not in the text as such: no quote, no span
-        return Evidence(id=id_, module="links", effect=effect, title=title, tag=_TAGS[id_], detail=l["note"] or "",
+        return Evidence(id=id_, module="links", effect=effect, title=title, tag=_TAGS[id_], detail=(l["note"] or "") if detail is None else detail,
                         quote=l["url"] if at >= 0 else None, span=(at, at + len(l["url"])) if at >= 0 else None)
     if kind == "shortener":
         e = ev("link.shortener", Effect.UNKNOWN, "Shortened link: its real destination is hidden")
@@ -50,7 +52,8 @@ def _link_report(l, text):
         e = ev("link.unscored", Effect.UNKNOWN, "The link could not be read, so it was not checked")
     else:
         raise ValueError(f"unexpected link in analyse() output: kind={kind!r}, level={level!r}")
-    return Report(module="links", level=_level(level), score=l["score"], evidence=[e])
+    evidence = [e] + ([ev("link.gambling", Effect.CAUTION, "Gambling or betting site", l["gambling"]["detail"])] if l["gambling"] else [])
+    return Report(module="links", level=_level(l["level"]), score=l["score"], evidence=evidence)
 
 def to_report(text: str, r: dict) -> Report:
     level = _level(r["level"])
@@ -80,4 +83,5 @@ def to_report(text: str, r: dict) -> Report:
     if level == Level.CANT_JUDGE and not reasons:
         reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
     meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False))
-    return Report(module="messages", level=level, score=r["text_score"], evidence=ev, reasons=reasons, children=children, meta=meta)
+    category = "gambling" if any(l["gambling"] for l in r["links"]) else None
+    return Report(module="messages", level=level, score=r["text_score"], category=category, evidence=ev, reasons=reasons, children=children, meta=meta)

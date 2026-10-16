@@ -11,6 +11,7 @@ from shield.core.router import analyse
 from shield.messages.text_head import load_text_model
 from shield.messages.rules import cred_requests
 from shield.messages.tactics import tactic_tags
+from shield.links.gambling import load_gambling
 from shield.links.lexical import load_url_model
 from shield.links.platforms import CANT_VERIFY, CANT_JUDGE
 
@@ -51,7 +52,7 @@ def banner_html(r, text_model, url_model):
         parts.append("no message text to score" + (", link only" if r["links"] else ""))
     if r["top_score"] is not None:
         parts.append(f"link score <b>{r['top_score']:.3f}</b> (flagged from {url_model.t_flag:.3f}, Likely scam from {url_model.t_high:.3f})")
-    n = lambda kind, judged: sum(l["kind"] == kind and (l["level"] is not None) == judged for l in r["links"])
+    n = lambda kind, judged: sum(l["kind"] == kind and (l["base_level"] is not None) == judged for l in r["links"])   # base_level: before the gambling floor
     plural = lambda k, word: f"{k} {word}" + ("s" if k > 1 else "")
     if n("shortener", False):
         parts.append(f"{plural(n('shortener', False), 'shortened link')} can't be verified")
@@ -59,6 +60,9 @@ def banner_html(r, text_model, url_model):
         parts.append(f"{plural(n('free', False), 'free-hosted link')} can't be judged by domain")
     if n("free", True):
         parts.append("a free-hosted link has a brand or scam keyword in its subdomain (counts as Suspicious)")
+    gamb = [l for l in r["links"] if l["gambling"]]
+    if gamb:
+        parts.append(f"{plural(len(gamb), 'gambling or betting link')} (counts as Suspicious, never Likely scam on its own)")
     both = r["text_level"] is not None and r["url_level"] is not None and min(r["text_level"], r["url_level"]) >= 1
     if r["escalated"]:
         parts.append("raised to Suspicious by the OTP / PIN / CVV rule")
@@ -112,6 +116,9 @@ def note_md(r):
     special = [l for l in r["links"] if l["kind"] != "model"]
     if special:
         parts.append("Not scored by the URL model:" + "".join(f"\n- `{l['url']}`: {l['note']}" for l in special))
+    gamb = [l for l in r["links"] if l["gambling"]]
+    if gamb:
+        parts.append("Gambling or betting sites (a category, not a scam verdict):" + "".join(f"\n- `{l['url']}`: {l['gambling']['detail']}" for l in gamb))
     if r.get("truncated"):
         parts.append(f"The text head scored the first {MAX_CHARS} characters only.")
     return "\n\n".join(parts)
@@ -165,4 +172,5 @@ if __name__ == "__main__":
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=7860)
     a = ap.parse_args()
+    load_gambling()   # read the gambling lookup now, not on the first Analyse click
     build_ui(load_text_model(), load_url_model()).launch(server_name=a.host, server_port=a.port, share=False)

@@ -6,6 +6,7 @@ from shield.core.verdict import LEVELS, r3, level_of, fuse
 from shield.messages.rules import cred_requests
 from shield.messages.tactics import tactic_tags
 from shield.links.lexical import url_notes
+from shield.links.gambling import GAMBLING_VERDICT, load_gambling
 from shield.links.platforms import assess_link
 
 MAX_TEXT_CHARS, MAX_URLS = 20000, 10
@@ -40,9 +41,19 @@ def analyse(text, text_model, url_model):
             r["top_score"], r["top_url"] = float(scored.loc[top, "score"]), scored.loc[top, "url"]
             r["breakdown"] = url_model.breakdown(X.iloc[top])
             r["notes"] = url_notes(r["top_url"])
-    levels = [l["level"] for l in r["links"] if l["level"] is not None]
+    # gambling / betting (G1): every link but a shortener (its destination is hidden) is looked up locally. A hit keeps the link's normal
+    # assessment (URL model or free-hosting rule, saved as base_level) and floors its level at Suspicious.
+    lookup = load_gambling()
+    for l in r["links"]:
+        l["base_level"] = l["level"]
+        l["gambling"] = None if l["kind"] == "shortener" else lookup.match(l["url"])
+        if l["gambling"] and (l["level"] or 0) < 1:
+            l["level"], l["verdict"] = 1, GAMBLING_VERDICT
+    levels = [l["base_level"] for l in r["links"] if l["base_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
     r["url_level"] = max(levels) if levels else None
     r["level"] = fuse(r["text_level"], r["url_level"])
     if cred and (r["level"] is None or r["level"] < 1):   # hard rule: at least Suspicious, whatever the scores say
         r["level"], r["escalated"] = 1, True
+    if any(l["gambling"] for l in r["links"]) and (r["level"] is None or r["level"] < 1):   # gambling floor: Suspicious, never Likely scam on its own
+        r["level"] = 1
     return r
