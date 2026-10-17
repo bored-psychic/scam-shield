@@ -106,6 +106,7 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 - [ ] Fusion, calibration, explanations
 - [x] Adversarial suite (held-out attack types, `messages_adv_test.csv`)
 - [x] Gradio MVP (`src/app.py`)
+- [x] Screenshot input, backend: `POST /api/ocr`, local Tesseract (decision D19; the UI part is still to do)
 - [ ] User study
 - [ ] Report, slides, viva
 
@@ -157,6 +158,20 @@ python src/baseline.py
 ```
 
 Add a `.gitignore` containing `.venv/` and `data/`.
+
+### Screenshot input (OCR)
+
+Checking a screenshot needs [Tesseract](https://github.com/tesseract-ocr/tesseract) (open source, runs on your machine; the image is read in memory, never stored and never sent anywhere):
+
+```bash
+brew install tesseract tesseract-lang     # developed with Tesseract 5.5.3; needs the eng, hin and kan language data
+tesseract --version && tesseract --list-langs | grep -E '^(eng|hin|kan)$'
+uvicorn shield.api.main:app --host 127.0.0.1 --port 8000     # restart a running server after pulling: /api/ocr is a new route
+curl -F image=@screenshot.png http://127.0.0.1:8000/api/ocr  # -> {"text", "lines", "dropped", "ms"}
+python tests/test_ocr.py                                     # draws its own test images in memory
+```
+
+`/api/ocr` only returns the text; the page shows it so the user can check and correct it, and then posts it to `/api/analyse`. Check the amounts: Tesseract often misreads or drops the rupee sign (BUGS.md).
 
 ## Ethics and data handling
 
