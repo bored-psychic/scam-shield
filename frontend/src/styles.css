@@ -105,8 +105,7 @@
   .step.done { color: var(--muted); } .step.done i { border-color: var(--green); background: var(--green); color: #04060A; animation: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* result: only the parts the TEMPORARY placeholder and the error panel use. Part 2 brings the bento grid, message marks, tooltip,
-     radar, link and to-do panels. */
+  /* result. The prototype's bar meter and gauge rules are not ported: the radar (8b) was chosen. */
   .result { display: grid; gap: 14px; }
   .verdict { padding: 18px 18px 16px; display: grid; gap: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -114,10 +113,59 @@
   .vicon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; }
   .vicon svg { width: 22px; height: 22px; }
   .vword { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+  .vword { margin: 0; } .vword:focus { outline: none; }   /* new: the verdict word is an <h2> that takes focus when the result opens */
   .vline { color: var(--muted); font-size: 14px; margin-top: 2px; }
+
+  .msg { padding: 16px 18px; line-height: 1.7; font-size: 15.5px; animation: rise .45s .08s cubic-bezier(.2,.7,.2,1) both; }
   .msg .lab, .sect { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; display: block; }
+  mark { color: inherit; background: transparent; border-radius: 4px; padding: 1px 2px; cursor: help; position: relative;
+    text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; transition: background .2s; }
+  mark.danger { text-decoration-color: var(--red); } mark.danger:hover, mark.danger.pulse { background: rgba(255,59,59,.18); }
+  mark.caution { text-decoration-color: var(--amber); } mark.caution:hover, mark.caution.pulse { background: rgba(242,177,59,.16); }
+  mark.neutral { text-decoration-color: var(--grey); text-decoration-style: dotted; }
+  /* new: unknown evidence (a hidden or unreadable link) is a solid grey line; marks get a hover tint and a focus ring like the buttons */
+  mark.unknown { text-decoration-color: var(--grey); } mark.unknown:hover, mark.unknown.pulse { background: rgba(124,134,150,.18); }
+  mark.neutral:hover, mark.neutral.pulse { background: rgba(124,134,150,.12); }
+  mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  mark.pulse { animation: pulse 1.2s ease 2; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255,255,255,.12); } }
+  .tip { position: fixed; z-index: 10; max-width: 260px; background: #12161E; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+    font-size: 13px; line-height: 1.4; color: var(--ink); pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); opacity: 0; transition: opacity .15s; }
+  .tip.show { opacity: 1; }
+  /* new: the message keeps its line breaks, long links wrap, and a long message scrolls inside its panel; the tooltip lists every
+     piece of evidence of the underlined part, one line each */
+  .mtext { white-space: pre-wrap; overflow-wrap: anywhere; max-height: min(480px, 60vh); overflow-y: auto; }
+  .msg .note { margin-top: 10px; }
+  .tip .tl { display: flex; gap: 7px; } .tip .tl + .tl { margin-top: 4px; }
+  .tip .tl i, .checks i { font-style: normal; flex: none; width: 1em; text-align: center; }
+
+  .reasons { display: grid; gap: 8px; }
+  .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 14.5px/1.45 var(--sans);
+    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; transition: border-color .2s, transform .15s; }
+  .reason:hover { border-color: rgba(255,255,255,.22); transform: translateX(2px); }
+  .reason .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; }
+  .reason small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .reason.nospan { cursor: default; }   /* new: a reason with nothing to point at in the message (e.g. the wording model's) */
+
+  .link { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .2s cubic-bezier(.2,.7,.2,1) both; }
+  .url { font: 500 14px var(--mono); overflow-wrap: anywhere; color: var(--muted); }
+  .url b { color: var(--ink); font-weight: 500; background: rgba(255,59,59,.16); border-radius: 4px; padding: 0 3px; }
+  /* new: the owner part is tinted by the link's most severe evidence; label dots are faint; a disguised link is written in words */
+  .url b.caution { background: rgba(242,177,59,.16); } .url b.quiet { background: rgba(124,134,150,.18); }
+  .url i { font-style: normal; color: var(--faint); margin: 0 1px; } .url b i { color: var(--muted); }
+  .url.disguised { font: 500 14px var(--sans); color: var(--ink); }
+  .lblock { display: grid; gap: 6px; } .lblock + .lblock { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
+  .checks { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); }
+  .checks div { display: flex; gap: 8px; }
+  .todo { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .28s cubic-bezier(.2,.7,.2,1) both; }
+  .todo label { display: flex; gap: 10px; align-items: center; cursor: pointer; font-size: 14.5px; }
+  .todo input { accent-color: var(--green); width: 16px; height: 16px; }
+  .todo label:has(input:checked) span { color: var(--faint); text-decoration: line-through; }
+  .helpline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: rgba(255,255,255,.25); }
+  .note { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
   footer { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
     padding-inline: 20px; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); font: 500 11px var(--mono); color: var(--faint); pointer-events: none; }
@@ -132,9 +180,8 @@
 
   /* iOS-style glass finish: strong frosted blur with boosted colour, a bright specular rim that fades round the edge,
      a soft sheen across the top and a deep floating shadow. One recipe, applied to every panel, chip and button.
-     .box is the glass panel; .reason and .tip are part 2. Part 2: this rule's position: relative overrides the prototype's
-     .tip { position: fixed } (a prototype bug: its hidden tooltip sits in the page flow and adds 18px of scroll), so re-declare
-     the tooltip as fixed after this rule. */
+     This rule's position: relative overrides the prototype's .tip { position: fixed } (a prototype bug: its hidden tooltip sits in
+     the page flow and adds 18px of scroll), so the tooltip is declared fixed again after this rule. */
   .box, .reason, .ex button, .ghost, .local, .fchip, .tip {
     position: relative;
     background:
@@ -160,8 +207,60 @@
     box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.35); }
   .vicon { border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 16px rgba(0,0,0,.35); }
 
+  /* the prototype's tooltip bug, fixed: fixed again after the glass rule, out of the page flow, so a hidden tooltip adds no scroll
+     (it is also rendered into <body>, outside the panels, whose backdrop-filter would otherwise become its containing block) */
+  .tip { position: fixed; left: 0; top: 0; }
+
+  /* result: a bento grid on wide screens, one column on phones */
+  .col.wide { max-width: 1180px; }   /* the prototype's body.checked .col */
   .rtop { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
   .rmeta { font: 500 11.5px var(--mono); color: var(--muted); }
+  .bento { display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: stretch; }
+  .bento > * { min-width: 0; }
+  .g-verdict { grid-column: 1 / span 5; align-content: space-between; }
+  .g-msg { grid-column: 6 / span 7; grid-row: span 2; font-size: 18px; line-height: 1.85; padding: 22px 24px; }
+  .g-why { grid-column: 1 / span 5; padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
+  .g-why .sect { margin: 2px 4px 6px; }
+  .g-why .reasons { gap: 2px; }
+  .g-why .reason { background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
+    -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
+  .g-why .reason::before { display: none; }
+  .g-why .reason:hover { background-color: rgba(255,255,255,.05); transform: none; }
+  .g-why .reason.nospan:hover { background-color: transparent; }   /* new */
+  .g-why > .note { margin: 0 4px 4px; }   /* new: the no-reasons line */
+  .g-link { grid-column: 1 / span 6; }
+  .g-todo { grid-column: 7 / span 6; }
+  .g-todo.wide { grid-column: 1 / -1; }
+  .g-link, .g-todo { align-content: start; }   /* new: side by side, the shorter panel keeps its rows together instead of spreading them */
+  .g-verdict .vword { font-size: 36px; letter-spacing: -.03em; }
+  .g-verdict .vicon { width: 52px; height: 52px; border-radius: 16px; }
+  .g-verdict .vicon svg { width: 28px; height: 28px; }
+  /* new: the verdict word takes focus when the result opens (for screen readers); that is not the user focusing the panel, so no ring */
+  .g-verdict:has(.vword:focus) { border-color: rgba(255,255,255,.03); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2); }
+  @media (max-width: 900px) {
+    .bento > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
+    .g-msg { font-size: 16px; padding: 16px 18px; }
+    .g-verdict .vword { font-size: 28px; }
+  }
+
+  /* radar meter (option 8b): one labelled blip per warning sign; calm green sweep with no blips when nothing was found */
+  .rwrap { display: grid; justify-items: center; gap: 6px; padding-block: 6px 2px; }
+  .radar { width: 200px; height: 200px; border-radius: 50%; position: relative; border: 1px solid rgba(255,255,255,.12);
+    background: radial-gradient(circle, transparent 32%, rgba(255,255,255,.07) 33%, transparent 34%, transparent 65%, rgba(255,255,255,.07) 66%, transparent 67%),
+                linear-gradient(transparent 49.7%, rgba(255,255,255,.06) 50%, transparent 50.3%), linear-gradient(90deg, transparent 49.7%, rgba(255,255,255,.06) 50%, transparent 50.3%); }
+  .radar .sweep { position: absolute; inset: 0; border-radius: 50%; animation: spin 2.6s linear infinite; }
+  .radar .sweep.still { animation: none; }   /* new: Can't judge, and reduced motion */
+  .radar .core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px var(--ink); }
+  .radar .blip { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; opacity: 0; transform: scale(.3); transition: opacity .3s, transform .45s cubic-bezier(.3,1.8,.5,1); }
+  .radar .blip::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0; animation: ping 2.2s ease-out infinite; }
+  @keyframes ping { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+  .radar .lbl { position: absolute; font: 500 11px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 7px; cursor: pointer;
+    background: rgba(4,6,10,.78); border: 1px solid rgba(255,255,255,.14); color: inherit; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, border-color .2s; }
+  .radar .lbl:hover, .radar .lbl:focus-visible { border-color: currentColor; outline: none; }
+  /* new: a tag with nothing to point at. Not "static": Tailwind's utility of that name would set position: static */
+  .radar .lbl.nopoint { cursor: default; } .radar .lbl.nopoint:hover { border-color: rgba(255,255,255,.14); }
+  .radar .on { opacity: 1 !important; transform: none !important; }
+  .rcap { font: 500 11px var(--mono); color: var(--muted); text-align: center; }
 
   /* data source button + popover, and the simulated event feed */
   footer .srcwrap { position: relative; pointer-events: auto; }

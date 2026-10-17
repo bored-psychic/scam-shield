@@ -3,8 +3,8 @@
 The web app (decision D9: React + Vite + TypeScript + Tailwind v4 + Motion, three.js for the globe). It ports the approved prototype
 `docs/design/prototype-globe.html` (spec: `docs/design/README.md`) and gets every verdict from the local API: nothing is decided here.
 
-Part 1 (now): home screen, globe, checking state, API wiring. The result screen is a **temporary placeholder**
-(`src/components/ResultPlaceholder.tsx`); part 2 replaces it with the bento grid and the radar meter.
+Part 1: home screen, globe, checking state, API wiring. Part 2: the result screen (`src/components/Result.tsx`): a bento grid of
+the verdict with the radar meter (8b), the message with its underlined parts, why, the links and what to do now.
 
 ## Run it
 
@@ -21,10 +21,17 @@ Terminal 2, the dev server:
 Open http://127.0.0.1:5173. The page calls the relative path `/api/...` and Vite forwards it to 127.0.0.1:8000, so the browser only
 talks to 127.0.0.1:5173. If the API is not running, the page says "Couldn't reach the checker. Is the API running?" and offers Retry.
 
-## Check and build
+## Check, test and build
 
     npx tsc --noEmit    # type check (TypeScript 7)
+    npm test            # vitest: the display logic in src/lib/ (U1-U9 in src/lib/lib.test.ts)
     npm run build       # type check + production build into dist/
+
+The tests read real Reports: `src/lib/__fixtures__/reports.json`, written by `scripts/dump_fixture.py` (every input of
+`tests/tricky_inputs.py` plus four extras, through the same `analyse()` + `to_report()` as the API). Rerun it after a change to the
+adapter or the models, from the repo root with the project venv:
+
+    .venv/bin/python frontend/scripts/dump_fixture.py
 
 ## Rules this code keeps
 
@@ -36,8 +43,24 @@ talks to 127.0.0.1:5173. If the API is not running, the page says "Couldn't reac
 - **Globe**: pixel ratio capped at 1.75, paused while the tab is hidden, fully disposed on unmount; with reduced motion it is a static
   globe (no rotation, arcs or pulse) that can still be dragged.
 
-## Notes for part 2
+## How the result screen reads a Report (`src/lib/`, pure functions, unit-tested)
 
-- Tailwind is imported **without Preflight** (`src/styles.css` explains why): new elements keep browser defaults until styled.
-- Evidence `span` offsets count Unicode code points: index the message with `Array.from(text)`, never `text.slice()`.
-- Link evidence is in `report.children[].evidence`, not in `report.evidence`.
+- `allEvidence()`: the Report's evidence plus every link's (`report.children[].evidence`), in the order reasons are picked
+  (rule -> links -> tactics -> model).
+- `segments()`: the message cut at the evidence spans. Spans count Unicode **code points**, so it indexes `Array.from(text)`, never
+  `text.slice()`. Overlapping spans form one underlined **cluster** (e.g. "share the PIN" around "PIN"), coloured by its most severe
+  member (danger > caution > unknown > neutral); its tooltip lists every member's title. Reassuring evidence is never underlined;
+  neutral evidence (dotted) only on a "No warning signs found" verdict.
+- `blips()`: the radar's blips, one per tag of the danger / caution evidence, at most 4, none on a no-warning verdict.
+- `reasonTargets()`: the evidence each reason was copied from, so tapping a reason pulses its part of the message.
+- `linkParts()` / `linkBlocks()`: the link panel; the owner part (registrable domain) is a display approximation, never a verdict.
+- The line under the verdict word is fixed per level (`LEVEL_SUMMARY` in `lib/levels.ts`); the advice is `Report.advice` as sent.
+  No score, threshold or timing is ever shown (D4).
+
+## Notes
+
+- Tailwind is imported **without Preflight** (`src/styles.css` explains why): new elements keep browser defaults until styled. Its
+  utilities are generated from words found in the source, so a class name like `static`, `fixed` or `hidden` gets a utility's styles:
+  don't use those as component class names.
+- The tooltip is rendered into `<body>`: inside a panel, the panel's `backdrop-filter` would become the containing block of its
+  `position: fixed`.

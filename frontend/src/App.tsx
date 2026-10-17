@@ -6,7 +6,7 @@ import PasteBox from "./components/PasteBox";
 import Examples from "./components/Examples";
 import Footer, { type FeedItem } from "./components/Footer";
 import Checking, { type CheckOutcome } from "./components/Checking";
-import ResultPlaceholder from "./components/ResultPlaceholder";
+import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
 import { analyse, CheckError, type Failure } from "./api";
 import type { Report } from "./types/report";
@@ -16,6 +16,7 @@ type Screen = "home" | "checking" | "result" | "error";
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [text, setText] = useState("");
+  const [checked, setChecked] = useState("");   // the text the current result is about: its evidence spans index this string
   const [report, setReport] = useState<Report | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [hits, setHits] = useState<FeedItem[]>([]);
@@ -32,9 +33,10 @@ export default function App() {
   function check() {
     if (!text.trim()) return;
     const id = ++run.current;   // only the latest check may change the screen
+    const sent = text;
     setReport(null); setFailure(null); setScreen("checking");
-    analyse(text).then(
-      (r) => { if (run.current === id) setReport(r); },
+    analyse(sent).then(
+      (r) => { if (run.current === id) { setChecked(sent); setReport(r); } },
       (e) => { if (run.current === id) setFailure(e instanceof CheckError ? e.failure : { kind: "unreachable" }); },
     );
   }
@@ -54,7 +56,7 @@ export default function App() {
       <Globe dim={screen === "result"} onHit={onHit} />
       <Header />
       <main>
-        <div className="col">
+        <div className={screen === "result" ? "col wide" : "col"}>
           {screen === "home" && (
             <>
               <section className="hero">
@@ -66,7 +68,7 @@ export default function App() {
             </>
           )}
           {screen === "checking" && <Checking outcome={outcome} onFinished={finishChecking} />}
-          {screen === "result" && report && <ResultPlaceholder report={report} onAgain={again} />}
+          {screen === "result" && report && <Result report={report} text={checked} onAgain={again} />}
           {screen === "error" && failure && <ErrorPanel failure={failure} onRetry={check} onBack={back} />}
         </div>
       </main>

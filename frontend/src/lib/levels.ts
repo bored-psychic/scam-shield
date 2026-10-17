@@ -9,7 +9,28 @@ export const LEVELS: Record<Level, { word: string; color: string; icon: string; 
   cant_judge: { word: "Can't judge", color: "var(--grey)", icon: "M12 8v5M12 16v.5", roundJoin: false },
 };
 
+// The one line under the verdict word. Fixed per level, never written per message: what a message triggered is said by the reasons,
+// the underlines and the radar, all from the Report.
+export const LEVEL_SUMMARY: Record<Level, string> = {
+  likely_scam: "This message has strong signs of a scam.",
+  suspicious: "Parts of this message are risky. Check before you act.",
+  no_warning_signs: "Nothing strong was found. That does not prove it is safe.",
+  cant_judge: "There isn't enough here to judge.",
+};
+
 // Evidence colour by effect (the prototype's COL for danger / caution / neutral; reassuring and unknown are new).
 export const EFFECT_COLOR: Record<Effect, string> = {
   danger: "var(--red)", caution: "var(--amber)", neutral: "var(--grey)", reassuring: "var(--green)", unknown: "var(--grey)",
 };
+
+// The radar's colours as hex (the prototype's HEX by level and SEVHEX by effect): the sweep appends an alpha ("66") and the blips glow
+// in their own colour, which a var() cannot do. Same values as the tokens in styles.css.
+export const LEVEL_HEX: Record<Level, string> = {
+  no_warning_signs: "#3DD68C", suspicious: "#F2B13B", likely_scam: "#FF3B3B", cant_judge: "#7C8696",
+};
+export const EFFECT_HEX: Record<Effect, string> = {
+  danger: "#FF3B3B", caution: "#F2B13B", neutral: "#7C8696", reassuring: "#3DD68C", unknown: "#7C8696",
+};
+
+// A shape per effect, so colour is never the only signal (link checks, tooltip lines).
+export const EFFECT_ICON: Record<Effect, string> = { danger: "✕", caution: "!", unknown: "?", neutral: "○", reassuring: "✓" };
