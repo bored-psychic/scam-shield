@@ -25,10 +25,10 @@ export interface Cluster {
 }
 export interface Segment { text: string; cluster: Cluster | null }
 
-/** Whether an evidence is underlined at all: it needs a span; reassuring evidence never is; neutral evidence only on a no-warning verdict
- *  (there it shows what was read and found normal; on a flagged verdict it would sit beside the warnings as noise). */
+/** Whether an evidence is underlined at all: it needs a span; reassuring evidence never is; neutral evidence only on a verdict without a
+ *  warning, no-warning or promotional (there it shows what was read and found normal; on a flagged verdict it would sit beside the warnings as noise). */
 export function isDrawn(e: Evidence, level: Level): boolean {
-  return e.span !== null && e.effect !== "reassuring" && (e.effect !== "neutral" || level === "no_warning_signs");
+  return e.span !== null && e.effect !== "reassuring" && (e.effect !== "neutral" || level === "no_warning_signs" || level === "promotional");
 }
 
 /** The clusters over a text of `length` code points. A span outside the text is skipped, never drawn half. */

@@ -61,9 +61,9 @@ test("U4 the shipping fixture has ONE cluster, 'share the PIN', danger, with bot
   expect(cs[0].members.map((e) => e.id)).toEqual(["rule.otp_request", "tactic.payment"]);
 });
 
-describe("U5 neutral underlines only on a no-warning verdict", () => {
+describe("U5 neutral underlines only on a verdict without a warning (no-warning or promotional)", () => {
   each("%s", (_, f) => {
-    if (f.report.level !== "no_warning_signs") {
+    if (f.report.level !== "no_warning_signs" && f.report.level !== "promotional") {
       expect(clustersOf(f).filter((c: Cluster) => c.effect === "neutral" || c.members.some((e) => e.effect === "neutral"))).toEqual([]);
     }
   });

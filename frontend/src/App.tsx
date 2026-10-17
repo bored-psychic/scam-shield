@@ -3,6 +3,7 @@ import { useReducedMotion } from "motion/react";
 import Globe, { type Hit } from "./components/Globe";
 import Header from "./components/Header";
 import PasteBox from "./components/PasteBox";
+import SenderField from "./components/SenderField";
 import Examples from "./components/Examples";
 import Footer, { type FeedItem } from "./components/Footer";
 import Checking, { type CheckOutcome } from "./components/Checking";
@@ -16,6 +17,7 @@ type Screen = "home" | "checking" | "result" | "error";
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [text, setText] = useState("");
+  const [sender, setSender] = useState("");     // optional (D22); kept when an example chip fills the box, cleared by "Check another message"
   const [checked, setChecked] = useState("");   // the text the current result is about: its evidence spans index this string
   const [report, setReport] = useState<Report | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -35,13 +37,13 @@ export default function App() {
     const id = ++run.current;   // only the latest check may change the screen
     const sent = text;
     setReport(null); setFailure(null); setScreen("checking");
-    analyse(sent).then(
+    analyse(sent, sender).then(
       (r) => { if (run.current === id) { setChecked(sent); setReport(r); } },
       (e) => { if (run.current === id) setFailure(e instanceof CheckError ? e.failure : { kind: "unreachable" }); },
     );
   }
   const finishChecking = () => setScreen(report ? "result" : "error");   // called by Checking once the answer is in and the steps have ticked
-  const again = () => { run.current++; setText(""); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
+  const again = () => { run.current++; setText(""); setSender(""); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
   const back = () => { setFocusBox(true); setScreen("home"); };
   const pick = (t: string) => { setText(t); input.current?.focus(); };
 
@@ -64,6 +66,7 @@ export default function App() {
                 <p className="sub">Paste it here. We read it for the tricks scammers use and tell you why, in a few seconds.</p>
               </section>
               <PasteBox value={text} onChange={setText} onSubmit={check} inputRef={input} autoFocus={focusBox} />
+              <SenderField value={sender} onChange={setSender} />
               <Examples onPick={pick} />
             </>
           )}

@@ -21,6 +21,7 @@
   --color-red: var(--red);
   --color-orange: var(--orange);
   --color-grey: var(--grey);
+  --color-blue: var(--blue);
   --font-sans: var(--sans);
   --font-mono: var(--mono);
 }
@@ -31,6 +32,7 @@
     --bg: #04060A; --ink: #EDF1F7; --muted: #8A94A6; --faint: #4A5363; --line: rgba(255,255,255,.10); --glass: rgba(14,18,26,.62);
     --red: #FF3B3B; --amber: #F2B13B; --green: #3DD68C; --grey: #7C8696; --accent: #FF4D4D;
     --orange: #FF8A3B;   /* DDoS-source arcs (a literal in the prototype) */
+    --blue: #5AB0FF;     /* new (D22): the Promotional verdict, a calm colour that is neither the green of "no warning signs" nor the amber of "suspicious" */
     /* Fonts are bundled from @fontsource/geist and @fontsource/geist-mono (main.tsx): the same Google Fonts builds the prototype
        loaded. Not @fontsource/geist-sans: that is Vercel's build, ~2.5% wider, and it wraps the headline onto two lines. */
     --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -193,7 +195,7 @@
      a soft sheen across the top and a deep floating shadow. One recipe, applied to every panel, chip and button.
      This rule's position: relative overrides the prototype's .tip { position: fixed } (a prototype bug: its hidden tooltip sits in
      the page flow and adds 18px of scroll), so the tooltip is declared fixed again after this rule. */
-  .box, .reason, .ex button, .ghost, .local, .fchip, .tip, .shot.on {
+  .box, .reason, .ex button, .ghost, .local, .fchip, .tip, .shot.on, .srow {
     position: relative;
     background:
       radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.05), rgba(255,255,255,0) 50%),
@@ -203,7 +205,7 @@
     border: 1px solid rgba(255,255,255,.03);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
   }
-  .box::before, .reason::before, .ex button::before, .ghost::before, .local::before, .shot.on::before {
+  .box::before, .reason::before, .ex button::before, .ghost::before, .local::before, .shot.on::before, .srow::before {
     content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
     background: linear-gradient(145deg, rgba(255,255,255,.28), rgba(255,255,255,.05) 30%, rgba(255,255,255,.01) 55%, rgba(255,255,255,.07) 85%, rgba(255,255,255,.16));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
@@ -257,6 +259,52 @@
     .thumb.scan::after { display: none; }
     .sline i.on { animation: none; }
   }
+
+  /* new (D22): the optional sender, a slim glass row under the message box (label, input, info button) with its hint below and the TRAI
+     explainer as a panel that opens in the page flow under the hint and pushes the example chips down (as an overlay it was covered by the
+     phone footer, which is in the flow above main's stacking context). The hint sits on the globe, so it gets the .sub line's text shadow.
+     Sender IDs in these texts never break at their hyphens (.nobr). On phones the label and the info button share
+     the first line inside the row and the input has the whole second line: at 360px wide, beside the button, it cut the placeholder off
+     (259px of text in 246px). The input is 16px so iOS does not zoom into it on focus. */
+  .sender { position: relative; display: grid; gap: 6px; margin-top: -6px; }
+  .srow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 4px 6px 4px 16px; border-radius: 20px; }
+  .srow:focus-within { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 40px rgba(0,0,0,.45), 0 0 0 4px rgba(255,59,59,.12); }
+  .srow label { font: 500 11.5px var(--mono); color: var(--muted); white-space: nowrap; }
+  .srow label span { color: var(--faint); }
+  .srow input { min-width: 0; width: 100%; box-sizing: border-box; border: 0; outline: 0; background: transparent; color: var(--ink); font: 500 16px/1.4 var(--mono); padding: 10px 2px; }
+  .srow input::placeholder { color: var(--faint); }
+  .sinfo { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted);
+    font: italic 600 14px/1 Georgia, "Times New Roman", serif; cursor: pointer; display: grid; place-items: center; transition: color .2s, border-color .2s; }
+  .sinfo:hover, .sinfo[aria-expanded="true"] { color: var(--ink); border-color: rgba(255,255,255,.28); }
+  .sinfo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .shint { margin: 0 10px; font: 400 12.5px/1.45 var(--sans); color: var(--muted); text-shadow: 0 1px 12px #04060A, 0 0 2px #04060A, 0 0 2px #04060A; }
+  .nobr { white-space: nowrap; }
+  /* scroll-margin-bottom: room for the example chips (33px + the column's 18px gap) and the fixed desktop footer (55px) under the explainer when
+     it is scrolled into view on opening; on phones the footer is in the flow, so only a small margin */
+  .spop { scroll-margin-bottom: 120px; }
+  @media (max-width: 640px) { .spop { scroll-margin-bottom: 16px; } }
+  .spop { margin-top: 4px; box-sizing: border-box; width: 100%; padding: 14px 16px; border-radius: 18px;
+    font: 400 13.5px/1.5 var(--sans); color: var(--muted); background: rgba(8,11,17,.92); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.1); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.6); animation: pop .2s ease both; }
+  .spop p { margin: 0; }
+  .spop ul { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 7px; }
+  .spop li { display: flex; gap: 10px; align-items: center; color: var(--ink); }
+  .spop li b { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font: 600 12.5px var(--mono); color: var(--ink);
+    background: rgba(90,176,255,.12); border: 1px solid rgba(90,176,255,.32); }
+  @media (max-width: 560px) {
+    .srow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label info" "input input"; padding: 8px 8px 2px 14px; }
+    .srow label { grid-area: label; } .srow .sinfo { grid-area: info; } .srow input { grid-area: input; }
+  }
+
+  /* new (D22): the sender chip under the verdict, and the "check who sent it" tip in What to do */
+  .schip { justify-self: start; max-width: 100%; box-sizing: border-box; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+    padding: 6px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); font: 500 11px var(--mono); color: var(--faint);
+    letter-spacing: .04em; text-transform: uppercase; }
+  .schip b { font: 500 13px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); }
+  .schip code { font: 500 12px var(--mono); letter-spacing: 0; text-transform: none; color: var(--muted); padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,.06); }
+  .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 13.5px/1.5 var(--sans); color: var(--muted);
+    background: rgba(90,176,255,.06); border: 1px solid rgba(90,176,255,.2); }
+  .sendertip b { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
 
   /* result: two columns on wide screens, one column on phones. new (2026-10-18): the message panel used to span two grid rows and was
      stretched to the height of the verdict and why panels, leaving a large empty area under a short message. Now each column is its own

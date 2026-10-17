@@ -1,9 +1,9 @@
-"""JSON API for the web frontend (D9): POST /api/analyse -> Report v2, POST /api/ocr -> the text of a screenshot, GET /api/health.
+"""JSON API for the web frontend (D9): POST /api/analyse {text, sender?} -> Report v3, POST /api/ocr -> the text of a screenshot, GET /api/health.
 
 Run (from anywhere; models are found relative to the project root):
     uvicorn shield.api.main:app --host 127.0.0.1 --port 8000
 
-Local-first (docs/ARCHITECTURE.md §1, §5.4): the pasted text is analysed in memory and never logged, printed or written to disk, and an
+Local-first (docs/ARCHITECTURE.md §1, §5.4): the pasted text and the optional sender (D22) are analysed in memory and never logged, printed or written to disk, and an
 analysis makes no outbound network call (links are parsed as strings, never fetched). There is no request-body logging, no docs/openapi
 page, and CORS admits only the Vite dev server. uvicorn's own access log shows the method, path and status, never the body.
 A screenshot (D19) is read the same way: in memory, by a local Tesseract process over a pipe, never stored (shield/ocr/reader.py,
@@ -34,6 +34,9 @@ ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]   # the Vite dev se
 class AnalyseRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str
+    # D22: what the user's phone showed as the sender, optional. Treated exactly like the text: in memory only, never logged or stored, nothing
+    # looked up. Absent, null, "" and spaces all mean "no sender" and give the same Report as before D22 (plus "sender": null).
+    sender: str | None = None
 
 
 @asynccontextmanager
@@ -64,7 +67,7 @@ def analyse_message(body: AnalyseRequest, request: Request):
         raise HTTPException(status_code=422, detail="Message is too long (max 20,000 characters).")
     t0 = time.perf_counter()
     try:
-        rep = to_report(text, analyse(text, request.app.state.text_model, request.app.state.url_model))
+        rep = to_report(text, analyse(text, request.app.state.text_model, request.app.state.url_model, sender=body.sender))
     except Exception:
         # `from None`: an exception raised while reading the text can carry that text in its message (a pydantic error prints its input),
         # and uvicorn would write the chained traceback to the log. Nothing the user pasted may reach a log.

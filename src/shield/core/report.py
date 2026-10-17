@@ -1,11 +1,14 @@
 import re
 from shield.config import model_versions
-from shield.contracts import Evidence, Effect, Level, Meta, Report
+from shield.contracts import Evidence, Effect, Level, Meta, Report, Sender
 from shield.core.advice import advice_for
+from shield.core.sender_rule import RISKY_THING
+from shield.core.verdict import PROMOTIONAL
+from shield.messages.sender import SUFFIX_NAME
 
 # Adapter: the loose dict that router.analyse() returns -> the typed Report (shield.contracts). No per-call I/O (model_versions() reads the
 # model files once per process and is cached); analyse() is untouched.
-_LEVEL = {0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM}
+_LEVEL = {0: Level.NO_WARNING_SIGNS, 1: Level.SUSPICIOUS, 2: Level.LIKELY_SCAM, PROMOTIONAL: Level.PROMOTIONAL}
 _BY_LEVEL = {2: Effect.DANGER, 1: Effect.CAUTION, 0: Effect.NEUTRAL}
 _TAG_TITLES = {"authority": "Claims to be from a bank, government body or company", "urgency": "Pushes you to act quickly",
                "payment": "Asks for money or payment details", "isolation": "Tells you to keep this secret or delete it"}
@@ -16,7 +19,8 @@ _NEUTRAL_TAG_TITLES = {"authority": "Mentions a bank, government body or company
 _TAGS = {"rule.otp_request": "OTP request", "rule.pin_to_receive": "PIN to receive", "tactic.authority": "Authority claim", "tactic.urgency": "Urgency", "tactic.payment": "Payment ask",
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
-         "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice"}
+         "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice", "sender.registered": "Registered sender",
+         "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number"}
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
                 0: "The wording does not resemble known scam messages"}
 # The text head said Suspicious but the safety-advice cap (router.safety_advice_cap) lowered the verdict: the score stays visible, as neutral, with a title
@@ -24,6 +28,19 @@ _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The
 _TEXT_TITLE_CAPPED = "Wording partly resembles scam messages, but it contains standard safety advice"
 _URL_TITLES = {2: "The link looks like known phishing links", 1: "The link looks somewhat like phishing links",
                0: "The link does not look like known phishing links"}
+# Promotional (D22): the wording score stays visible, as neutral, with a title that says why it did not decide the verdict (like the capped title above)
+_TEXT_TITLE_PROMO = "The wording resembles scam messages, as many genuine offers do"
+
+# The sender (D22). Chip labels (Report.sender.label), the reassuring reason for a registered ID with no hard-risk signal, and the plain names of the
+# hard-risk signals for the misuse evidence's detail. The ID itself is only ever a business header; a mobile number is never written anywhere.
+_SENDER_LABEL = {"P": "Registered business · Promotional", "S": "Registered business · Service", "T": "Registered business · Transactional",
+                 "G": "Registered sender · Government", None: "Registered business · type unknown"}
+_REGISTERED_TITLE = {"P": "Sent from a registered business ID (promotional)", "S": "Sent from a registered business ID (service)",
+                     "T": "Sent from a registered business ID (transactional)", "G": "Sent from a registered government sender ID",
+                     None: "Sent from a registered business ID (type unknown)"}
+_MOBILE_TITLE = "Sent from a personal mobile number; businesses use registered IDs like JM-JIOCPN-P"
+_RISK_NAMES = {"otp_request": "an OTP / PIN / CVV request", "pin_to_receive": "a UPI PIN asked for to receive money", "phishing_link": "a link the URL model rates as phishing",
+               "lookalike_link": "a lookalike link on free hosting", "gambling": "a gambling or betting link", "payment_demand": "a payment or fee demand"}
 
 
 def _level(n):
@@ -61,9 +78,36 @@ def _link_report(l, text):
     evidence = [e] + ([ev("link.gambling", Effect.CAUTION, "Gambling or betting site", l["gambling"]["detail"])] if l["gambling"] else [])
     return Report(module="links", level=_level(l["level"]), score=l["score"], evidence=evidence)
 
+def _sender_block(sid):
+    """Report.sender for a parsed sender (kind "none" -> None). Only a business header is echoed."""
+    if sid.kind == "none":
+        return None
+    if sid.kind in ("dlt", "dlt_bare"):
+        return Sender(kind=sid.kind, suffix=sid.suffix, header=sid.header, label=_SENDER_LABEL[sid.suffix])
+    return Sender(kind=sid.kind, label="Personal mobile number" if sid.kind == "mobile" else "Not recognised")
+
+def _sender_evidence(s, flagged):
+    """The one piece of sender evidence for analyse()'s r["sender"] (None when the rule added no reason). It has no quote: the sender is not in the text."""
+    sid, rule = s["id"], s["rule"]
+    shown = "-".join(p for p in (sid.prefix, sid.header, sid.suffix) if p)   # the business ID as typed, normalised; never a mobile number
+    kind = f"type {sid.suffix} ({SUFFIX_NAME[sid.suffix]})" if sid.suffix else "no type letter shown"
+    if rule in ("promotional", "registered"):
+        return Evidence(id="sender.registered", module="messages", effect=Effect.REASSURING, title=_REGISTERED_TITLE[sid.suffix], tag=_TAGS["sender.registered"],
+                        detail=f"{shown}: {kind}. A registered ID is a strong hint, not proof.")
+    if rule == "misuse":   # caution beside a warning; on a verdict with no warning (a payment demand alone sets no level) it is a neutral note
+        risks = s["hard_risks"]
+        return Evidence(id="sender.registered_misused", module="messages", effect=Effect.CAUTION if flagged else Effect.NEUTRAL,
+                        title=f"Registered sender, but {RISKY_THING[risks[0]]}. Registered IDs can still be misused.", tag=_TAGS["sender.registered_misused"],
+                        detail=f"{shown}: {kind}. Not softened because of " + ", ".join(_RISK_NAMES[k] for k in risks) + ".")
+    if rule == "mobile":
+        return Evidence(id="sender.mobile", module="messages", effect=Effect.CAUTION, title=_MOBILE_TITLE, tag=_TAGS["sender.mobile"],
+                        detail="A hint, not proof: on its own it does not change the verdict.")
+    return None
+
 def to_report(text: str, r: dict) -> Report:
     level = _level(r["level"])
     flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
+    promo = level == Level.PROMOTIONAL
     ev = []
     if r["pin_to_receive"]:   # one piece of evidence, quoting the first phrase; ahead of the OTP rule's: it is the more specific reading of the same words
         quote, span = _in_text(text, r["pin_to_receive"][0])
@@ -86,9 +130,13 @@ def to_report(text: str, r: dict) -> Report:
                                tag=_TAGS.get(f"tactic.{tag}", tag[:24]), detail="Matched: " + ", ".join(cues), quote=quote, span=span))
     if r["text_score"] is not None:
         lo, hi = r["text_thresholds"]
-        ev.append(Evidence(id="model.text", module="messages", effect=Effect.NEUTRAL if capped else _BY_LEVEL[r["text_level"]],
-                           title=_TEXT_TITLE_CAPPED if capped else _TEXT_TITLES[r["text_level"]], tag=_TAGS["model.text"],
-                           detail=f"score {r['text_score']:.3f} (Suspicious from {lo:.3f}, Likely scam from {hi:.3f})"))
+        title = (_TEXT_TITLE_PROMO if promo and r["text_level"] else _TEXT_TITLE_CAPPED if capped and not promo else _TEXT_TITLES[r["text_level"]])
+        ev.append(Evidence(id="model.text", module="messages", effect=Effect.NEUTRAL if capped or promo else _BY_LEVEL[r["text_level"]],
+                           title=title, tag=_TAGS["model.text"], detail=f"score {r['text_score']:.3f} (Suspicious from {lo:.3f}, Likely scam from {hi:.3f})"))
+    s = r.get("sender")   # D22: None unless a sender was given
+    sender_ev = _sender_evidence(s, flagged) if s else None
+    if sender_ev:
+        ev.append(sender_ev)
     children = [_link_report(l, text) for l in r["links"]]
 
     # reasons: only warnings, rule hits first, then the links, then the tactic tags, then the text model
@@ -98,8 +146,11 @@ def to_report(text: str, r: dict) -> Report:
     reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
     if level == Level.CANT_JUDGE and not reasons:
         reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
+    if sender_ev:   # the sender reason always gets one of the three places: first when it IS the verdict (Promotional), else after the two strongest
+        rest = [x for x in reasons if x != sender_ev.title]
+        reasons = [sender_ev.title] + rest[:2] if promo else rest[:2] + [sender_ev.title]
     meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False),
                 models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
-    return Report(module="messages", level=level, score=r["text_score"], category=category, evidence=ev, reasons=reasons,
-                  advice=advice_for(level, category), children=children, meta=meta)
+    return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
+                  evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children, meta=meta)

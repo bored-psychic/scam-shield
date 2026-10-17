@@ -29,6 +29,7 @@ export default function Radar({ level, blips, pointable, onPoint }: Props) {
   const signs = `${n} warning sign${n === 1 ? "" : "s"} found`;
   const caption = n ? signs + (pointable.some(Boolean) ? " · tap a tag" : "")
     : level === "no_warning_signs" ? "Scanned · no warning signs found"
+    : level === "promotional" ? "Scanned · registered promotional sender"
     : level === "cant_judge" ? "Scan stopped · not enough to judge" : "Scanned";
   const label = n ? `Scan result: ${word}, ${signs}` : `Scan result: ${word}`;
 

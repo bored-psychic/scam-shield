@@ -2,7 +2,7 @@ import { LEVEL_VALUES, SCHEMA_VERSION, type Report } from "./types/report";
 import { OCR_MESSAGES, validateImage } from "./lib/screenshot";
 
 // Client for the local checker (src/shield/api/main.py). Relative path: in development Vite forwards /api to 127.0.0.1:8000.
-// The pasted text goes into the request body and nowhere else: nothing here logs it.
+// The pasted text and the optional sender go into the request body and nowhere else: nothing here logs them.
 
 export type Failure =
   | { kind: "unreachable" }                  // no answer from the API: network error, timeout, or the dev proxy's error page
@@ -23,14 +23,15 @@ const TIMEOUT_MS = 30_000;   // an analysis takes milliseconds; this only keeps 
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-export async function analyse(text: string): Promise<Report> {
+/** sender (D22): what the phone showed as the sender. Sent only when it is not blank; the API treats a missing, empty or blank sender alike. */
+export async function analyse(text: string, sender = ""): Promise<Report> {
   const signal = AbortSignal.timeout(TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch("/api/analyse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(sender.trim() ? { text, sender } : { text }),
       signal,
     });
   } catch {

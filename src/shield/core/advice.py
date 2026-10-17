@@ -14,6 +14,10 @@ ADVICE: dict[Level, list[str]] = {
                              "If something feels off later, check it again."],
     Level.CANT_JUDGE: ["Paste the whole message, including any link.",
                        "If you're unsure, verify with the sender through an official channel."],
+    # D22: a registered promotional sender and no hard-risk signal. Genuine marketing is likely, not certain: the ID may be mistyped or misused.
+    Level.PROMOTIONAL: ["This is likely genuine marketing from a registered business.",
+                        "Only click the link if you expected this offer.",
+                        "Never share an OTP or PIN, even with a registered sender."],
 }
 # Added as the FIRST item when the message links to a gambling or betting site (Report.category == "gambling").
 GAMBLING_ADVICE = "Don't deposit money or share payment details with betting sites or apps promoted by message."

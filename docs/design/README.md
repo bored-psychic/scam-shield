@@ -25,6 +25,7 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
 | `--red` | `#FF3B3B` | Likely scam, danger evidence, cybercrime-hub arcs |
 | orange | `#FF8A3B` | DDoS-source arcs |
 | `--grey` | `#7C8696` | Can't judge |
+| `--blue` | `#5AB0FF` | Promotional (D22, added 2026-10-18): calm, neither the green of No warning signs nor the amber of Suspicious; price-tag icon |
 | fonts | Geist (UI), Geist Mono (labels, data) | self-hosted |
 
 **Glass panel recipe:** background `rgba(8,11,17,.05)` plus a very faint white top sheen; `backdrop-filter: blur(4px) saturate(140%)`; 1px edge highlight (gradient, brightest at top-left); inset top highlight `rgba(255,255,255,.14)`; shadow `0 12px 40px rgba(0,0,0,.35)`. Radii: panels 26px, reason rows 22px, buttons 14px, chips 999px.
@@ -38,17 +39,18 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
    - **Header:** logo and the "Checked on this device" pill.
    - **Hero:** "Got a message that feels off?"
    - **Glass paste box:** live detection chips as you type (links, UPI IDs, phone numbers, amounts, OTP/PIN mentions), a Check button, and Ctrl/Cmd+Enter.
+   - **Sender (optional), added 2026-10-18 (D22):** a slim glass row under the box ("Sender (optional)", input with placeholder "e.g. JM-JIOCPN-P or +91 98…", an ⓘ button), the hint "If your phone shows the full sender ID (like JM-JIOCPN-P), enter that: the last letter tells us the message type." under it, and behind the ⓘ a short explainer of TRAI's P / S / T / G letters that opens in the page flow (it pushes the chips down; as an overlay the phone footer covered it). On phones (560px and under) the label and ⓘ share the first line and the input has the second. Sender IDs never break at their hyphens.
    - **Example chips** below the box.
    - **Footer:** a "Simulated from real rankings · not live ⓘ" button that opens the sources, and a feed of the last 4 simulated hits. On phones (640px and under) the footer is part of the page and follows the content (it rests at the bottom of the screen when the content is short), so it never covers the example chips; the feed is hidden there.
 2. **Checking.** A three-step checklist ticks through (reading the message → checking links and payment IDs → OTP requests and pressure tricks). No spinner.
 3. **Result (bento grid).**
    - The globe stays visible at 70% behind the panels.
    - **Top bar:** "← Check another message" and "nothing was stored".
-   - **Verdict panel:** icon, verdict word and one-line summary, plus the radar meter.
+   - **Verdict panel:** icon, verdict word and one-line summary, the sender chip when a sender was given ("SENDER · Registered business · Promotional · JIOCPN", "Personal mobile number", "Not recognised"; D22), plus the radar meter.
    - **Message panel:** as tall as its text (a long message scrolls inside it, at most 480px). Risky phrases are underlined in their severity colour, with a tooltip on hover or tap. *Changed 2026-10-18:* it used to span two grid rows, which stretched it to the height of the verdict and why panels and left a large empty area under a short message.
    - **Why panel:** at most 3 reasons. Tapping one pulses its phrase in the message.
    - **Link panel:** the domain broken into parts with the suspicious part highlighted, a list of checks, and "The link was not opened."
-   - **What to do now:** steps you can tick off, plus "Copy helpline 1930" and cybercrime.gov.in.
+   - **What to do now:** steps you can tick off, plus "Copy helpline 1930" and cybercrime.gov.in. When no sender was given, the verdict is a warning and the message has a link, a blue "Tip" note: "Check who sent it: registered businesses use IDs like JM-JIOCPN-P; scams usually come from ordinary numbers." (D22).
    - **Wide screens (901px and up), changed 2026-10-18:** two columns, each panel as tall as its content: left, verdict then why; right, message, link, what to do now.
    - **Phones:** the panels stack: verdict → message → why → link → what to do.
 
@@ -59,6 +61,7 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
 - Tapping a tag pulses the matching phrase in the message.
 - **No warning signs found:** green sweep, no blips, caption "Scanned · no warning signs found".
 - **Can't judge:** grey, sweep stopped.
+- **Promotional (D22):** blue sweep, caption "Scanned · registered promotional sender"; a blip only for a caution on a link (a link the URL model rates Suspicious is not a hard-risk signal).
 - **Keeps D4:** no percentage anywhere, the meter can never contradict the verdict word, and the verdict is always word + icon + colour.
 
 ## Globe data (G2)

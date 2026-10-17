@@ -2,11 +2,13 @@ import type { Effect, Level } from "../types/report";
 
 // How a verdict looks: word (as LEVEL_LABEL in src/shield/contracts.py), colour and icon path (as the prototype's LV). D4: the verdict is
 // always word + icon + colour. The prototype had no "Can't judge" verdict; it gets grey and the icon of the prototype's grey fallback panel.
+// Promotional (D22) is new: a calm blue and a price tag, so it reads as neither "safe" (green tick) nor "careful" (amber).
 export const LEVELS: Record<Level, { word: string; color: string; icon: string; roundJoin: boolean }> = {
   no_warning_signs: { word: "No warning signs found", color: "var(--green)", icon: "M5 12.5l4.2 4.2L19 7", roundJoin: true },
   suspicious: { word: "Suspicious", color: "var(--amber)", icon: "M12 7v6M12 16.5v.5", roundJoin: false },
   likely_scam: { word: "Likely scam", color: "var(--red)", icon: "M8 8l8 8M16 8l-8 8", roundJoin: false },
   cant_judge: { word: "Can't judge", color: "var(--grey)", icon: "M12 8v5M12 16v.5", roundJoin: false },
+  promotional: { word: "Promotional", color: "var(--blue)", icon: "M13 4.5h6.5V11l-8.5 8.5L4.5 13zM16 8h.01", roundJoin: true },
 };
 
 // The one line under the verdict word. Fixed per level, never written per message: what a message triggered is said by the reasons,
@@ -16,6 +18,7 @@ export const LEVEL_SUMMARY: Record<Level, string> = {
   suspicious: "Parts of this message are risky. Check before you act.",
   no_warning_signs: "Nothing strong was found. That does not prove it is safe.",
   cant_judge: "There isn't enough here to judge.",
+  promotional: "Marketing from a registered business ID. Likely genuine, but not proof.",
 };
 
 // Evidence colour by effect (the prototype's COL for danger / caution / neutral; reassuring and unknown are new).
@@ -26,7 +29,7 @@ export const EFFECT_COLOR: Record<Effect, string> = {
 // The radar's colours as hex (the prototype's HEX by level and SEVHEX by effect): the sweep appends an alpha ("66") and the blips glow
 // in their own colour, which a var() cannot do. Same values as the tokens in styles.css.
 export const LEVEL_HEX: Record<Level, string> = {
-  no_warning_signs: "#3DD68C", suspicious: "#F2B13B", likely_scam: "#FF3B3B", cant_judge: "#7C8696",
+  no_warning_signs: "#3DD68C", suspicious: "#F2B13B", likely_scam: "#FF3B3B", cant_judge: "#7C8696", promotional: "#5AB0FF",
 };
 export const EFFECT_HEX: Record<Effect, string> = {
   danger: "#FF3B3B", caution: "#F2B13B", neutral: "#7C8696", reassuring: "#3DD68C", unknown: "#7C8696",

@@ -1,4 +1,7 @@
 LEVELS = ["No warning signs found", "Suspicious", "Likely scam"]   # level 0 is never called "Safe": it only means nothing strong was found
+# The level analyse() gives a message from a registered promotional sender with no hard-risk signal (sender_rule.py, D22). A string, not a number:
+# it is not a point on the 0-2 scale, and comparing it with one raises a TypeError instead of quietly ranking it.
+PROMOTIONAL = "promotional"
 
 r3 = lambda x: round(float(x), 3)
 def level_of(score, lo, hi):

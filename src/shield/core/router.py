@@ -9,6 +9,8 @@ from shield.messages.tactics import tactic_tags
 from shield.links.lexical import url_notes
 from shield.links.gambling import GAMBLING_VERDICT, load_gambling
 from shield.links.platforms import assess_link
+from shield.core.sender_rule import apply_sender
+from shield.messages.sender import parse_sender
 
 MAX_TEXT_CHARS, MAX_URLS = 20000, 10
 MIN_PROSE_WORDS = 3   # fewer words than this once links are removed -> a bare link, the text head has nothing to read
@@ -31,8 +33,10 @@ def safety_advice_cap(text, r):
         ("gambling hit", any(l["gambling"] for l in r["links"]))) if hit]
     return phrases, blockers
 
-def analyse(text, text_model, url_model, safety_cap=None):
-    """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases."""
+def analyse(text, text_model, url_model, safety_cap=None, sender=None):
+    """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
+    sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
+    (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
@@ -81,4 +85,5 @@ def analyse(text, text_model, url_model, safety_cap=None):
         phrases, blockers = safety_advice_cap(text, r)
         if not blockers:   # 'no advisory phrase' is one of the blockers
             r["level"], r["safety_advice"] = 0, phrases
-    return r
+    # the sender (D22): after everything else, so a hard rule, the gambling floor or a phishing link it finds has already set the level it refuses to soften
+    return apply_sender(r, parse_sender(sender), text)

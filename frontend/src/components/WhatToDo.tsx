@@ -1,14 +1,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Level } from "../types/report";
+import { NoBreakIds } from "./SenderField";
 
 const HELPLINE = "1930";   // the national cyber-fraud helpline
 const PORTAL = "https://cybercrime.gov.in";
 
-type Props = { advice: string[]; level: Level };
+type Props = { advice: string[]; level: Level; tip: string | null };
 
 /* What to do now: Report.advice as steps to tick off (in memory only, gone with the result), as the backend wrote them. On a warning
-   verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected. */
-export default function WhatToDo({ advice, level }: Props) {
+   verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected.
+   tip: the "check who sent it" line (lib/sender.ts, D22), shown as a note rather than a step, when the sender was left blank. */
+export default function WhatToDo({ advice, level, tip }: Props) {
   const uid = useId();
   const [done, setDone] = useState<boolean[]>(() => advice.map(() => false));
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
@@ -46,6 +48,7 @@ export default function WhatToDo({ advice, level }: Props) {
           <span>{a}</span>
         </label>
       ))}
+      {tip && <p className="sendertip"><b>Tip</b><NoBreakIds text={tip} /></p>}
       {warn && (
         <div className="helpline">
           <button type="button" className="ghost" onClick={copyHelpline}>{copy === "copied" ? `Copied ${HELPLINE}` : `Copy helpline ${HELPLINE}`}</button>

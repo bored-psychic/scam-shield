@@ -1,9 +1,10 @@
-// The Report contract, schema v2: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
+// The Report contract, schema v3: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
 // exactly; the API sends every field (pydantic model_dump), so none are optional here. Change both files together and bump the version.
-export const SCHEMA_VERSION = "2";
+// v3 (D22): Report.sender and the level "promotional".
+export const SCHEMA_VERSION = "3";
 
-export type Level = "likely_scam" | "suspicious" | "no_warning_signs" | "cant_judge";
-export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_warning_signs", "cant_judge"];
+export type Level = "likely_scam" | "suspicious" | "no_warning_signs" | "cant_judge" | "promotional";
+export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_warning_signs", "cant_judge", "promotional"];
 
 export type Effect = "danger" | "caution" | "neutral" | "reassuring" | "unknown";
 
@@ -34,12 +35,21 @@ export interface Meta {
   models: Record<string, string>;
 }
 
+/** What the sender the user typed was classified as (D22). A mobile number is never echoed: only a business header is. */
+export interface Sender {
+  kind: "dlt" | "dlt_bare" | "mobile" | "other";
+  suffix: "P" | "S" | "T" | "G" | null;   // dlt only
+  header: string | null;                  // dlt and dlt_bare only, e.g. "JIOCPN"
+  label: string;                          // e.g. "Registered business · Promotional"
+}
+
 export interface Report {
-  schema_version: "2";
+  schema_version: "3";
   module: Module;
   level: Level;
   score: number | null;    // never shown as a percentage (D4)
   category: string | null;
+  sender: Sender | null;   // null: no sender was given (and always on a child Report)
   evidence: Evidence[];
   reasons: string[];       // at most 3
   advice: string[];

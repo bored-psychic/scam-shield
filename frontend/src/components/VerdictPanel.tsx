@@ -1,18 +1,21 @@
 import type { Ref } from "react";
-import type { Evidence, Level } from "../types/report";
+import type { Evidence, Level, Sender } from "../types/report";
 import { LEVEL_SUMMARY, LEVELS } from "../lib/levels";
 import Radar from "./Radar";
+import SenderChip from "./SenderChip";
 
 type Props = {
   level: Level;
+  sender: Sender | null;
   blips: Evidence[];
   pointable: boolean[];
   onPoint: (e: Evidence) => void;
   headingRef: Ref<HTMLHeadingElement>;
 };
 
-// The verdict: icon, word and colour (D4: always all three), the fixed one-line summary for the level, and the radar.
-export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef }: Props) {
+// The verdict: icon, word and colour (D4: always all three), the fixed one-line summary for the level, the sender chip when a sender was
+// given (D22), and the radar.
+export default function VerdictPanel({ level, sender, blips, pointable, onPoint, headingRef }: Props) {
   const lv = LEVELS[level];
   return (
     <div className="box verdict g-verdict">
@@ -27,6 +30,7 @@ export default function VerdictPanel({ level, blips, pointable, onPoint, heading
           <div className="vline">{LEVEL_SUMMARY[level]}</div>
         </div>
       </div>
+      {sender && <SenderChip sender={sender} />}
       <Radar level={level} blips={blips} pointable={pointable} onPoint={onPoint} />
     </div>
   );

@@ -4,8 +4,10 @@ Run from anywhere with the project venv (needs both models and the gambling look
     .venv/bin/python frontend/scripts/dump_fixture.py
 
 Inputs: every entry of tests/tricky_inputs.py, plus four extras the lib tests name (emoji before an OTP request, "shipping" before a real
-"PIN", the bank example chip, a betting promo). Each Report is made exactly as the API makes it (analyse() then to_report()), so the tests
-run on real output. meta.ms stays null: the API sets it, not to_report(). Rerun after any change to the adapter or the models.
+"PIN", the bank example chip, a betting promo), plus sender variants (D22: the real Jio promo with a P header, its bare header, a mobile
+number; the KYC scam with a P header; the bank example with a T header). Each Report is made exactly as the API makes it (analyse() then
+to_report()), so the tests run on real output. meta.ms stays null: the API sets it, not to_report(). Rerun after any change to the adapter
+or the models. The fixture keeps no sender string: a variant's label says which sender it was given, and the Report only echoes a header.
 """
 import json
 import os
@@ -29,12 +31,21 @@ EXTRAS = [
                      "your card. Never share your OTP with anyone. -HDFC Bank"),   # the "Genuine bank alert" chip (frontend/src/components/Examples.tsx)
     ("bet365-promo", "Get a 500% welcome bonus, play now: https://www.bet365.com/"),
 ]
+JIO = ("Dear User,\nYou've earned Lifetime Free\nKiwi UPI Credit Card (CC:\nJIOKIWI) on JioRecharge.\nClaim now:\nhttps://t.jio/JIOCPN/x48NuN\nT&C*\n"
+       "JioCoupons")   # the real Jio promo, typed (tests/test_ocr.py JIO_TEXT)
+KYC = ("Dear Customer, your SBI account will be blocked today due to pending KYC. Update now: sbi-kyc-update.top/login Share the OTP sent to your "
+       "number to complete verification.")   # the "KYC update SMS" chip
+SENDER_EXTRAS = [   # (label, text, sender)
+    ("jio-no-sender", JIO, None), ("jio-promotional", JIO, "JM-JIOCPN-P"), ("jio-bare", JIO, "JIOCPN"), ("jio-mobile", JIO, "+91 98765 43210"),
+    ("jio-other", JIO, "Jio"), ("kyc-promotional", KYC, "JM-JIOCPN-P"), ("bank-transactional", EXTRAS[2][1], "VM-HDFCBK-T"),
+]
 
 
 def main():
     tm, um = load_text_model(), load_url_model()
-    items = [(x["id"], x["text"]) for x in INPUTS] + EXTRAS
-    out = [{"label": label, "text": text, "report": to_report(text, analyse(text, tm, um)).model_dump(mode="json")} for label, text in items]
+    items = [(x["id"], x["text"], None) for x in INPUTS] + [(label, text, None) for label, text in EXTRAS] + SENDER_EXTRAS
+    out = [{"label": label, "text": text, "report": to_report(text, analyse(text, tm, um, sender=sender)).model_dump(mode="json")}
+           for label, text, sender in items]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
