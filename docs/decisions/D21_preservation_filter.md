@@ -1,6 +1,6 @@
 # D21: preservation filter for machine-translated rows
 
-Status: **proposed 2026-10-18; measured only, not applied.** Nothing in `data/`, `split_map.csv` or `models/` was changed, and the filter is not wired into any script. Measurement code: `src/preservation_filter.py`. Follows D20 and `reports/spotcheck_hi.md`.
+Status: **ACCEPTED 2026-10-18 (digit and URL clauses only).** Proposed and measured 2026-10-18; accepted the same day on the recommendation below. The digit and URL clauses are a **training-only drop rule**; the brand / sender clause is **not** a drop rule, it becomes a **report from a curated brand list** (no list exists yet: future work). Not applied yet: nothing in `data/`, `split_map.csv` or `models/` was changed and nothing is wired into a script; the rule is applied when translated rows are ingested at the splits-v2 rebuild. Measurement code: `src/preservation_filter.py` (measure only). Follows D20 and `reports/spotcheck_hi.md`; D20's condition refers to this decision.
 
 ## Rule as specified
 
@@ -47,7 +47,7 @@ False flags in the default variant are mostly legitimate transliterations or ord
 
 Train alone 166 rows, dev 22 (default: 71 and 7 dropped). In every row of both tables the digit and URL clauses flagged **0** rows in train + dev and **1 parent (2 rows, Hindi and Kannada)** in the no-split pool; everything else is the brand clause. Distinct flagged tokens: 380 (default), 547 (strictest); most frequent in the default variant: Aadhaar 29, Express 22, SECRET 21, American 20, Ref 20, Acc 20.
 
-**The digit clause found a real defect.** The one flagged parent is `RESEND 1:363094 is the OTP for INR 278.33 ...`: both translations read `1:36 3094`. The OTP code was cut in two by the `time` pattern in `protect.py` (checked: `protect.protect()` turns the text into `RESEND <ID51>3094 ...`, the span `1:36` is protected and `3094` is left outside the marker), and `finalise` did not notice because both pieces are digit runs. One parent in 1,004, but the bug is in the protection step, not the model.
+**The digit clause found a real defect.** The one flagged parent is `RESEND 1:363094 is the OTP for INR 278.33 ...`: both translations read `1:36 3094`. The OTP code was cut in two by the `time` pattern in `protect.py` (checked: `protect.protect()` turns the text into `RESEND <ID51>3094 ...`, the span `1:36` is protected and `3094` is left outside the marker), and `finalise` did not notice because its digit check compares the multiset of single digit characters, which a cut in two leaves unchanged (`translate_parents.py`, step "digit or mask-token mismatch"). A check on digit RUNS, as in this rule, does see it. One parent in 1,004, but the bug is in the protection step, not the model; it is logged in `BUGS.md`.
 
 ## Reading
 
@@ -55,12 +55,12 @@ Train alone 166 rows, dev 22 (default: 71 and 7 dropped). In every row of both t
 - The brand clause as specified is **not usable as a hard filter**. It drops 41-60% of the train + dev rows and 58-84% of the benign pool, flags 43-67% of rows the reviewer found fine, and catches hi29 only in the variant that flags two thirds of the good rows. Without a brand list, "brand missing" cannot be told apart from "name transliterated into Devanagari".
 - Three of the four known failures (hi34, hi35 position, hi39) are structure errors that no token check sees. Only human review (or a back-translation check, not tried) finds those.
 
-## Recommendation (for you to accept or change)
+## Decision (accepted 2026-10-18; this was the recommendation)
 
-1. Adopt the digit and URL clauses only (a flag, with the offending row listed), and fix the OTP-code split in `protect.py` before any re-translation. Open item for BUGS.md.
-2. Do not adopt the brand clause as a drop rule. If a brand check is wanted, build a small hand-checked list of the brand / sender names in the English parents (the real brands are presumably a small subset of the 380 tokens; not counted) and report misses for review instead of dropping.
-3. Keep `docs/spotcheck/exclude_v1.txt` for the four known-bad Hindi rows; that is the only removal the evidence supports today.
-4. Apply any filter to **training rows only**. Test-split translated rows stay as built (consistent with "test rows are not edited or dropped on the basis of this check"). Decide at splits-v2 whether the dev rows follow train.
+1. **Digit and URL clauses: a drop rule, training rows only.** A translated row is left out of the training set if a digit run or a URL of its English parent is missing from the translation. It is applied at the splits-v2 rebuild, when translated rows are ingested. On today's rows it removes 0 train / dev rows and the 2 no-split rows hit by the `protect.py` bug (BUGS.md; fixing that bug means re-translating, also scheduled for the rebuild).
+2. **Brand / sender clause: report only, from a curated list.** Build a small hand-checked list of the brand / sender names in the English parents (the real brands are presumably a small subset of the 380 tokens; not counted) and report misses for review; nothing is dropped on it. **No list exists yet: future work.** Until then no brand check runs.
+3. `docs/spotcheck/exclude_v1.txt` (the four known-bad Hindi rows) stays; together with point 1 it is the removal D20's condition refers to.
+4. **Training rows only.** Test-split translated rows stay as built (consistent with "test rows are not edited or dropped on the basis of this check"). Whether the dev rows follow train is decided at splits-v2.
 
 Open: the Kannada sheet is with a reviewer. Its result may change point 2 (Kannada failures could be a different class).
 

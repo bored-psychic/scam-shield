@@ -79,7 +79,7 @@ The four failures sit on SMS shorthand (brand names, sender tags, alert fragment
 
 ## Decision
 
-D20 in `docs/decisions/README.md` (reworded 2026-10-18): the Hindi result is **borderline** against the 90% gate (Q1 91.5% on the 50/50 sheet, about 88% re-weighted to the 15%-scam pool, CI +/- 12). Hindi machine translations are accepted as training augmentation only, conditional on the preservation filter (D21, proposed, measured in `docs/decisions/D21_preservation_filter.md`) and on leaving the 4 known-bad rows out of training (`docs/spotcheck/exclude_v1.txt`, not applied yet). They are not evidence of real-Hindi performance (about 27% re-weighted judged too formal). Any Hindi metric must be labelled "translated". MuRIL and `splits-v2` stay gated on the Kannada spot-check.
+D20 in `docs/decisions/README.md` (reworded 2026-10-18): the Hindi result is **borderline** against the 90% gate (Q1 91.5% on the 50/50 sheet, about 88% re-weighted to the 15%-scam pool, CI +/- 12). Hindi machine translations are accepted as training augmentation only, conditional on leaving the 4 known-bad rows out of training (`docs/spotcheck/exclude_v1.txt`, not applied yet) and on the D21 digit / URL check (accepted 2026-10-18, a training-only drop rule applied at the rebuild; measured in `docs/decisions/D21_preservation_filter.md`). The brand check is report-only, from a curated list that does not exist yet. They are not evidence of real-Hindi performance (about 27% re-weighted judged too formal). Any Hindi metric must be labelled "translated". MuRIL and `splits-v2` stay gated on the Kannada spot-check.
 
 ## Reproduce
 
