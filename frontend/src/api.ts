@@ -1,4 +1,5 @@
 import { LEVEL_VALUES, SCHEMA_VERSION, type Report } from "./types/report";
+import { OCR_MESSAGES, validateImage } from "./lib/screenshot";
 
 // Client for the local checker (src/shield/api/main.py). Relative path: in development Vite forwards /api to 127.0.0.1:8000.
 // The pasted text goes into the request body and nowhere else: nothing here logs it.
@@ -51,4 +52,51 @@ export async function analyse(text: string): Promise<Report> {
     throw new CheckError({ kind: "schema", got: version === undefined ? "none" : String(version) });
   }
   return body as unknown as Report;
+}
+
+// Screenshot input (D19). The image goes into the request body of POST /api/ocr (local Tesseract, in memory) and nowhere else; the
+// answer is only the text, which the page puts in the box for the user to check before it is ever sent to /api/analyse.
+export type OcrResult = { text: string; lines: string[]; dropped: number };
+
+export class OcrError extends Error {   // .message is what the page shows, in plain words; never anything read from the image
+  constructor(message: string) {
+    super(message);
+    this.name = "OcrError";
+  }
+}
+
+const OCR_TIMEOUT_MS = 45_000;   // Tesseract takes about a second and the API stops it at 20 s; this only keeps the page from waiting forever
+
+export async function ocr(image: Blob, signal?: AbortSignal): Promise<OcrResult> {
+  const problem = validateImage(image);   // checked here too, so a file that is too big or the wrong type is never uploaded
+  if (problem) throw new OcrError(problem);
+  const timeout = AbortSignal.timeout(OCR_TIMEOUT_MS);
+  const form = new FormData();
+  form.append("image", image, "screenshot");   // a fixed part name: the file's own name is not sent
+  let res: Response;
+  try {
+    res = await fetch("/api/ocr", { method: "POST", body: form, signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
+  } catch (e) {
+    if (signal?.aborted) throw e;   // the page cancelled it (screenshot removed or replaced): not a failure to show
+    throw new OcrError(OCR_MESSAGES.unreachable);
+  }
+  const body: unknown = await res.json().catch(() => undefined);
+  if (signal?.aborted) throw signal.reason;
+  if (timeout.aborted) throw new OcrError(OCR_MESSAGES.unreachable);
+
+  if (!res.ok) {
+    const detail = isObject(body) && typeof body.detail === "string" ? body.detail : null;
+    switch (res.status) {
+      case 413: throw new OcrError(OCR_MESSAGES.size);
+      case 415: throw new OcrError(OCR_MESSAGES.type);
+      case 422: throw new OcrError(detail ?? OCR_MESSAGES.unreadable);
+      case 503: throw new OcrError(OCR_MESSAGES.unavailable);
+    }
+    // No JSON detail: not the API speaking (the Vite proxy answers 500 with an empty body when the API is down), as in analyse().
+    throw new OcrError(detail !== null ? OCR_MESSAGES.failed : OCR_MESSAGES.unreachable);
+  }
+  if (!isObject(body) || typeof body.text !== "string" || !Array.isArray(body.lines) || typeof body.dropped !== "number") {
+    throw new OcrError(OCR_MESSAGES.failed);
+  }
+  return { text: body.text, lines: body.lines as string[], dropped: body.dropped };
 }

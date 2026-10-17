@@ -6,6 +6,14 @@ The web app (decision D9: React + Vite + TypeScript + Tailwind v4 + Motion, thre
 Part 1: home screen, globe, checking state, API wiring. Part 2: the result screen (`src/components/Result.tsx`): a bento grid of
 the verdict with the radar meter (8b), the message with its underlined parts, why, the links and what to do now.
 
+Screenshot input (D19, part B; `src/components/PasteBox.tsx`, `src/lib/screenshot.ts`, `ocr()` in `src/api.ts`): the Screenshot
+button (file picker), a drop onto the box, or an image pasted from the clipboard (a paste with plain text stays a text paste). The
+file is checked here first (PNG / JPEG / WEBP, at most 8 MB, not empty; a browser may report a network error instead of the API's
+413, so nothing too big is ever uploaded), shown as a thumbnail while `POST /api/ocr` reads it, and its text goes into the box,
+after asking if the box already held the user's own text. A notice above the box asks the user to check the text, especially
+amounts (₹) and links (the rupee sign is often misread, BUGS.md); the check only runs when they press Check. The image lives only in
+memory: the File and an object URL for the thumbnail, revoked when the screenshot is replaced or removed or the box goes away.
+
 ## Run it
 
 First time only: `cd frontend && npm ci` (Node 20.19+ or 22.12+).
@@ -24,7 +32,8 @@ talks to 127.0.0.1:5173. If the API is not running, the page says "Couldn't reac
 ## Check, test and build
 
     npx tsc --noEmit    # type check (TypeScript 7)
-    npm test            # vitest: the display logic in src/lib/ (U1-U9 in src/lib/lib.test.ts)
+    npm test            # vitest: the display logic in src/lib/ (U1-U9 in src/lib/lib.test.ts) and the screenshot input
+                        # (V1-V4 in src/lib/screenshot.test.ts: file checks, api.ocr() error words with fetch mocked, the notice, paste)
     npm run build       # type check + production build into dist/
 
 The tests read real Reports: `src/lib/__fixtures__/reports.json`, written by `scripts/dump_fixture.py` (every input of
@@ -37,7 +46,8 @@ adapter or the models, from the repo root with the project venv:
 
 - **No third-party requests at runtime** (docs/ARCHITECTURE.md §1): three.js and the fonts come from npm and are bundled; the globe
   data is bundled JSON (`src/data/`, copied byte for byte from the prototype). The only outside URLs are links the user clicks.
-- **The message text is never logged**: no `console.*` calls; it goes only into the POST body.
+- **The message text is never logged**: no `console.*` calls; it goes only into the POST body. A screenshot goes only into the
+  body of `POST /api/ocr` (under a fixed part name, not its file name) and is never put in localStorage, sessionStorage or IndexedDB.
 - **Everything shown comes from the `Report`**: `src/types/report.ts` mirrors `src/shield/contracts.py` (schema v2); an answer with
   another `schema_version` is shown as an error. No percentage anywhere (D4).
 - **Globe**: pixel ratio capped at 1.75, paused while the tab is hidden, fully disposed on unmount; with reduced motion it is a static
