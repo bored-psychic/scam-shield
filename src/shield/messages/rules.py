@@ -11,22 +11,36 @@ _DISCLAIMER = re.compile(r"intended recipient|in error|by mistake|received this 
 # aside: "do not, under any circumstances, share"; but "Don't worry, just share the OTP" is still a request). English plus a Hinglish "OTP bata do" form; the verb list leaves out text / message /
 # confirm / enter, which genuine OTP SMS use ("Enter OTP 482913 to confirm"). Known false positive: a real delivery-OTP instruction
 # ("share the OTP with the delivery partner"). 'pin code' is the postal code, not a PIN.
+# A negation only cancels a request when it is attached to the request verb itself. "Don't hesitate to share your OTP", "Please do not worry and
+# send the OTP", "Never forget to share your OTP", "Do not think twice, send the PIN" negate hesitating / worrying / forgetting, not sharing: they are
+# requests (see _NOT_THE_VERB).
 _CRED = (r"(?:otp|one[- ]?time[- ](?:password|pin|code)|verification code|security code|cvv2?|cvc|"
          r"(?:(?:upi|atm|card|debit|credit|net ?banking|m|t)[ -]?)?pin(?![ -]?code))")
 _ASK_VERBS = r"send|share|forward|give|provide|tell|read out|reply with|reply|submit|relay"
 _ASK_FIRST = re.compile(rf"\b(?:{_ASK_VERBS})\b[^.!?\n]{{0,40}}?\b{_CRED}\b", re.I)
 _ASK_LAST = re.compile(rf"\b{_CRED}\b[^.!?\n]{{0,25}}?\b(?:bata(?:o|do|dena|iye|yein)?|bhej(?:o|do|dena|iye|ein)?|share kar(?:o|iye|ein|do|na)?)\b", re.I)
-_NEG_BEFORE = re.compile(r"\b(?:do not|don'?t|dont|never|not|no one|nobody|avoid|cannot|can'?t|won'?t|will not|should not|shouldn'?t)\s+(?:[\w']+\s+){0,3}$", re.I)
+# One candidate per negation in the 40 characters before the verb; 'between' (group 2, inside a lookahead so the candidates can overlap) is the up to
+# three words from the negation to the verb. A candidate counts only if _NOT_THE_VERB finds nothing in 'between'.
+_NEG_BEFORE = re.compile(r"\b(do not|don'?t|dont|never|not|no one|nobody|avoid|cannot|can'?t|won'?t|will not|should not|shouldn'?t)\s+(?=((?:[\w']+\s+){0,3})$)", re.I)
 # "do not, under any circumstances, share": the negation, a comma-delimited aside, then the verb. The aside must start right after the negation, so
 # "Don't worry, just share the OTP" (the word 'worry' sits between them) is still a request.
-_NEG_ASIDE = re.compile(r"\b(?:do not|don'?t|dont|never|not|should not|shouldn'?t|will not|won'?t|cannot|can'?t)\s*,\s*[^,.!?\n]{1,40},\s*$", re.I)
+_NEG_ASIDE = re.compile(r"\b(?:do not|don'?t|dont|never|not|should not|shouldn'?t|will not|won'?t|cannot|can'?t)\s*,\s*([^,.!?\n]{1,40}),\s*$", re.I)
+# The words a negation is attached to when it is not attached to the request verb: hesitate, worry, delay, wait, panic, fear / be afraid / be scared /
+# be shy, forget, think twice (all inflections). "No need to panic, just send your PIN" is the same case, and needs no entry: 'no need' is not a
+# negation word above, so it never cancels anything ("There is no need to share your OTP" therefore still fires, as before).
+_NOT_THE_VERB = re.compile(r"\b(?:hesitat\w*|worr\w*|delay\w*|wait\w*|panic\w*|fear\w*|afraid|scared|shy|forget\w*|forgot\w*|(?:think\w*|thought)\s+twice)\b", re.I)
 _NEG_INSIDE = re.compile(r"\b(?:no one|nobody|not|never|mat|nahi|na)\b", re.I)
 
 def _negated(text, m):
     """Whether the match m of a request pattern sits under a negation (the three tests described above). The one copy, used by cred_requests
     (negated = skipped) and advisory_phrases (negated = kept), so the two can never disagree about what is negated."""
     before = text[max(0, m.start() - 60):m.start()]
-    return bool(_NEG_INSIDE.search(m.group(0)) or _NEG_BEFORE.search(before[-40:]) or _NEG_ASIDE.search(before))
+    if _NEG_INSIDE.search(m.group(0)):
+        return True
+    if any(not _NOT_THE_VERB.search(c.group(2)) for c in _NEG_BEFORE.finditer(before[-40:])):
+        return True
+    a = _NEG_ASIDE.search(before)
+    return bool(a and not _NOT_THE_VERB.search(a.group(1)))
 
 def cred_requests(text):
     """Phrases that ask the reader to send / share / forward an OTP, PIN or CVV (empty list = none). Benign warnings are not requests."""
