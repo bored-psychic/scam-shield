@@ -17,11 +17,17 @@ import shutil
 import subprocess
 import time
 
+import numpy as np
 from PIL import Image, ImageOps
+from scipy import ndimage
 
 from textprep import extract_urls
 
 LANGS = "eng+hin+kan"
+PAPER_MIN = 170          # _coloured_ink acts only on paper at least this light in every channel after the invert, i.e. a bubble whose brightest channel is < 85 (grey 204 / 188 / 218 in the apps measured or assumed; teal and blue outgoing bubbles 163 / 135 stay out)
+INK_PEAK_MIN = 40        # _coloured_ink touches pixels only near a stroke whose extra ink peaks at least this high (tinted backgrounds and JPEG noise make <= 23) ...
+INK_FLOOR = 110          # ... and lifts a weaker one to this contrast, never a stronger one (measured on a real screenshot and on a colour sweep, see the docstring)
+INK_GAIN_MAX = 3.0       # at most this factor
 MAX_BYTES = 8 * 1024 * 1024
 MAX_SIDE = 6000          # px, either side
 UPSCALE_BELOW = 1200     # px: an image narrower than this is enlarged by UPSCALE
@@ -63,9 +69,54 @@ def _median(img):
     return 255
 
 
+def _stroke_box(width):
+    """Side (odd, px) of the square that tells a thin stroke from a large region: 15 px on a 1080 px wide screenshot, where chat text strokes and
+    link underlines are 2-6 px, 9 px at the narrowest, 31 at the widest."""
+    return min(31, max(9, (round(width / 72) // 2) * 2 + 1))
+
+
+def _coloured_ink(rgb, grey, box):
+    """Dark mode only: `rgb` is the INVERTED image (dark ink on light paper) and `grey` its luma. Returns `grey` with coloured strokes darkened.
+
+    Why: the invert step turns a mid-brightness link colour into a light grey. iOS Messages' dark-mode blue (10, 132, 255) on its grey bubble has luma 109
+    against 38, so after the invert the link is 145 on 217 and Tesseract drops it (the same for a plain (0, 0, 238) blue, and for the (40, 105, 220) link
+    of a real Google Messages screenshot against its (32, 33, 37) bubble). In the inverted image the darkest channel is 255 minus the BRIGHTEST channel
+    of the original, so a coloured stroke stands out from the paper there while luma flattens it. It cannot simply replace luma: a saturated bubble has a
+    near-zero channel too, which hides white text on it. So it is only used for what luma misses, and only where it can be trusted:
+      * a black top-hat (closing minus image: a closing of `box` px fills any stroke thinner than that and keeps large regions) of the darkest channel gives
+        the ink that channel sees, the same of luma gives the ink luma sees; `grey` is darkened by the difference, never lightened;
+      * only where the paper around the stroke is light in every channel (its median darkest channel >= PAPER_MIN, i.e. a bubble that is dark in every
+        channel): on a saturated paper the darkest channel is ~0 for the ink and the paper alike, and JPEG chroma bleed from the text then shows up as
+        phantom ink (measured: 20k pixels on a blue bubble). 128 let a Telegram-blue outgoing bubble (paper 135) through and 4 JPEG renders of it read
+        worse, so it is 170. The level is a median over ~44 px, not the closing used for the ink: a closing is a max-then-min and rides up to the noise
+        peak, which let JPEG noise lift a teal bubble (paper 162) over 170 on half its area and changed the link characters;
+      * only within 1.5 boxes of a stroke whose extra ink is real (a local peak >= INK_PEAK_MIN, above the ~23 that a tinted background and JPEG noise
+        produce); everywhere else the image is byte-identical to the luma one. Without this, noise-level changes all over the page flipped a line 100 px away
+        from the link (`JioCoupons` read as digits by the Hindi / Kannada models, Tesseract 5.3.4);
+      * such a stroke that is weak (peak < INK_FLOOR) is lifted to INK_FLOOR, at most INK_GAIN_MAX times. Tesseract's threshold is set by the white text, so a dim colour (a link with value 0.45, 115 against
+        a 37 bubble) has too little contrast and drops out. Stronger strokes are left alone on purpose: a fixed gain bloats them (x2 on the real screenshot:
+        link recovered in 34 of 64 re-encodings instead of 50, x3 in 14).
+    Not used: chroma (max - min of the colour), which also handles dim colours but is stored at half resolution in a JPEG, so it smears thin strokes
+    (real screenshot 20 of 64, and 83-90% on JPEG renders at every brightness).
+    For grey text on a grey background the darkest channel IS luma, the difference is exactly 0 and the image is bit-identical to before."""
+    m = np.asarray(rgb).min(axis=2)
+    g = np.asarray(grey)
+    size = (box, box)
+    paper_m = ndimage.grey_closing(m, size=size)
+    ink_m = paper_m.astype(np.int16) - m
+    ink_g = ndimage.grey_closing(g, size=size).astype(np.int16) - g
+    extra = np.clip(ink_m - ink_g, 0, 255).astype(np.uint8)
+    typical = ndimage.median_filter(m[::4, ::4], size=11)   # the paper level, robust to noise and strokes (a closing rides up to the noise peak)
+    extra[np.repeat(np.repeat(typical, 4, axis=0), 4, axis=1)[:m.shape[0], :m.shape[1]] < PAPER_MIN] = 0
+    peak = ndimage.maximum_filter(extra, size=(3 * box, 3 * box))
+    lift = np.clip(INK_FLOOR / np.maximum(peak, 1), 1.0, INK_GAIN_MAX).astype(np.float32)
+    extra = np.where(peak >= INK_PEAK_MIN, np.clip(extra * lift, 0, 255), 0).astype(np.int16)   # no real coloured stroke within 1.5 boxes: not a pixel is touched
+    return Image.fromarray(np.clip(g.astype(np.int16) - extra, 0, 255).astype(np.uint8))
+
+
 def _prepare(data, invert=None):
-    """Bytes -> grayscale PNG bytes for Tesseract: EXIF-oriented, flattened onto white, dark-mode inverted, narrow images enlarged by UPSCALE.
-    `invert` None = automatic (median brightness below 128); True / False forces it (tests only)."""
+    """Bytes -> grayscale PNG bytes for Tesseract: EXIF-oriented, flattened onto white, dark-mode inverted (with coloured strokes recovered, see
+    _coloured_ink), narrow images enlarged by UPSCALE. `invert` None = automatic (median brightness below 128); True / False forces it (tests only)."""
     try:
         img = Image.open(io.BytesIO(data), formats=FORMATS)
         w, h = img.size   # from the header, before any pixel is decoded
@@ -77,13 +128,14 @@ def _prepare(data, invert=None):
             flat = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
             flat.alpha_composite(rgba)
             img = flat
-        img = img.convert("L")
+        colour, grey = img, img.convert("L")
     except ImageRejected:
         raise
     except Exception:   # a truncated or corrupt file: Pillow raises OSError, SyntaxError, ValueError, DecompressionBombError ...
         raise ImageRejected("The image could not be read.") from None
-    if (_median(img) < 128) if invert is None else invert:
-        img = ImageOps.invert(img)
+    if (_median(grey) < 128) if invert is None else invert:
+        grey = _coloured_ink(ImageOps.invert(colour.convert("RGB")), ImageOps.invert(grey), _stroke_box(grey.width))
+    img = grey
     if UPSCALE > 1 and img.width < UPSCALE_BELOW:
         img = img.resize((img.width * UPSCALE, img.height * UPSCALE), Image.Resampling.LANCZOS)
     out = io.BytesIO()
@@ -116,7 +168,6 @@ def _tesseract(png):
 # slash is never valid, so this one pattern is repaired: a scheme, one or two slashes, up to two stray characters, then "www.". Nothing else
 # is rewritten: a misread inside a host name or a number cannot be told from the real thing, and a wrong-but-plausible repair would hide it.
 _BROKEN_SCHEME = re.compile(r"\b(https?):/{1,2}[^\s/w]{0,2}(?=www\.)", re.I)
-
 
 # Second shape (D19b): Tesseract puts a space beside the colon, "https :/Awww.bet365.com/" or "http : /Aexample.in/x". Still only a scheme: a space next to
 # the colon is never valid, a host-like token must follow at once ("www." or a lower-case name with a dot and an alphabetic ending), and the one stray

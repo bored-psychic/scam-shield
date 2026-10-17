@@ -1,4 +1,5 @@
-import builtins, contextlib, io, json, logging, os, re, shutil, socket, subprocess, sys, tempfile
+from urllib.parse import urlsplit
+import builtins, contextlib, io, json, logging, os, re, shutil, socket, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 from unittest import mock
 from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
@@ -9,6 +10,7 @@ from shield.core.report import to_report
 from shield.core.router import analyse
 from shield.ocr.reader import ImageRejected, ImageTooLarge, UnsupportedImage, clean_lines, read_image
 from textprep import extract_urls
+from ocr_render import DEVANAGARI_FONTS, LATIN_FONTS, bubble, font, to_png
 
 # python tests/test_ocr.py   (from the project root; needs tesseract + eng/hin/kan data and both models; no pytest required, but pytest collects test_ocr() too)
 # Every image is drawn IN MEMORY with Pillow and never saved. Each check prints PASS / FAIL; O1-O3 also print their character error rates (CER).
@@ -23,14 +25,17 @@ from textprep import extract_urls
 #   O6 no disk writes: builtins.open, os.open and every tempfile entry point (incl. the spill of a >1 MB upload) are made to raise; TMPDIR stays empty
 #   O7 no network: sockets patched to record and refuse every connection / lookup while read_image runs
 #   O8 API end to end: POST /api/ocr (d02 image) -> text with "OTP"; POST that text to /api/analyse -> suspicious or likely_scam; nothing is logged
-#   O10 repair_links: the spaced-colon and space-after-a-dot repairs, the old pattern, and the cases that must stay unchanged (D19b). O9 / O11-O13 are not in this file yet.
+#   O10 repair_links: the spaced-colon and space-after-a-dot repairs, the old pattern, and the cases that must stay unchanged (D19b)
+#   O13 the real Jio screenshot tests/fixtures/real/jio_kiwi_dark.jpg: link with host t.jio + a / path, "Dear User" / "Claim now" / "JioCoupons" lines, verdict Likely scam
+#       (as for the typed text), the Link panel lists the link; and with the colour step switched off the link is lost (the fixture still exercises the fix). O11-O12 are unused.
+#   O9 coloured, underlined links in dark mode (iOS Messages blue, plain blue; plus WhatsApp / Google Messages / Telegram dark, and iOS light / white-on-blue as
+#      guards): every link survives with CER <= 0.08; with the recovery step switched off the first two lose it (the fixture still exercises the fix); an exactly
+#      grey theme and a saturated bubble on a light page (PNG + a JPEG that gets inverted) give a byte-identical prepared image with and without the step
 MAX_CER = 0.08
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 DEMO = [x for x in json.load(open(os.path.join(ROOT, "docs", "demo", "demo_set.json"), encoding="utf-8")) if x["kind"] == "scam"]
 DARK_IDS = ["d02", "d06", "d08"]
 HINDI = "आपका बैंक खाता आज बंद हो जाएगा। ओटीपी भेजें।"   # no short-i matra and no conjuncts: this Pillow build has no raqm, so nothing is shaped
-LATIN_FONTS = ["/System/Library/Fonts/Helvetica.ttc", "/System/Library/Fonts/SFNS.ttf"]   # Arial / Verdana here have no rupee sign (they draw a box)
-DEVANAGARI_FONTS = ["/System/Library/Fonts/Supplemental/Devanagari Sangam MN.ttc", "/System/Library/Fonts/KohinoorDevanagari.ttc"]
 INFO = {}
 _cache = {}
 
@@ -51,44 +56,6 @@ def cer(ref, hyp):
             cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a != b)))
         prev = cur
     return prev[-1] / max(len(ref), 1)
-
-def font(paths, size):
-    for p in paths:
-        if os.path.exists(p):
-            return ImageFont.truetype(p, size)
-    return None
-
-def to_png(img, **kw):
-    b = io.BytesIO()
-    img.save(b, "PNG", **kw)
-    return b.getvalue()
-
-def bubble(text, dark=False, width=1080, size=40, stamp="10:42 pm", fonts=LATIN_FONTS):
-    """A chat screenshot: a 'Today' pill, one incoming bubble with the text wrapped at word boundaries, a timestamp under the text."""
-    f, small = font(fonts, size), font(fonts, 28)
-    bg, box, ink, faint = ((11, 20, 26), (32, 44, 51), (255, 255, 255), (134, 150, 160)) if dark else ((239, 234, 226), (255, 255, 255), (17, 27, 33), (102, 119, 129))
-    left, pad, inner = 40, 30, 1080 - 2 * 40 - 2 * 30
-    lines, cur = [], ""
-    for word in text.split():
-        t = (cur + " " + word).strip()
-        if f.getlength(t) <= inner or not cur:
-            cur = t
-        else:
-            lines.append(cur)
-            cur = word
-    lines.append(cur)
-    lh = int(size * 1.4)
-    top = 150
-    h = top + pad + len(lines) * lh + 50 + pad + 120
-    img = Image.new("RGB", (width, h), bg)
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((width // 2 - 80, 40, width // 2 + 80, 100), 24, fill=box)
-    d.text((width // 2, 70), "Today", font=small, fill=faint, anchor="mm")
-    d.rounded_rectangle((left, top, width - left, top + pad + len(lines) * lh + 50 + pad), 28, fill=box)
-    for i, line in enumerate(lines):
-        d.text((left + pad, top + pad + i * lh), line, font=f, fill=ink)
-    d.text((width - left - pad, top + pad + len(lines) * lh + 25), stamp, font=small, fill=faint, anchor="rm")
-    return to_png(img)
 
 def image(key, **kw):
     if key not in _cache:
@@ -183,6 +150,76 @@ def o3(c):
     note("O3", "got: " + norm(res["text"]).encode("ascii", "backslashreplace").decode())
     return [] if res["text"] else ["Hindi image gave no text"]
 
+# Chat apps draw links in a colour and underline them; the plain-ink fixtures above cannot show what happens to those. (page, bubble, ink, faint, link)
+THEMES = {
+    "Google Messages dark (MEASURED)": ((0, 0, 0), (32, 33, 37), (240, 240, 240), (140, 140, 145), (40, 105, 220)),   # page, bubble, text and link measured from tests/fixtures/real/jio_kiwi_dark.jpg; the timestamp colour is assumed
+    "iOS Messages dark": ((0, 0, 0), (38, 38, 41), (255, 255, 255), (140, 140, 145), (10, 132, 255)),   # every other theme: colours assumed (remembered from the apps), not sampled
+    "plain blue on dark grey": ((18, 18, 18), (40, 40, 40), (235, 235, 235), (140, 140, 140), (0, 0, 238)),
+    "WhatsApp dark": ((11, 20, 26), (32, 44, 51), (233, 237, 239), (134, 150, 160), (83, 189, 235)),
+    "Google Messages dark": ((32, 33, 36), (60, 64, 67), (232, 234, 237), (154, 160, 166), (138, 180, 248)),
+    "Telegram dark": ((14, 22, 33), (24, 37, 51), (255, 255, 255), (109, 127, 143), (106, 179, 243)),
+    "iOS Messages light": ((255, 255, 255), (233, 233, 235), (0, 0, 0), (130, 130, 135), (0, 122, 255)),
+    "iOS sent (white on a blue bubble)": ((255, 255, 255), (0, 122, 255), (255, 255, 255), (200, 225, 255), (255, 255, 255)),
+    "WhatsApp dark outgoing (teal)": ((11, 20, 26), (0, 92, 75), (233, 237, 239), (150, 190, 180), (83, 189, 235)),
+    "Telegram dark outgoing (blue)": ((14, 22, 33), (43, 82, 120), (255, 255, 255), (160, 190, 220), (140, 200, 255)),
+    "neutral grey (no colour at all)": ((18, 18, 18), (40, 40, 40), (235, 235, 235), (140, 140, 140), (235, 235, 235)),
+}
+LOST_BEFORE = ["Google Messages dark (MEASURED)", "iOS Messages dark", "plain blue on dark grey"]   # the themes whose links the old greyscale conversion lost
+LINKED = [x for x in DEMO if extract_urls(x["text"])]
+
+def themed(name, item):
+    return image(("theme", name, item["id"]), text=item["text"], theme=THEMES[name])
+
+def as_jpeg(png, quality=80):
+    b = io.BytesIO()
+    Image.open(io.BytesIO(png)).convert("RGB").save(b, "JPEG", quality=quality)
+    return b.getvalue()
+
+def step_off():
+    """The recovery of coloured strokes switched off: _prepare is then the plain luma conversion it was before."""
+    return mock.patch.object(reader, "_coloured_ink", lambda rgb, grey, box: grey)
+
+def o9(c):
+    bad = []
+    runs = ([(t, x) for t in LOST_BEFORE for x in LINKED]                                                                                   # all four links, every theme the old conversion lost
+            + [(t, x) for t in ("WhatsApp dark", "Google Messages dark", "Telegram dark") for x in LINKED if x["id"] in ("d06", "d10")]    # dark themes that already worked
+            + [(t, x) for t in ("iOS Messages light", "iOS sent (white on a blue bubble)") for x in LINKED if x["id"] in ("d02", "d10")])   # must not get worse
+    for theme, item in runs:
+        res = read_image(themed(theme, item))
+        e, lost = cer(item["text"], res["text"]), phrases_lost(item, res["text"])
+        note("O9", f"{theme:34s} {item['id']}  CER {e:.3f}  lost {lost or '-'}")
+        if lost or e > MAX_CER:
+            bad.append(f"{theme} / {item['id']}: lost {lost}, CER {e:.3f}   got: {norm(res['text'])}")
+    # The fixture must still show what the step is for: without it, the coloured link of at least one of these is lost, as it was.
+    with step_off():
+        lost_without = [t for t in LOST_BEFORE if phrases_lost(DEMO[1], read_image(themed(t, DEMO[1]))["text"])]
+    note("O9", f"with the step switched off the d02 link is lost in: {lost_without}")
+    if lost_without != LOST_BEFORE:
+        bad.append(f"with the step off the link should be lost in {LOST_BEFORE}, but only in {lost_without}: the fixture no longer exercises the fix")
+    # Where it must change nothing: an exactly grey theme (PNG and JPEG) and a saturated bubble on a light page (PNG, and a JPEG whose median
+    # brightness is below 128, so it is inverted: the case a first version of the step damaged by blackening the gaps between white letters).
+    d01 = DEMO[0]
+    d07 = next(x for x in DEMO if x["id"] == "d07")   # has a link, so there is a coloured stroke on the page: the teal / blue bubbles must still be left alone
+    checks = [("neutral grey png", themed("neutral grey (no colour at all)", d01)), ("neutral grey jpeg", as_jpeg(themed("neutral grey (no colour at all)", d01))),
+              ("iOS sent png", themed("iOS sent (white on a blue bubble)", d01)), ("iOS sent jpeg", as_jpeg(themed("iOS sent (white on a blue bubble)", d01))),
+              ("teal outgoing png", themed("WhatsApp dark outgoing (teal)", d07)), ("teal outgoing jpeg", as_jpeg(themed("WhatsApp dark outgoing (teal)", d07))),
+              ("blue outgoing png", themed("Telegram dark outgoing (blue)", d07)), ("blue outgoing jpeg", as_jpeg(themed("Telegram dark outgoing (blue)", d07)))]
+    if median_of(checks[3][1]) >= 128:
+        bad.append("the iOS sent JPEG is no longer inverted (median brightness >= 128), so it does not exercise the saturated-bubble gate")
+    for label, png in checks:
+        with_step = reader._prepare(png)
+        with step_off():
+            without = reader._prepare(png)
+        if with_step != without:
+            bad.append(f"{label}: the prepared image changed ({len(with_step)} vs {len(without)} bytes) although the step must not touch it")
+    tall = Image.open(io.BytesIO(themed("iOS Messages dark", LINKED[0]))).convert("RGB").resize((1170, 2532))   # a phone-sized screenshot
+    b = io.BytesIO()
+    tall.save(b, "PNG")
+    t0 = time.perf_counter()
+    reader._prepare(b.getvalue())
+    note("O9", f"_prepare on a 1170 x 2532 dark screenshot: {1000 * (time.perf_counter() - t0):.0f} ms (the step included)")
+    return bad
+
 REPAIRS = [   # (label, text in, text out)
     ("spaced colon, bet365", "https :/Awww.bet365.com/", "https://www.bet365.com/"),
     ("spaced colon, example.in", "http : /Aexample.in/x", "http://example.in/x"),
@@ -222,6 +259,48 @@ def o10(c):
         if reader.repair_links(got) != got:
             bad.append(f"{label}: not idempotent ({got!r} -> {reader.repair_links(got)!r})")
     note("O10", f"{len(REPAIRS)} cases, each also checked to be idempotent")
+    return bad
+
+REAL = os.path.join(ROOT, "tests", "fixtures", "real", "jio_kiwi_dark.jpg")   # a real Android (Google Messages style) dark-mode screenshot of a Jio promo SMS: dev-set fixture, never test-set
+JIO_TEXT = "Dear User,\nYou've earned Lifetime Free\nKiwi UPI Credit Card (CC:\nJIOKIWI) on JioRecharge.\nClaim now:\nhttps://t.jio/JIOCPN/x48NuN\nT&C*\nJioCoupons"   # what the screenshot says
+
+def jio_links(text):
+    """Links in `text` whose host is t.jio and whose path starts with '/'."""
+    found = []
+    for u in extract_urls(text):
+        p = urlsplit(u if "://" in u else "http://" + u)
+        if p.hostname == "t.jio" and p.path.startswith("/"):
+            found.append(u)
+    return found
+
+def o13(c):
+    bad = []
+    data = open(REAL, "rb").read()
+    res = read_image(data)
+    text, lines = res["text"], res["lines"]
+    note("O13", f"{res['ms']:.0f} ms; OCR lines: " + " | ".join(lines))
+    # 1. the link is there: host t.jio, a path starting with /
+    links = jio_links(text)
+    if not links:
+        bad.append(f"no link with host t.jio and a path starting with / in the OCR text: {norm(text)}")
+    # 2. the other lines still read
+    for want in ("Dear User", "Claim now", "JioCoupons"):
+        if not any(want in line for line in lines):
+            bad.append(f"line {want!r} is missing from the OCR text: {lines}")
+    # 3. the verdict is the one the typed text gets, and the Link panel lists the link
+    rep, ref = to_report(text, analyse(text, c.app.state.text_model, c.app.state.url_model)), to_report(JIO_TEXT, analyse(JIO_TEXT, c.app.state.text_model, c.app.state.url_model))
+    panel = [e.quote for ch in rep.children if ch.module == "links" for e in ch.evidence if e.id == "model.url"]
+    note("O13", f"verdict {rep.level.value} (typed text: {ref.level.value}); Link panel: {panel}")
+    if rep.level.value != "likely_scam" or rep.level != ref.level:
+        bad.append(f"verdict {rep.level.value}, wanted likely_scam (the typed text gets {ref.level.value})")
+    if not jio_links("\n".join(panel)):
+        bad.append(f"the Link panel does not list the t.jio link: {panel}")
+    # The fixture must still show what the step is for: without the dark-mode colour step this screenshot loses the link.
+    with step_off():
+        plain = read_image(data)["text"]
+    note("O13", f"with the colour step switched off the link is {'present (the fixture no longer shows what the step is for)' if jio_links(plain) else 'lost, as before'}")
+    if jio_links(plain):
+        bad.append("with the colour step switched off the link is still read: this fixture no longer exercises the fix")
     return bad
 
 def o4(c):
@@ -469,7 +548,9 @@ CHECKS = [("O1", "10 demo scam texts as light chat bubbles: CER <= 0.08, key phr
           ("O6", "no disk writes (open, os.open, tempfile, upload spill), TMPDIR stays empty", o6),
           ("O7", "no network while reading", lambda c: o7(c)),
           ("O8", "API end to end: /api/ocr -> /api/analyse, nothing logged", o8),
-          ("O10", "narrow link repairs: spaced colon, space after a dot; the old pattern and everything that must stay unchanged", o10)]
+          ("O9", "coloured underlined links survive dark mode; the step changes nothing on grey or saturated-bubble images", o9),
+          ("O10", "narrow link repairs: spaced colon, space after a dot; the old pattern and everything that must stay unchanged", o10),
+          ("O13", "the REAL dark-mode Jio screenshot (tests/fixtures/real): link t.jio/..., three anchor lines, verdict Likely scam, Link panel lists it", o13)]
 
 def run():
     out = []
