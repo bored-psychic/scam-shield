@@ -85,9 +85,9 @@ def main():
         what = "a scam left unflagged or under-called" if r["kind"] == "scam" else "a genuine message flagged"
         L += [f"- **{r['id']}** ({r['type']}): {what}. Verdict {r['verdict']}, text score {rep.meta.text_score}, link verdicts: "
               f"{', '.join(c.level.value for c in rep.children) or 'no links'}."]
-    L += ["", "## Reading notes", "", "Written by hand on 2026-10-17 against the table above (commit 076c502); not generated and not checked by the test, so re-read them if the table changes.", "",
-          "- A verdict of Likely scam can come from the text model alone (d03, d04, d07, d08 have no OTP-rule hit and no link verdict behind them, only wording cues and the text score), so a pass here is not a per-rule result.",
-          "- d03 (\"enter your UPI PIN\"): the OTP / PIN / CVV rule did not fire (it looks for requests to share, send or forward); the verdict is the text model's.",
+    L += ["", "## Reading notes", "", "Written by hand on 2026-10-17 against the table above (commit 076c502; the d03 notes updated for rule R2 the same day); not generated and not checked by the test, so re-read them if the table changes.", "",
+          "- A verdict of Likely scam can come from the text model alone (d03, d04, d07, d08: for d04, d07 and d08 there is no rule hit and no link verdict behind them, only wording cues and the text score; d03's rule guarantees only Suspicious), so a pass here is not a per-rule result.",
+          "- d03 (\"enter your UPI PIN to receive the refund\"): the OTP / PIN / CVV rule does not fire ('enter' is not one of its verbs), but the PIN-to-receive rule (R2) does: receiving money never needs a PIN, so it adds its own red flag and guarantees at least Suspicious. The level did not change: Likely scam is still the text model's (score 0.916).",
           "- d10: the gambling lookup and the URL model both flag the link as Suspicious; the overall Likely scam comes from the text model's score. A gambling hit alone never gives Likely scam.",
           "- d09 is Suspicious, not Likely scam: the text score is 0.651, just under the Likely-scam cut-off 0.656 and above the Suspicious one 0.423; the OTP rule would also guarantee at least Suspicious.",
           "- g01 and g02 are genuine OTP warnings and pass with the safety-advice cap OFF; other genuine warnings can be flagged (reports/otp_advisory.md)."]

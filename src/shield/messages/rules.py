@@ -55,6 +55,56 @@ def cred_requests(text):
     return hits[:3]
 
 
+# ---------------------------------------------------------------- a UPI PIN asked for in order to RECEIVE money (rule R2)
+# Receiving money on UPI never needs a PIN: the PIN is entered only to PAY. "Enter your UPI PIN to receive the refund", "accept the collect request and
+# put your MPIN to get the cashback" is therefore a scam whatever the sender calls it (the collect-request / "sent by mistake" script). cred_requests()
+# leaves 'enter' out of its verbs on purpose (genuine OTP SMS say "Enter OTP 482913 to confirm"), so it misses this; here the PIN is the credential, and
+# the other half is a receive-money cue near it. 'PIN code' is the postal code. Negation is _negated(), the same copy as the OTP rule ("You never need to
+# enter your UPI PIN to receive money" is silent); like the OTP rule it does not know "no need to enter ..." (BUGS.md).
+# The verbs are the spec's (enter / type / put / give / share / approve) plus the OTP rule's request verbs, so a message that both rules see gets both pieces
+# of evidence; the level was already forced by cred_requests there. Hinglish: only the "UPI PIN daal ke" form (unchecked by a native speaker).
+# 'Near' = in the same sentence, or within 12 words either side (the window crosses a full stop): a sentence that only talks about paying ("Enter your UPI PIN
+# to pay Rs 499. You will receive 5% cashback.") is therefore a known false positive. 'received' is not a cue (it also describes a delivery); 'receive' is.
+_PIN = r"(?:upi[ -]?)?(?:m-?pin|pin)(?![ -]?code)"
+_PIN_VERBS = (r"enter(?:ing)?|typ(?:e|ing)|put(?:ting)?|giv(?:e|ing)|shar(?:e|ing)|approv(?:e|ing)|key(?:ing)? in|input(?:ting)?|provid(?:e|ing)|submit(?:ting)?|"
+              r"send(?:ing)?|tell(?:ing)?|forward(?:ing)?|reply(?:ing)? with|read out|relay(?:ing)?")
+_PIN_FIRST = re.compile(rf"\b(?:{_PIN_VERBS})\b[^.!?\n]{{0,40}}?\b{_PIN}\b", re.I)
+_PIN_LAST = re.compile(rf"\b{_PIN}\b[^.!?\n]{{0,25}}?\b(?:daal\w*|dal(?:o|na|ein|iye|ke|kar)\b|(?:enter|type|approve) kar\w*)", re.I)
+_RECEIVE = re.compile(r"\breceiv(?:e|ing)\b|\bget(?:ting)?\b(?:\s+\w+){0,3}?\s+(?:money|amount|refund|cash ?back|prize|payment)\b|\brefund\w*|\bcash ?back\b|"
+                      r"\bcredit(?:ed)?\s+(?:to|in(?:to)?)\s+(?:you|your)\b|\bcollect (?:request|money)\b|\baccept(?:ing)?\s+(?:the |this |your |a )?(?:payment|request|money)\b", re.I)
+_SENTENCE_END = re.compile(r"[.!?]+(?=\s|$)|\n")
+_WINDOW_WORDS = 12
+
+def _near(text, start, end):
+    """(lo, hi): the sentence around text[start:end], widened to 12 words before and after it if that reaches further (the union of the two readings)."""
+    ends = [m.end() for m in _SENTENCE_END.finditer(text)]
+    lo = max([e for e in ends if e <= start], default=0)
+    hi = min([e for e in ends if e >= end], default=len(text))
+    words = [m.span() for m in re.finditer(r"\S+", text)]
+    first = next((i for i, (_, b) in enumerate(words) if b > start), len(words))
+    last = max((i for i, (a, _) in enumerate(words) if a < end), default=first)
+    return (min(lo, words[max(0, first - _WINDOW_WORDS)][0]) if words else lo,
+            max(hi, words[min(len(words) - 1, last + _WINDOW_WORDS)][1]) if words else hi)
+
+def pin_to_receive(text):
+    """Phrases that ask for a UPI PIN / MPIN in order to receive money (empty list = none), lower-cased, at most 3, each the stretch of the text from the
+    PIN request to the receive cue (or the cue to the request), so the Report can quote and underline it."""
+    hits = []
+    for rx in (_PIN_FIRST, _PIN_LAST):
+        for m in rx.finditer(text):
+            if _negated(text, m):
+                continue
+            lo, hi = _near(text, m.start(), m.end())
+            cues = [c for c in _RECEIVE.finditer(text, lo, hi) if c.end() <= hi]
+            if not cues:
+                continue
+            c = min(cues, key=lambda c: max(c.start() - m.end(), m.start() - c.end(), 0))   # the cue nearest to the request: the shortest quote
+            ph = text[min(m.start(), c.start()):max(m.end(), c.end())].strip().lower()
+            if ph not in hits:
+                hits.append(ph)
+    return hits[:3]
+
+
 # ---------------------------------------------------------------- safety advice (the mirror image of a request)
 # "Never share your OTP", "Bank will never ask you to share your OTP or PIN", "Do not, under any circumstances, share your OTP": the same
 # patterns as the request rule, found where _negated() is true. The verb list adds disclose / reveal / divulge / ask, which a warning uses

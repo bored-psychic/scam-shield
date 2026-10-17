@@ -3,6 +3,7 @@
 #
 # Keys under "expect" (all optional):
 #   cred_request  bool      the OTP / PIN / CVV request rule fires (True) or must stay quiet (False)
+#   pin_to_receive  bool    the UPI-PIN-to-receive-money rule (rules.pin_to_receive, R2) fires (True) or must stay quiet (False)
 #   tags          list      tactic tags that must be present        no_tags   list   tags that must be absent
 #   min_level     0|1|2     verdict at least No warning signs found / Suspicious / Likely scam (needs both models; skipped if they can't load)
 #   urls          list      extract_urls() output, exactly         link_kinds  list   kind of each link: model / shortener / free
@@ -68,6 +69,27 @@ INPUTS = [
      "why": "text addressed to the classifier. Claude's own example, not the user's: the models only read n-grams and a rule decides the OTP, so it must not be talked out of Suspicious",
      "expect": {"cred_request": True, "min_level": 1}},
     # TODO(user): paste your injection test message here as another entry; it was not in the request this file was written from.
+    # ---- R2: a UPI PIN asked for in order to RECEIVE money (receiving never needs a PIN; the PIN is only entered to pay). Must fire, at least Suspicious ...
+    {"id": "pin-receive-collect-refund", "text": "Hello sir, I sent \u20b95,000 to your number by mistake. Please return it. I have sent a collect request, just enter your UPI PIN to receive the refund.",
+     "why": "the demo's d03: 'enter' is not an OTP-rule verb (genuine OTP SMS say 'Enter OTP'), so only R2 sees it", "expect": {"pin_to_receive": True, "cred_request": False, "min_level": 1}},
+    {"id": "pin-receive-cashback", "text": "Enter your UPI PIN to receive Rs 2000 cashback",
+     "why": "enter + receive + cashback", "expect": {"pin_to_receive": True, "min_level": 1}},
+    {"id": "pin-receive-mpin-collect", "text": "Accept the collect request and put your MPIN to get the refund",
+     "why": "MPIN, 'put', 'get the refund'", "expect": {"pin_to_receive": True, "min_level": 1}},
+    {"id": "pin-receive-hinglish", "text": "Apka refund aa gaya hai, UPI PIN daal ke receive karo",
+     "why": "Hinglish 'UPI PIN daal ke' (unchecked by a native speaker)", "expect": {"pin_to_receive": True, "min_level": 1}},
+    # ---- ... and stay quiet when it is a warning, a payment, or a postal code
+    {"id": "pin-receive-never-need", "text": "You never need to enter your UPI PIN to receive money.",
+     "why": "genuine advice: 'never need to' negates 'enter' (three words, the OTP rule's _negated())", "expect": {"pin_to_receive": False}},
+    {"id": "pin-pay-swiggy", "text": "Enter your UPI PIN to pay Rs 499 to Swiggy",
+     "why": "a PIN is entered to pay: no receive-money cue", "expect": {"pin_to_receive": False}},
+    {"id": "pin-receive-do-not", "text": "Do not enter your PIN to receive any refund, it is a scam.",
+     "why": "'do not' directly in front of the verb", "expect": {"pin_to_receive": False}},
+    {"id": "pin-code-delivery-received", "text": "Your PIN code 560001 delivery received",
+     "why": "'PIN code' is the postal code, 'received' is not a cue, and there is no verb", "expect": {"pin_to_receive": False}},
+    {"id": "advice-with-pin-to-receive", "text": "Never share your OTP with anyone. Enter your UPI PIN to receive the refund.",
+     "why": "an OTP warning wrapped around a PIN-to-receive request: the safety-advice cap must refuse it (and the rule keeps it at least Suspicious)",
+     "expect": {"pin_to_receive": True, "min_level": 1, "no_safety_advice": True, "cap_blocked_by": ["PIN-to-receive request"]}},
     # ---- standard OTP advice wrapped around a scam: the safety-advice cap must stay out of it (no rule guarantees a level here, so assert the cap did not fire)
     {"id": "advice-with-mobile-number", "text": "Your account will be blocked today. Call 9876543210 now. Never share your OTP with anyone.",
      "why": "a number to call: the cap refuses (it also trips urgency, but the mobile number alone is enough)", "expect": {"cred_request": False, "no_safety_advice": True, "cap_blocked_by": ["has a mobile number"]}},

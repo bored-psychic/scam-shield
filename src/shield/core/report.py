@@ -13,7 +13,7 @@ _TAG_TITLES = {"authority": "Claims to be from a bank, government body or compan
 _NEUTRAL_TAG_TITLES = {"authority": "Mentions a bank, government body or company", "urgency": "Uses time words (common in genuine alerts too)",
                        "payment": "Mentions money or payments (normal in genuine bank alerts)", "isolation": "Mentions keeping something private"}
 # Short radar labels (Evidence.tag), by evidence id.
-_TAGS = {"rule.otp_request": "OTP request", "tactic.authority": "Authority claim", "tactic.urgency": "Urgency", "tactic.payment": "Payment ask",
+_TAGS = {"rule.otp_request": "OTP request", "rule.pin_to_receive": "PIN to receive", "tactic.authority": "Authority claim", "tactic.urgency": "Urgency", "tactic.payment": "Payment ask",
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
          "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice"}
@@ -65,6 +65,10 @@ def to_report(text: str, r: dict) -> Report:
     level = _level(r["level"])
     flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
     ev = []
+    if r["pin_to_receive"]:   # one piece of evidence, quoting the first phrase; ahead of the OTP rule's: it is the more specific reading of the same words
+        quote, span = _in_text(text, r["pin_to_receive"][0])
+        ev.append(Evidence(id="rule.pin_to_receive", module="messages", effect=Effect.DANGER, tag=_TAGS["rule.pin_to_receive"], quote=quote, span=span,
+                           title="Asks for your UPI PIN to receive money (receiving money never needs a PIN)"))
     for hit in r["cred_request"]:
         quote, span = _in_text(text, hit)
         ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title="Asks you to share an OTP, PIN or CVV",

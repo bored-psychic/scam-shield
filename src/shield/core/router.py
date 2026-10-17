@@ -4,7 +4,7 @@ from shield import config
 from url_features import parse_url
 from textprep import URL_TOKEN, MAX_CHARS, extract_urls, model_text, replace_urls
 from shield.core.verdict import LEVELS, r3, level_of, fuse
-from shield.messages.rules import advisory_phrases, cred_requests, has_indian_mobile
+from shield.messages.rules import advisory_phrases, cred_requests, has_indian_mobile, pin_to_receive
 from shield.messages.tactics import tactic_tags
 from shield.links.lexical import url_notes
 from shield.links.gambling import GAMBLING_VERDICT, load_gambling
@@ -22,6 +22,7 @@ def safety_advice_cap(text, r):
     blockers = [name for name, hit in (
         ("no advisory phrase", not phrases),
         ("credential request", bool(r["cred_request"])),
+        ("PIN-to-receive request", bool(r["pin_to_receive"])),
         ("text level is not Suspicious", r["text_level"] != 1 or r["level"] != 1),
         ("has a link", bool(r["links"])),
         ("has a mobile number", has_indian_mobile(text)),
@@ -35,8 +36,8 @@ def analyse(text, text_model, url_model, safety_cap=None):
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
-    cred = cred_requests(text)
-    r = {"urls": urls, "cred_request": cred, "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
+    cred, pin_recv = cred_requests(text), pin_to_receive(text)
+    r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
          "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": []}
     if prose_words >= MIN_PROSE_WORDS:
         prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
@@ -71,7 +72,7 @@ def analyse(text, text_model, url_model, safety_cap=None):
     levels = [l["base_level"] for l in r["links"] if l["base_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
     r["url_level"] = max(levels) if levels else None
     r["level"] = fuse(r["text_level"], r["url_level"])
-    if cred and (r["level"] is None or r["level"] < 1):   # hard rule: at least Suspicious, whatever the scores say
+    if (cred or pin_recv) and (r["level"] is None or r["level"] < 1):   # hard rules (OTP / PIN / CVV request, UPI PIN to receive money): at least Suspicious, whatever the scores say
         r["level"], r["escalated"] = 1, True
     if any(l["gambling"] for l in r["links"]) and (r["level"] is None or r["level"] < 1):   # gambling floor: Suspicious, never Likely scam on its own
         r["level"] = 1

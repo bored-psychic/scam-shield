@@ -63,7 +63,7 @@ def banner_html(r, text_model, url_model):
         parts.append(f"{plural(len(gamb), 'gambling or betting link')} (counts as Suspicious, never Likely scam on its own)")
     both = r["text_level"] is not None and r["url_level"] is not None and min(r["text_level"], r["url_level"]) >= 1
     if r["escalated"]:
-        parts.append("raised to Suspicious by the OTP / PIN / CVV rule")
+        parts.append("raised to Suspicious by the " + ("OTP / PIN / CVV rule" if r["cred_request"] else "UPI PIN-to-receive-money rule"))
     if r.get("safety_advice"):   # the score above is over the Suspicious cut-off: say why the verdict is lower (router.safety_advice_cap)
         parts.append("the text score is over the Suspicious cut-off, but this is standard &ldquo;never share your OTP&rdquo; advice with no link, number to call, secrecy or time pressure around it, so the verdict is lowered to No warning signs")
     sub = "; ".join(parts) + ("; both heads flagged it" if both else "")
@@ -76,14 +76,18 @@ def banner_html(r, text_model, url_model):
             + (f"<div style='font-size:.9em;margin-top:4px'>{caveat}</div>" if caveat else "") + "</div>")
 
 def flag_html(r):
-    """The OTP / PIN / CVV request rule gets its own red box, separate from the tactic tags and from the level."""
-    if not r["cred_request"]:
-        return ""
-    ev = ", ".join(f"&ldquo;{html.escape(h)}&rdquo;" for h in r["cred_request"])
-    return ("<div style='border:2px solid #c62828;background:rgba(198,40,40,.14);border-radius:10px;padding:10px 14px'>"
-            "<b style='color:#e5484d'>&#9873; Red flag: asks you to send or share an OTP, PIN or CVV</b> "
-            f"<span style='opacity:.9'>{ev}</span><div style='font-size:.9em;margin-top:2px'>No bank, government office or delivery service needs "
-            "these sent to them by message or call. The verdict is at least Suspicious whatever the scores say.</div></div>")
+    """The OTP / PIN / CVV request rule and the UPI-PIN-to-receive-money rule each get their own red box, separate from the tactic tags and from the level."""
+    box = ("<div style='border:2px solid #c62828;background:rgba(198,40,40,.14);border-radius:10px;padding:10px 14px'>"
+           "<b style='color:#e5484d'>&#9873; Red flag: {title}</b> <span style='opacity:.9'>{ev}</span>"
+           "<div style='font-size:.9em;margin-top:2px'>{why} The verdict is at least Suspicious whatever the scores say.</div></div>")
+    out = []
+    if r["pin_to_receive"]:
+        out.append(box.format(title="asks for your UPI PIN to receive money", ev=", ".join(f"&ldquo;{html.escape(h)}&rdquo;" for h in r["pin_to_receive"]),
+                              why="Receiving money never needs a PIN: a UPI PIN is only ever entered to pay."))
+    if r["cred_request"]:
+        out.append(box.format(title="asks you to send or share an OTP, PIN or CVV", ev=", ".join(f"&ldquo;{html.escape(h)}&rdquo;" for h in r["cred_request"]),
+                              why="No bank, government office or delivery service needs these sent to them by message or call."))
+    return "".join(out)
 
 def tags_html(r):
     chips = []

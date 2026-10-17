@@ -23,7 +23,8 @@ from tricky_inputs import INPUTS
 #   A14 meta.models has text, url, gambling_lookup; text / url end in 8 hex chars that match the SHA-256 of the model files, the same dict in every Report,
 #       and model_versions() was computed once (cache misses == 1)
 #   A15 the safety-advice cap: a Report has a rule.safety_advice evidence exactly when analyse() set r["safety_advice"]; then the level is no_warning_signs,
-#       every such evidence is reassuring, and there is no link (no children), no credential request (r["cred_request"], rule.otp_request) and no caution / danger evidence
+#       every such evidence is reassuring, and there is no link (no children), no credential request (r["cred_request"], rule.otp_request), no PIN-to-receive request
+#       (r["pin_to_receive"], rule.pin_to_receive) and no caution / danger evidence
 # Everything runs twice, with the cap forced OFF and ON (analyse(..., safety_cap=...)), so the contract holds whichever way config.SAFETY_ADVICE_CAP is set;
 # the level table is printed for each. With the cap OFF A15 is only the "no evidence without the cap" half.
 # Three "extra" inputs are appended: an emoji before the quote (A9 with astral characters), a genuine bank alert (A11) and a message where
@@ -98,6 +99,8 @@ def check(text, r, rep):
             a15.append(f"with {len(r['links'])} link(s)")
         if r["cred_request"] or any(e.id == "rule.otp_request" for e in rep.evidence):
             a15.append("with a credential request")
+        if r["pin_to_receive"] or any(e.id == "rule.pin_to_receive" for e in rep.evidence):
+            a15.append("with a PIN-to-receive request")
         if any(e.effect in (Effect.DANGER, Effect.CAUTION) for e in ev):
             a15.append("with caution / danger evidence")
     if a15:

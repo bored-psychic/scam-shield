@@ -13,7 +13,7 @@ Models: text `tfidf-lr cf8bac33`, url `hgb-host a8f6d9cc`, gambling lookup `2026
 |---|---|---|---|---|---|---|
 | d01 | digital_arrest | at least Suspicious | Likely scam | Authority claim, Payment ask, Secrecy, Scam wording | Claims to be from a bank, government body or company; Asks for money or payment details; Tells you to keep this secret or delete it | PASS |
 | d02 | kyc_link | at least Suspicious | Likely scam | OTP request, Risky link, Authority claim, Urgency | Asks you to share an OTP, PIN or CVV; The link looks like known phishing links; Claims to be from a bank, government body or company | PASS |
-| d03 | upi_refund | at least Suspicious | Likely scam | Payment ask, Scam wording | Asks for money or payment details; The wording is very similar to known scam messages | PASS |
+| d03 | upi_refund | at least Suspicious | Likely scam | PIN to receive, Payment ask, Scam wording | Asks for your UPI PIN to receive money (receiving money never needs a PIN); Asks for money or payment details; The wording is very similar to known scam messages | PASS |
 | d04 | job_task | at least Suspicious | Likely scam | Payment ask, Scam wording | Asks for money or payment details; The wording is very similar to known scam messages | PASS |
 | d05 | electricity | at least Suspicious | Likely scam | Authority claim, Urgency, Scam wording | Claims to be from a bank, government body or company; Pushes you to act quickly; The wording is very similar to known scam messages | PASS |
 | d06 | delivery_fee | at least Suspicious | Likely scam | Risky link, Authority claim, Urgency, Scam wording | The link looks like known phishing links; Claims to be from a bank, government body or company; Pushes you to act quickly | PASS |
@@ -32,10 +32,10 @@ None.
 
 ## Reading notes
 
-Written by hand on 2026-10-17 against the table above (commit 076c502); not generated and not checked by the test, so re-read them if the table changes.
+Written by hand on 2026-10-17 against the table above (commit 076c502; the d03 notes updated for rule R2 the same day); not generated and not checked by the test, so re-read them if the table changes.
 
-- A verdict of Likely scam can come from the text model alone (d03, d04, d07, d08 have no OTP-rule hit and no link verdict behind them, only wording cues and the text score), so a pass here is not a per-rule result.
-- d03 ("enter your UPI PIN"): the OTP / PIN / CVV rule did not fire (it looks for requests to share, send or forward); the verdict is the text model's.
+- A verdict of Likely scam can come from the text model alone (d03, d04, d07, d08: for d04, d07 and d08 there is no rule hit and no link verdict behind them, only wording cues and the text score; d03's rule guarantees only Suspicious), so a pass here is not a per-rule result.
+- d03 ("enter your UPI PIN to receive the refund"): the OTP / PIN / CVV rule does not fire ('enter' is not one of its verbs), but the PIN-to-receive rule (R2) does: receiving money never needs a PIN, so it adds its own red flag and guarantees at least Suspicious. The level did not change: Likely scam is still the text model's (score 0.916).
 - d10: the gambling lookup and the URL model both flag the link as Suspicious; the overall Likely scam comes from the text model's score. A gambling hit alone never gives Likely scam.
 - d09 is Suspicious, not Likely scam: the text score is 0.651, just under the Likely-scam cut-off 0.656 and above the Suspicious one 0.423; the OTP rule would also guarantee at least Suspicious.
 - g01 and g02 are genuine OTP warnings and pass with the safety-advice cap OFF; other genuine warnings can be flagged (reports/otp_advisory.md).
@@ -66,9 +66,9 @@ Written by hand on 2026-10-17 against the table above (commit 076c502); not gene
 > Hello sir, I sent ₹5,000 to your number by mistake. Please return it. I have sent a collect request, just enter your UPI PIN to receive the refund.
 
 - Verdict: **Likely scam** (text score 0.916, thresholds (0.423, 0.656); category None)
-- Radar tags: Payment ask, Scam wording
-- Reasons: Asks for money or payment details; The wording is very similar to known scam messages
-- Evidence: tactic.payment [caution] "₹5,000"; model.text [danger]
+- Radar tags: PIN to receive, Payment ask, Scam wording
+- Reasons: Asks for your UPI PIN to receive money (receiving money never needs a PIN); Asks for money or payment details; The wording is very similar to known scam messages
+- Evidence: rule.pin_to_receive [danger] "enter your UPI PIN to receive"; tactic.payment [caution] "₹5,000"; model.text [danger]
 
 ### d04 - job_task (scam) - PASS
 

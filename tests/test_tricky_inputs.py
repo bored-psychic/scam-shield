@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 from shield.core.router import analyse, safety_advice_cap
 from shield.links.lexical import load_url_model
-from shield.messages.rules import cred_requests
+from shield.messages.rules import cred_requests, pin_to_receive
 from shield.messages.tactics import tactic_tags
 from shield.messages.text_head import load_text_model
 from textprep import extract_urls, model_text
@@ -25,6 +25,8 @@ def check(entry, tm, um):
     tags = {k: bool(v) for k, v in tactic_tags(t, cred).items()}
     if "cred_request" in e and bool(cred) != e["cred_request"]:
         bad.append(f"cred_request {bool(cred)} (hits {cred}), wanted {e['cred_request']}")
+    if "pin_to_receive" in e and bool(pin_to_receive(t)) != e["pin_to_receive"]:
+        bad.append(f"pin_to_receive {bool(pin_to_receive(t))} (hits {pin_to_receive(t)}), wanted {e['pin_to_receive']}")
     bad += [f"tag {k} missing" for k in e.get("tags", []) if not tags[k]]
     bad += [f"tag {k} present" for k in e.get("no_tags", []) if tags[k]]
     if "urls" in e and extract_urls(t) != e["urls"]:

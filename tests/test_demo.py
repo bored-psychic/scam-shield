@@ -11,11 +11,15 @@ from shield.messages.text_head import load_text_model
 #   S2 each entry's verdict level is exactly the locked one. A scam entry should be at least Suspicious and a genuine one No warning signs found; an
 #      entry that is not is a MISS, and its current level is locked all the same and printed as "KNOWN MISS: <id>", so a change that fixes OR
 #      worsens it fails here and has to be looked at on purpose (then update LOCKED and reports/demo_check.md together).
+#   S3 d03 is caught by the PIN-to-receive rule (R2, 2026-10-17): its Report has a danger rule.pin_to_receive evidence with the exact title, tag and quote below,
+#      and that title is its first reason. No other demo entry carries that evidence. (Its LEVEL did not change: the wording model already said Likely scam.)
 # This is a regression lock on 14 hand-written messages, not an accuracy test: they are illustrative and never count as real data (CLAUDE.md rule 4).
 DEMO_SHA256 = "e6f85c7d2dc8a60ee64a33c96663eb6ae631005cbb60847d38645ae7d9f34549"
 LOCKED = {"d01": "likely_scam", "d02": "likely_scam", "d03": "likely_scam", "d04": "likely_scam", "d05": "likely_scam",
           "d06": "likely_scam", "d07": "likely_scam", "d08": "likely_scam", "d09": "suspicious", "d10": "likely_scam",
           "g01": "no_warning_signs", "g02": "no_warning_signs", "g03": "no_warning_signs", "g04": "no_warning_signs"}
+
+RULE_EVIDENCE = {"d03": ("PIN to receive", "enter your UPI PIN to receive", "Asks for your UPI PIN to receive money (receiving money never needs a PIN)")}
 
 
 def set_problems(entries):
@@ -41,6 +45,25 @@ def level_problem(row):
     return None
 
 
+def rule_problems(rows):
+    """S3."""
+    bad, by_id = [], {r["id"]: r for r in rows}
+    for id_, (tag, quote, title) in RULE_EVIDENCE.items():
+        found = [e for e in by_id[id_]["report"].evidence if e.id == "rule.pin_to_receive"]
+        if len(found) != 1:
+            bad.append(f"{id_}: {len(found)} rule.pin_to_receive evidence, wanted 1")
+            continue
+        e = found[0]
+        if (e.effect.value, e.tag, e.title) != ("danger", tag, title) or e.quote != quote:
+            bad.append(f"{id_}: evidence (effect {e.effect.value}, tag {e.tag!r}, quote {e.quote!r}, title {e.title!r}), wanted (danger, {tag!r}, {quote!r}, {title!r})")
+        if by_id[id_]["reasons"][:1] != [title]:
+            bad.append(f"{id_}: first reason {by_id[id_]['reasons'][:1]}, wanted {[title]}")
+    carriers = [r["id"] for r in rows if any(e.id == "rule.pin_to_receive" for e in r["report"].evidence)]
+    if carriers != list(RULE_EVIDENCE):
+        bad.append(f"entries carrying rule.pin_to_receive: {carriers}, wanted {list(RULE_EVIDENCE)}")
+    return bad
+
+
 def run():
     entries = load_demo()
     tm, um = load_text_model(), load_url_model()
@@ -51,6 +74,7 @@ def test_demo():
     entries, rows = run()
     bad = set_problems(entries)
     bad += [f"{r['id']}: {p}" for r in rows if (p := level_problem(r))]
+    bad += rule_problems(rows)
     assert not bad, "\n".join(bad)
 
 
@@ -68,6 +92,11 @@ if __name__ == "__main__":
         print(f"{'FAIL' if p else 'PASS'} S2 {r['id']} {r['type']:<15} level={r['level']} (entry {r['status']})" + (f"  <- {p}" if p else ""))
         if r["status"] == "MISS":
             print(f"KNOWN MISS: {r['id']}")
+    for p in rule_problems(rows):
+        n_bad += 1
+        print(f"FAIL S3 {p}")
+    if not rule_problems(rows):
+        print(f"PASS S3 {' '.join(RULE_EVIDENCE)}: rule.pin_to_receive evidence, first reason; no other entry carries it")
     n_miss = sum(r["status"] == "MISS" for r in rows)
     print(f"\n{len(rows) - n_miss} of {len(rows)} entries behave as expected, {n_miss} known miss(es); {n_bad} test failure(s)")
     sys.exit(1 if n_bad else 0)
