@@ -1,0 +1,16 @@
+# Hindi machine translations judged wrong in the native-speaker spot-check (reports/spotcheck_hi.md, export hi_friend_v1.txt).
+# NOT APPLIED to any data. It is an input for the splits-v2 rebuild (build_text.py): leave these Hindi translations out of the TRAINING set.
+# Created 2026-10-18 (decision D20). Nothing in data/, split_map.csv or models/ was touched.
+#
+# Row key in the data files: (parent_id, language) in data/external/indic/translated/translated_final_2026-10-07.csv; text_hash is the
+# hash of the translation as stored there. The sheet id (hiNN) is only the row id of reports/spotcheck_hi.csv.
+# Scope: the Hindi row only. The Kannada translation of the same parent was not part of this review and is not listed.
+# Test split: none of the four is a test-split row (hi34 is a frozen TRAIN row, the other three have no split yet: their parents are not
+# messages.csv rows, so split_map.csv has no entry). If one of the three lands in the test split at the rebuild, it is left as it is:
+# human translation review is not model tuning, and test rows are not edited or dropped on the basis of this check.
+#
+# format: sheet_id | parent_id | language | text_hash | label | split today | reason
+hi29 | p00339 | hindi | 9ac7772331a3b934c48dc88f762d7d09 | benign | no split yet | brand name translated (Licious -> "auspicious"), "order" became a command word: meaning lost
+hi34 | p00652 | hindi | 39609b7768b114d05331c01ddaba4ffa | scam   | train        | the ask "pay Rs 999 for verification and training kit" was re-attached to the hiring clause, so the Hindi no longer asks for payment: meaning AND label lost
+hi35 | p00605 | hindi | 56bf617c7a81adc4de480aafef3f022e | benign | no split yet | sender tag "-CAMS" fused into the sentence, so the validity clause reads "valid for CAMS": meaning lost
+hi39 | p00023 | hindi | c7001eae8ee500d9847de612bfd95b33 | benign | no split yet | clause order scrambled, "withdrawn" attaches to the available balance instead of the Rs 0317: meaning lost
