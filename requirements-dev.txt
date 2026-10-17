@@ -1,0 +1,4 @@
+# Test runner for the main .venv (Mac). Install on top of requirements.txt (a frozen pip freeze that is not edited by hand):
+#   pip install -r requirements.txt -r requirements-dev.txt && pip install -e .
+# Run: .venv/bin/python -m pytest -q   (6 tests; see CLAUDE.md "Tests")
+pytest==9.1.1
