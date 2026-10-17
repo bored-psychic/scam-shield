@@ -7,6 +7,10 @@
 #   min_level     0|1|2     verdict at least No warning signs found / Suspicious / Likely scam (needs both models; skipped if they can't load)
 #   urls          list      extract_urls() output, exactly         link_kinds  list   kind of each link: model / shortener / free
 #   prep_has      list      substrings that must appear in textprep.model_text(text)    prep_lacks   list   ... must not appear
+#   no_safety_advice  bool  the safety-advice cap (router.safety_advice_cap) must NOT fire when analyse() is run with it ON: r.get("safety_advice") is None
+#                          (the cap blockers are the point of these entries: a scam can paste 'never share your OTP' onto itself)
+#   cap_blocked_by  list   names of cap conditions (router.safety_advice_cap) that must be among the ones stopping the cap, whatever the text level: these three
+#                          messages are Likely scam anyway, so only this key shows that the blocker itself works
 # Model-dependent expectations are limited to what a rule guarantees (min_level after a hard rule); no entry asserts a model score.
 INPUTS = [
     # ---- OTP / PIN / CVV: genuine alerts must stay quiet ...
@@ -48,6 +52,13 @@ INPUTS = [
      "why": "text addressed to the classifier. Claude's own example, not the user's: the models only read n-grams and a rule decides the OTP, so it must not be talked out of Suspicious",
      "expect": {"cred_request": True, "min_level": 1}},
     # TODO(user): paste your injection test message here as another entry; it was not in the request this file was written from.
+    # ---- standard OTP advice wrapped around a scam: the safety-advice cap must stay out of it (no rule guarantees a level here, so assert the cap did not fire)
+    {"id": "advice-with-mobile-number", "text": "Your account will be blocked today. Call 9876543210 now. Never share your OTP with anyone.",
+     "why": "a number to call: the cap refuses (it also trips urgency, but the mobile number alone is enough)", "expect": {"cred_request": False, "no_safety_advice": True, "cap_blocked_by": ["has a mobile number"]}},
+    {"id": "advice-with-link", "text": "Update KYC at http://sbi-kyc.xyz. Never share OTP with anyone.",
+     "why": "a link: the cap refuses whatever the link scores", "expect": {"cred_request": False, "no_safety_advice": True, "cap_blocked_by": ["has a link"]}},
+    {"id": "advice-with-urgency", "text": "URGENT: never share your OTP, but confirm your account in 10 minutes or it will be closed.",
+     "why": "time pressure: the cap refuses", "expect": {"cred_request": False, "no_safety_advice": True, "cap_blocked_by": ["urgency cue"]}},
     # ---- isolation
     {"id": "isolation-delete-secret", "text": "Delete this message after reading and don't tell anyone, not even your family or bank.",
      "why": "delete + secrecy, no credential words", "expect": {"tags": ["isolation"]}},

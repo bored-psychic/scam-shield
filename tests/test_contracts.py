@@ -22,6 +22,10 @@ from tricky_inputs import INPUTS
 #   A13 advice: a top-level Report has 1-5 non-empty items, == ADVICE[level] with GAMBLING_ADVICE first iff category == "gambling"; children have none
 #   A14 meta.models has text, url, gambling_lookup; text / url end in 8 hex chars that match the SHA-256 of the model files, the same dict in every Report,
 #       and model_versions() was computed once (cache misses == 1)
+#   A15 the safety-advice cap: a Report has a rule.safety_advice evidence exactly when analyse() set r["safety_advice"]; then the level is no_warning_signs,
+#       every such evidence is reassuring, and there is no link (no children), no credential request (r["cred_request"], rule.otp_request) and no caution / danger evidence
+# Everything runs twice, with the cap forced OFF and ON (analyse(..., safety_cap=...)), so the contract holds whichever way config.SAFETY_ADVICE_CAP is set;
+# the level table is printed for each. With the cap OFF A15 is only the "no evidence without the cap" half.
 # Three "extra" inputs are appended: an emoji before the quote (A9 with astral characters), a genuine bank alert (A11) and a message where
 # "shipping" comes before the real "PIN" (A12). They are the only inputs counted in the level table.
 # Two probes are checked for A13 / A14 but not counted in the table: a betting promo (category "gambling", so the gambling advice line is exercised)
@@ -81,6 +85,23 @@ def check(text, r, rep):
             inside.append((e.id, e.quote, repr(text[max(0, s - 3):t + 3])))
     if inside:
         bad["A12"] = f"span starts or ends inside a word: {inside}"
+    sa = [e for e in rep.evidence if e.id == "rule.safety_advice"]
+    a15 = []
+    if bool(sa) != bool(r.get("safety_advice")):
+        a15.append(f"{len(sa)} rule.safety_advice evidence, analyse() safety_advice {r.get('safety_advice')}")
+    if sa:
+        if rep.level != Level.NO_WARNING_SIGNS:
+            a15.append(f"level {rep.level.value}, not no_warning_signs")
+        if any(e.effect != Effect.REASSURING for e in sa):
+            a15.append(f"effect {[e.effect.value for e in sa]}, not reassuring")
+        if rep.children or r["links"]:
+            a15.append(f"with {len(r['links'])} link(s)")
+        if r["cred_request"] or any(e.id == "rule.otp_request" for e in rep.evidence):
+            a15.append("with a credential request")
+        if any(e.effect in (Effect.DANGER, Effect.CAUTION) for e in ev):
+            a15.append("with caution / danger evidence")
+    if a15:
+        bad["A15"] = "; ".join(a15)
     return bad
 
 def expected_advice(rep):
@@ -131,13 +152,13 @@ def check_models(reps):
         bad.append(f"model_versions() was computed {misses} times, not once")
     return bad
 
-def run():
+def run(cap):
     tm, um = load_text_model(), load_url_model()
     items = inputs()
-    fails = {f"A{i}": [] for i in range(1, 15)}
+    fails = {f"A{i}": [] for i in range(1, 16)}
     dist, reps = {}, []
     for kind, name, text in items:
-        r = analyse(text, tm, um)
+        r = analyse(text, tm, um, safety_cap=cap)
         rep = to_report(text, r)
         reps.append(rep)
         dist[(kind, rep.level)] = dist.get((kind, rep.level), 0) + 1
@@ -145,7 +166,7 @@ def run():
             fails[a].append(f"{kind} {name}: {msg}")
         fails["A13"] += [f"{kind} {name}: {m}" for m in check_advice(rep)]
     for name, text in PROBES:   # not in the level table
-        rep = to_report(text, analyse(text, tm, um))
+        rep = to_report(text, analyse(text, tm, um, safety_cap=cap))
         reps.append(rep)
         fails["A13"] += [f"probe {name}: {m}" for m in check_advice(rep)]
         exercised = (rep.category == "gambling" and rep.level in FLAGGED) if name == "gambling" else rep.level == Level.CANT_JUDGE
@@ -155,19 +176,24 @@ def run():
     return items, fails, dist
 
 def test_contracts():
-    items, fails, _ = run()
-    assert not any(fails.values()), "\n".join(f"{a}: {m}" for a, ms in fails.items() for m in ms)
+    for cap in (False, True):
+        items, fails, _ = run(cap)
+        assert not any(fails.values()), "\n".join(f"cap {cap}: {a}: {m}" for a, ms in fails.items() for m in ms)
 
 if __name__ == "__main__":
-    items, fails, dist = run()
-    print(f"inputs: {len(items)}")
-    for a, ms in fails.items():
-        print(f"{a}: {len(ms)} failures")
-        for m in ms[:10]:
-            print("    " + m.encode("ascii", "backslashreplace").decode()[:300])
-    kinds = ["tricky", "example", "val", "extra"]
-    print(f"\n{'level':<18}" + "".join(f"{k:>9}" for k in kinds) + f"{'all':>9}")
-    for lv in Level:
-        row = [dist.get((k, lv), 0) for k in kinds]
-        print(f"{lv.value:<18}" + "".join(f"{n:>9}" for n in row) + f"{sum(row):>9}")
-    sys.exit(1 if any(fails.values()) else 0)
+    bad_run = False
+    for cap in (False, True):
+        items, fails, dist = run(cap)
+        print(f"==== safety-advice cap {'ON' if cap else 'OFF'}   inputs: {len(items)}")
+        for a, ms in fails.items():
+            print(f"{a}: {len(ms)} failures")
+            for m in ms[:10]:
+                print("    " + m.encode("ascii", "backslashreplace").decode()[:300])
+        kinds = ["tricky", "example", "val", "extra"]
+        print(f"\n{'level':<18}" + "".join(f"{k:>9}" for k in kinds) + f"{'all':>9}")
+        for lv in Level:
+            row = [dist.get((k, lv), 0) for k in kinds]
+            print(f"{lv.value:<18}" + "".join(f"{n:>9}" for n in row) + f"{sum(row):>9}")
+        print()
+        bad_run |= any(fails.values())
+    sys.exit(1 if bad_run else 0)

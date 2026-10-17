@@ -64,6 +64,8 @@ def banner_html(r, text_model, url_model):
     both = r["text_level"] is not None and r["url_level"] is not None and min(r["text_level"], r["url_level"]) >= 1
     if r["escalated"]:
         parts.append("raised to Suspicious by the OTP / PIN / CVV rule")
+    if r.get("safety_advice"):   # the score above is over the Suspicious cut-off: say why the verdict is lower (router.safety_advice_cap)
+        parts.append("the text score is over the Suspicious cut-off, but this is standard &ldquo;never share your OTP&rdquo; advice with no link, number to call, secrecy or time pressure around it, so the verdict is lowered to No warning signs")
     sub = "; ".join(parts) + ("; both heads flagged it" if both else "")
     unjudged = any(l["level"] is None for l in r["links"])
     caveat = ("This only means no strong warning signs were found" + (" in what could be checked" if unjudged else "") +

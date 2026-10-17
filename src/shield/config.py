@@ -9,6 +9,11 @@ GAMBLING_DOMAINS_PATH = ROOT / "data" / "final" / "gambling_domains.tsv"
 GAMBLING_PLATFORM_HOSTS_PATH = ROOT / "data" / "final" / "gambling_platform_hosts.tsv"
 GAMBLING_INDIA_PATH = ROOT / "data" / "final" / "gambling_india.json"
 
+# Safety-advice cap (decision S1 once enabled; reports/otp_advisory.md): a message whose only reason for Suspicious is the text head, and which contains
+# standard "never share your OTP" advice and none of the signs of a scam wrapped around it (router.safety_advice_cap), is shown as No warning signs.
+# The default for the app and the API; analyse(..., safety_cap=True / False) overrides it per call (the tests run both).
+SAFETY_ADVICE_CAP = False
+
 # What kind of model sits behind each path above, for Report.meta.models. If load_text_model() is switched to another head (MuRIL),
 # change TEXT_MODEL_PATH and this kind together.
 TEXT_MODEL_KIND, URL_MODEL_KIND = "tfidf-lr", "hgb-host"   # TF-IDF char n-grams + logistic regression; host-only HistGradientBoosting

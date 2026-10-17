@@ -16,9 +16,12 @@ _NEUTRAL_TAG_TITLES = {"authority": "Mentions a bank, government body or company
 _TAGS = {"rule.otp_request": "OTP request", "tactic.authority": "Authority claim", "tactic.urgency": "Urgency", "tactic.payment": "Payment ask",
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
-         "link.gambling": "Gambling site"}
+         "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice"}
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
                 0: "The wording does not resemble known scam messages"}
+# The text head said Suspicious but the safety-advice cap (router.safety_advice_cap) lowered the verdict: the score stays visible, as neutral, with a title
+# that says why it was set aside (a no-warning verdict must carry no caution evidence, A7).
+_TEXT_TITLE_CAPPED = "Wording partly resembles scam messages, but it contains standard safety advice"
 _URL_TITLES = {2: "The link looks like known phishing links", 1: "The link looks somewhat like phishing links",
                0: "The link does not look like known phishing links"}
 
@@ -66,6 +69,11 @@ def to_report(text: str, r: dict) -> Report:
         quote, span = _in_text(text, hit)
         ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title="Asks you to share an OTP, PIN or CVV",
                            tag=_TAGS["rule.otp_request"], quote=quote, span=span))
+    capped = bool(r.get("safety_advice"))   # the cap lowered Suspicious to No warning signs: say so, as reassurance
+    if capped:
+        quote, span = _in_text(text, r["safety_advice"][0])
+        ev.append(Evidence(id="rule.safety_advice", module="messages", effect=Effect.REASSURING, title="Contains standard 'never share your OTP' safety advice",
+                           tag=_TAGS["rule.safety_advice"], quote=quote, span=span))
     for tag, cues in r["tags"].items():
         if cues:
             quote, span = next((f for f in (_in_text(text, c) for c in cues) if f[0]), (None, None))   # the first cue that is in the text
@@ -74,7 +82,8 @@ def to_report(text: str, r: dict) -> Report:
                                tag=_TAGS.get(f"tactic.{tag}", tag[:24]), detail="Matched: " + ", ".join(cues), quote=quote, span=span))
     if r["text_score"] is not None:
         lo, hi = r["text_thresholds"]
-        ev.append(Evidence(id="model.text", module="messages", effect=_BY_LEVEL[r["text_level"]], title=_TEXT_TITLES[r["text_level"]], tag=_TAGS["model.text"],
+        ev.append(Evidence(id="model.text", module="messages", effect=Effect.NEUTRAL if capped else _BY_LEVEL[r["text_level"]],
+                           title=_TEXT_TITLE_CAPPED if capped else _TEXT_TITLES[r["text_level"]], tag=_TAGS["model.text"],
                            detail=f"score {r['text_score']:.3f} (Suspicious from {lo:.3f}, Likely scam from {hi:.3f})"))
     children = [_link_report(l, text) for l in r["links"]]
 
