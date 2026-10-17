@@ -8,9 +8,10 @@ from shield.api.main import app
 from shield.ocr import reader
 from shield.core.report import to_report
 from shield.core.router import analyse
-from shield.ocr.reader import ImageRejected, ImageTooLarge, UnsupportedImage, clean_lines, read_image
+from shield.ocr.reader import ImageRejected, ImageTooLarge, Line, UnsupportedImage, clean_lines, join_wrapped_lines, parse_tsv, read_image
 from textprep import extract_urls
 from ocr_render import DEVANAGARI_FONTS, LATIN_FONTS, bubble, font, to_png
+from test_demo import LOCKED as DEMO_LEVELS
 
 # python tests/test_ocr.py   (from the project root; needs tesseract + eng/hin/kan data and both models; no pytest required, but pytest collects test_ocr() too)
 # Every image is drawn IN MEMORY with Pillow and never saved. Each check prints PASS / FAIL; O1-O3 also print their character error rates (CER).
@@ -28,6 +29,12 @@ from ocr_render import DEVANAGARI_FONTS, LATIN_FONTS, bubble, font, to_png
 #   O10 repair_links: the spaced-colon and space-after-a-dot repairs, the old pattern, and the cases that must stay unchanged (D19b)
 #   O13 the real Jio screenshot tests/fixtures/real/jio_kiwi_dark.jpg: link with host t.jio + a / path, "Dear User" / "Claim now" / "JioCoupons" lines, verdict Likely scam
 #       (as for the typed text), the Link panel lists the link; and with the colour step switched off the link is lost (the fixture still exercises the fix). O11-O12 are unused.
+#   O14 soft-wrapped lines on the REAL screenshot: the bubble's wraps are joined with a space, the typed breaks (and the two blank lines) stay, exactly
+#       JIO_JOINED once the two known misreads are mapped back (T&C* -> 740", JIOCPN -> TIOCPN). Prints the text before (every wrap a line) and after.
+#   O15 join_wrapped_lines on hand-built line boxes (no Tesseract): every rule alone - sentence end, open bracket, blank line, links on either side, list item,
+#       left margin, short column, 0.7 ratio, next-word test, noise lines as barriers, leading / trailing noise, other bubbles' columns
+#   O16 synthetic renders: two paragraphs keep their blank line; a short-line list is not joined; "...:" + a link is not joined; a long line + a link is not
+#       joined; a wrapped paragraph + a typed sign-off; and all 14 demo messages as screenshots keep the verdict of the text (the levels locked in test_demo.py)
 #   O9 coloured, underlined links in dark mode (iOS Messages blue, plain blue; plus WhatsApp / Google Messages / Telegram dark, and iOS light / white-on-blue as
 #      guards): every link survives with CER <= 0.08; with the recovery step switched off the first two lose it (the fixture still exercises the fix); an exactly
 #      grey theme and a saturated bubble on a light page (PNG + a JPEG that gets inverted) give a byte-identical prepared image with and without the step
@@ -303,6 +310,142 @@ def o13(c):
         bad.append("with the colour step switched off the link is still read: this fixture no longer exercises the fix")
     return bad
 
+# ---- soft-wrapped lines (2026-10-18) --------------------------------------------------------------------------------------------------
+JIO_JOINED = "Dear User,\n\nYou've earned Lifetime Free Kiwi UPI Credit Card (CC: JIOKIWI) on JioRecharge.\nClaim now:\nhttps://t.jio/JIOCPN/x48NuN\nT&C*\n\nJioCoupons"
+JIO_MISREADS = [("https://t.jio/ TIOCPN/x48NuN", "https://t.jio/JIOCPN/x48NuN"), ('740"', "T&C*")]   # what Tesseract 5.5.3 reads on this image (BUGS.md D19 (10), (12)); the link repair does not cover them on purpose
+
+def o14(c):
+    bad = []
+    data = open(REAL, "rb").read()
+    res = read_image(data)
+    page_w, lines = parse_tsv(reader._tesseract(reader._prepare(data)))
+    before = "\n".join(clean_lines("\n".join(x.text for x in lines))[0])   # every bubble wrap a line, blank lines gone: what read_image returned before
+    note("O14", "before: " + repr(before))
+    note("O14", "after:  " + repr(res["text"]))
+    got = res["text"]
+    for wrong, right in JIO_MISREADS:
+        got = got.replace(wrong, right)
+    if got != JIO_JOINED:
+        bad.append(f"the OCR text is not the joined message (after mapping the two known misreads back):\n      got    {got!r}\n      wanted {JIO_JOINED!r}")
+    if "Kiwi UPI Credit Card (CC:\n" in res["text"] or "Lifetime Free\n" in res["text"]:
+        bad.append("a bubble wrap is still a line break")
+    if res["text"] != "\n".join(res["lines"]) or res["lines"].count("") != 2 or res["dropped"] != 0:
+        bad.append(f"lines / dropped inconsistent: {res['lines']} dropped {res['dropped']}")
+    return bad
+
+H, PAGE = 30, 1000   # a hand-built page: line boxes 30 px high on a 40 px pitch (a normal gap is 10 px = a third of a line), 1000 px wide
+
+def box(text, row=0, left=100, right=700, first=80):
+    top = 100 + row * 40
+    return Line(text, left, top, right, top + H, first)
+
+def lay(*lines, page=PAGE):
+    return join_wrapped_lines(page, list(lines))
+
+GEOMETRY = [   # (label, lines, expected lines, expected dropped)
+    ("a wrap is joined", [box("your account will be blocked due to"), box("pending KYC", 1, right=400, first=90)], ["your account will be blocked due to pending KYC"], 0),
+    ("a three-line paragraph is one line", [box("your account will be", 0), box("blocked due to pending", 1, right=690, first=70), box("KYC", 2, right=300, first=60)],
+     ["your account will be blocked due to pending KYC"], 0),
+    ("ends in a full stop", [box("pay now."), box("next line", 1, right=400)], ["pay now.", "next line"], 0),
+    ("ends in !", [box("pay now!"), box("next line", 1, right=400)], ["pay now!", "next line"], 0),
+    ("ends in ?", [box("pay now?"), box("next line", 1, right=400)], ["pay now?", "next line"], 0),
+    ("ends in a colon", [box("pay now:"), box("next line", 1, right=400)], ["pay now:", "next line"], 0),
+    ("ends in a full stop and a closing quote", [box('he said "pay now."'), box("next line", 1, right=400)], ['he said "pay now."', "next line"], 0),
+    ("ends in a full stop and a closing bracket", [box("(pay now.)"), box("next line", 1, right=400)], ["(pay now.)", "next line"], 0),
+    ("ends in a Devanagari danda", [box("भुगतान करें।"), box("अगली पंक्ति", 1, right=400)], ["भुगतान करें।", "अगली पंक्ति"], 0),
+    ("a colon inside an open bracket is not an end", [box("Kiwi UPI Credit Card (CC:"), box("JIOKIWI) on JioRecharge.", 1, right=500, first=90)], ["Kiwi UPI Credit Card (CC: JIOKIWI) on JioRecharge."], 0),
+    ("a comma is not an end", [box("Dear Sir, your account is blocked,"), box("please update", 1, right=400, first=90)], ["Dear Sir, your account is blocked, please update"], 0),
+    ("a blank line stays and nothing is joined across it", [box("your account will be blocked due to"), box("pending KYC", 2, right=400, first=90)], ["your account will be blocked due to", "", "pending KYC"], 0),
+    ("a link line is never joined onto", [box("Update now:"), box("https://sbi.top/x", 1, right=500, first=300)], ["Update now:", "https://sbi.top/x"], 0),
+    ("a long line before a link is not joined", [box("please verify your account at the link below"), box("https://sbi.top/x", 1, right=500, first=300)],
+     ["please verify your account at the link below", "https://sbi.top/x"], 0),
+    ("a line that starts with a bare domain is a link line", [box("pay at the link below to avoid it"), box("sbi-kyc.top/login now", 1, right=500, first=200)],
+     ["pay at the link below to avoid it", "sbi-kyc.top/login now"], 0),
+    ("a link line is not joined into", [box("https://sbi.top/x"), box("more text here", 1, right=400, first=60)], ["https://sbi.top/x", "more text here"], 0),
+    ("a line holding a link is not joined", [box("see sbi.top/login now and then"), box("pay it", 1, right=400, first=60)], ["see sbi.top/login now and then", "pay it"], 0),
+    ("a list item is a new line (-)", [box("your account will be blocked due to"), box("- pending KYC", 1, right=400, first=20)], ["your account will be blocked due to", "- pending KYC"], 0),
+    ("a list item is a new line (1.)", [box("your account will be blocked due to"), box("1. pending KYC", 1, right=400, first=30)], ["your account will be blocked due to", "1. pending KYC"], 0),
+    ("a list item is a new line (2))", [box("your account will be blocked due to"), box("2) pending KYC", 1, right=400, first=30)], ["your account will be blocked due to", "2) pending KYC"], 0),
+    ("a list item is a new line (bullet)", [box("your account will be blocked due to"), box("\u2022 pending KYC", 1, right=400, first=20)], ["your account will be blocked due to", "\u2022 pending KYC"], 0),
+    ("a *word is not a list item", [box("your account will be blocked due to"), box("*pending KYC", 1, right=400, first=90)], ["your account will be blocked due to *pending KYC"], 0),
+    ("the next line starts further right than a line height", [box("your account will be blocked due to"), box("pending KYC", 1, left=140, right=440, first=90)],
+     ["your account will be blocked due to", "pending KYC"], 0),
+    ("the next line starts within a line height", [box("your account will be blocked due to"), box("pending KYC", 1, left=120, right=420, first=90)],
+     ["your account will be blocked due to pending KYC"], 0),
+    ("a short column is not a wrapped paragraph", [box("Dear User,", right=350), box("Thanks", 1, right=250, first=140)], ["Dear User,", "Thanks"], 0),
+    ("the longest line spans 40% of the page: still not a column", [box("Do not share it with anyone", right=500), box("Valid for ten minutes", 1, right=450, first=60)],
+     ["Do not share it with anyone", "Valid for ten minutes"], 0),
+    ("under 0.7 of the widest line is not a wrap", [box("the longest line in this bubble."), box("a typed middle line", 1, right=500), box("end", 2, right=300, first=250)],
+     ["the longest line in this bubble.", "a typed middle line", "end"], 0),
+    ("0.72 of the widest is a wrap", [box("the longest line in this bubble."), box("a typed middle line", 1, right=532), box("end", 2, right=300, first=250)],
+     ["the longest line in this bubble.", "a typed middle line end"], 0),
+    ("the next word would have fitted: a typed break", [box("the longest line in this bubble."), box("a typed middle line", 1, right=600), box("end", 2, right=300, first=80)],
+     ["the longest line in this bubble.", "a typed middle line", "end"], 0),
+    ("the next word would not have fitted: a wrap", [box("the longest line in this bubble."), box("a typed middle line", 1, right=600), box("end", 2, right=300, first=120)],
+     ["the longest line in this bubble.", "a typed middle line end"], 0),
+    ("a noise line is a barrier and is counted", [box("your account will be blocked due to"), box("10:42 pm", 1, right=220, first=60), box("pending KYC", 2, right=400, first=90)],
+     ["your account will be blocked due to", "pending KYC"], 1),
+    ("a gap across a dropped noise line is a blank line", [box("your account will be blocked due to"), box("10:42 pm", 1, right=220, first=60), box("pending KYC", 3, right=400, first=90)],
+     ["your account will be blocked due to", "", "pending KYC"], 1),
+    ("no blank line before the first text", [box("Today", 0, left=300, right=380), box("hello there", 3, right=400, first=80)], ["hello there"], 1),
+    ("no blank line after the last text", [box("hello there", 0, right=400, first=80), box("10:42 pm", 3, right=220)], ["hello there"], 1),
+    ("only noise", [box("Today", 0, left=300, right=380), box("10:42 pm", 1, right=220)], [], 2),
+    ("nothing at all", [], [], 0),
+    ("another bubble's column does not move this one's edge", [box("your account will be blocked due to"), box("pending KYC", 1, right=400, first=90), box("a reply from the other side", 3, left=500, right=990, first=90)],
+     ["your account will be blocked due to pending KYC", "", "a reply from the other side"], 0),
+    ("a different column is not joined to", [box("your account will be blocked due to"), box("a reply", 1, left=500, right=700, first=90)], ["your account will be blocked due to", "a reply"], 0),
+]
+
+def o15(c):
+    bad = []
+    for label, lines, want, want_dropped in GEOMETRY:
+        got, dropped = lay(*lines)
+        if got != want or dropped != want_dropped:
+            bad.append(f"{label}: got {got!r} (dropped {dropped}), wanted {want!r} (dropped {want_dropped})")
+    note("O15", f"{len(GEOMETRY)} cases on hand-built line boxes")
+    return bad
+
+def shot(text, **kw):
+    return bubble(text, breaks=True, inner=700, **kw)   # wrap at 65% of the page, like the chat apps (the default 87% is wider than any of them)
+
+LONG_PARA = "Your account will be blocked today due to pending KYC verification please click the link below to update your details now"
+SHOTS = [   # (label, text typed, lines expected back)
+    ("two paragraphs keep their blank line", "Dear Customer your SBI account will be blocked today due to pending KYC verification and must be updated now to avoid closure of the account\n\n"
+     "Share the OTP sent to your number to complete the verification within one hour or the account will be suspended permanently",
+     ["Dear Customer your SBI account will be blocked today due to pending KYC verification and must be updated now to avoid closure of the account", "",
+      "Share the OTP sent to your number to complete the verification within one hour or the account will be suspended permanently"]),
+    ("short lines are not joined", "Dear User,\nThanks\nTeam X", ["Dear User,", "Thanks", "Team X"]),
+    ("short lines of an OTP message are not joined", "Your OTP is 482913\nDo not share it with anyone\nValid for 10 minutes", ["Your OTP is 482913", "Do not share it with anyone", "Valid for 10 minutes"]),
+    ("a line ending in a colon before a link is not joined", LONG_PARA + ":\nhttps://sbi-kyc.top/login", [LONG_PARA + ":", "https://sbi-kyc.top/login"]),
+    ("a long line without punctuation before a link is not joined", LONG_PARA + "\nhttps://sbi-kyc.top/login", [LONG_PARA, "https://sbi-kyc.top/login"]),
+    ("a wrapped paragraph and a typed sign-off", LONG_PARA + "\nRegards\nSBI Team", [LONG_PARA, "Regards", "SBI Team"]),
+    ("typed sentences, one per line, with a wrap inside one", "Your parcel is held at our warehouse due to an incomplete address and will be returned to the sender soon.\nUpdate your address now.\nThanks India Post",
+     ["Your parcel is held at our warehouse due to an incomplete address and will be returned to the sender soon.", "Update your address now.", "Thanks India Post"]),
+]
+
+def o16(c):
+    bad = []
+    for label, text, want in SHOTS:
+        res = read_image(shot(text))
+        if res["lines"] != want or res["text"] != "\n".join(want):
+            bad.append(f"{label}: got {res['lines']!r}, wanted {want!r}")
+    # A limit, recorded and not asserted: a typed line that stops within a word of the longest line looks like a wrapped paragraph, and without end punctuation
+    # it is merged with the next line. Here "Your SBI account ... KYC verification" wraps inside the bubble and its last piece is nearly full, so the typed line below it joins it.
+    typed = ["Dear Customer,", "Your SBI account will be blocked today due to pending KYC verification", "Update now to avoid closure", "Regards", "SBI Team"]
+    limit = read_image(shot("\n".join(typed)))["lines"]
+    note("O16", f"KNOWN LIMIT (not asserted): {len(typed)} typed lines come back as {len(limit)}: {limit!r}")
+    # The 14 demo messages as screenshots keep the verdict of the text (the levels test_demo.py locks): joining lines must not move a verdict.
+    moved = []
+    for item in json.load(open(os.path.join(ROOT, "docs", "demo", "demo_set.json"), encoding="utf-8")):
+        got = read_image(image(("light", item["id"]), text=item["text"]))["text"]
+        level = level_of(c, got)
+        if level != DEMO_LEVELS[item["id"]] or level != level_of(c, item["text"]):
+            moved.append(f"{item['id']}: {level} (text: {level_of(c, item['text'])}, locked: {DEMO_LEVELS[item['id']]})")
+    note("O16", "14 demo messages as light screenshots: " + ("all keep their locked verdict" if not moved else f"MOVED: {moved}"))
+    bad += [f"demo screenshot verdict moved: {m}" for m in moved]
+    return bad
+
+
 def o4(c):
     raw = "\n".join(["Forwarded many times", "Today", "Hello, pay Rs 500 now", "10:42 pm", "", "22:05", "✓✓", "Visit http://x.top/a",
                      "12 October 2026", "10:42 pm ✓✓", "Your OTP is 123456", "Forwarded", "Yesterday", "Pay by 12 October", "Monday",
@@ -550,7 +693,10 @@ CHECKS = [("O1", "10 demo scam texts as light chat bubbles: CER <= 0.08, key phr
           ("O8", "API end to end: /api/ocr -> /api/analyse, nothing logged", o8),
           ("O9", "coloured underlined links survive dark mode; the step changes nothing on grey or saturated-bubble images", o9),
           ("O10", "narrow link repairs: spaced colon, space after a dot; the old pattern and everything that must stay unchanged", o10),
-          ("O13", "the REAL dark-mode Jio screenshot (tests/fixtures/real): link t.jio/..., three anchor lines, verdict Likely scam, Link panel lists it", o13)]
+          ("O13", "the REAL dark-mode Jio screenshot (tests/fixtures/real): link t.jio/..., three anchor lines, verdict Likely scam, Link panel lists it", o13),
+          ("O14", "the REAL screenshot: bubble wraps joined, typed breaks and blank lines kept, exactly the message", o14),
+          ("O15", "join_wrapped_lines on hand-built boxes: every rule alone (ends, brackets, blanks, links, lists, margins, columns, ratio, next word, noise)", o15),
+          ("O16", "synthetic renders: blank line kept, short lists / colon+link / long line+link not joined, 14 demo screenshots keep their verdict", o16)]
 
 def run():
     out = []

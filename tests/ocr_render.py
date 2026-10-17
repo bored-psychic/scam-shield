@@ -19,25 +19,30 @@ def to_png(img, **kw):
     img.save(b, "PNG", **kw)
     return b.getvalue()
 
-def bubble(text, dark=False, width=1080, size=40, stamp="10:42 pm", fonts=LATIN_FONTS, theme=None):
+def bubble(text, dark=False, width=1080, size=40, stamp="10:42 pm", fonts=LATIN_FONTS, theme=None, breaks=False, inner=None):
     """A chat screenshot: a 'Today' pill, one incoming bubble with the text wrapped at word boundaries, a timestamp under the text.
-    `theme` = (page, bubble, ink, faint, link) colours replaces the two built-in themes; with it every link is drawn in the link colour and underlined."""
+    `theme` = (page, bubble, ink, faint, link) colours replaces the two built-in themes; with it every link is drawn in the link colour and underlined.
+    `breaks` keeps the line breaks typed in `text` (each line is wrapped on its own, an empty line is a blank line); off, all white space is one space.
+    `inner` is the width in px at which a line wraps (default 940, the bubble's own width; real chat apps wrap at about 65-75% of the screen)."""
     f, small = font(fonts, size), font(fonts, 28)
     link = None
     if theme:
         bg, box, ink, faint, link = theme
     else:
         bg, box, ink, faint = ((11, 20, 26), (32, 44, 51), (255, 255, 255), (134, 150, 160)) if dark else ((239, 234, 226), (255, 255, 255), (17, 27, 33), (102, 119, 129))
-    left, pad, inner = 40, 30, 1080 - 2 * 40 - 2 * 30
-    lines, cur = [], ""
-    for word in text.split():
-        t = (cur + " " + word).strip()
-        if f.getlength(t) <= inner or not cur:
-            cur = t
-        else:
-            lines.append(cur)
-            cur = word
-    lines.append(cur)
+    left, pad = 40, 30
+    inner = inner or 1080 - 2 * 40 - 2 * 30
+    lines = []
+    for para in (text.split("\n") if breaks else [text]):
+        cur = ""
+        for word in para.split():
+            t = (cur + " " + word).strip()
+            if f.getlength(t) <= inner or not cur:
+                cur = t
+            else:
+                lines.append(cur)
+                cur = word
+        lines.append(cur)
     lh = int(size * 1.4)
     top = 150
     h = top + pad + len(lines) * lh + 50 + pad + 120
