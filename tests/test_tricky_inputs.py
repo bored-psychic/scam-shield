@@ -12,6 +12,19 @@ from tricky_inputs import INPUTS
 # models and are skipped (and said so) when they can't load, e.g. models/text_baseline.joblib is missing or predates <URL> preprocessing.
 # The verdict-level checks run twice, with the safety-advice cap forced OFF and ON (analyse(..., safety_cap=...)), so every expectation holds whichever
 # way config.SAFETY_ADVICE_CAP is set; the cap only ever lowers Suspicious, so a min_level that a rule guarantees must survive it.
+# Password requests (2026-10-18, D22 follow-up): rule checks only, kept out of tricky_inputs.INPUTS so the contract input set (363) that the empty-sender
+# identity proofs compare stays the same. UPI PIN and MPIN were already in the PIN alternative of the OTP rule.
+PASSWORD_CASES = [
+    {"id": "password-send-netbanking", "text": "Send your net banking password to verify", "expect": {"cred_request": True}},
+    {"id": "password-never-share", "text": "Never share your password with anyone", "expect": {"cred_request": False}},
+    {"id": "password-changed", "text": "Your password was changed successfully", "expect": {"cred_request": False}},
+    {"id": "password-login-reply", "text": "Reply with your login password to keep your account active.", "expect": {"cred_request": True}},
+    {"id": "password-no-need", "text": "There is no need to share your password with our staff.", "expect": {"cred_request": False}},
+    {"id": "password-upi-pin", "text": "Share your UPI PIN to get the cashback.", "expect": {"cred_request": True}},
+    {"id": "password-mpin", "text": "Please provide your MPIN to complete the KYC.", "expect": {"cred_request": True}},
+    {"id": "password-mpin-advice", "text": "Do not share your MPIN with anyone.", "expect": {"cred_request": False}},
+]
+
 def _models():
     try:
         return load_text_model(), load_url_model()
@@ -50,15 +63,16 @@ def check(entry, tm, um):
 
 def test_tricky_inputs():
     tm, um = (None, None) if "--no-models" in sys.argv else _models()
-    failures = {x["id"]: b for x in INPUTS if (b := check(x, tm, um))}
+    failures = {x["id"]: b for x in INPUTS + PASSWORD_CASES if (b := check(x, tm, um))}
     assert not failures, "\n".join(f"{k}: {'; '.join(v)}" for k, v in failures.items())
 
 if __name__ == "__main__":
     tm, um = (None, None) if "--no-models" in sys.argv else _models()
     n_bad = 0
-    for x in INPUTS:
+    for x in INPUTS + PASSWORD_CASES:
         bad = check(x, tm, um)
         n_bad += bool(bad)
         print(("FAIL " if bad else "ok   ") + x["id"] + ("" if not bad else "  <- " + "; ".join(bad)))
-    print(f"\n{len(INPUTS) - n_bad}/{len(INPUTS)} passed" + ("" if tm else " (level / link-kind checks skipped)"))
+    n_all = len(INPUTS) + len(PASSWORD_CASES)
+    print(f"\n{n_all - n_bad}/{n_all} passed" + ("" if tm else " (level / link-kind checks skipped)"))
     sys.exit(1 if n_bad else 0)

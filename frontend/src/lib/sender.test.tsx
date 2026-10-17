@@ -5,7 +5,7 @@ import type { Report } from "../types/report";
 import { LEVEL_VALUES } from "../types/report";
 import { LEVEL_HEX, LEVEL_SUMMARY, LEVELS } from "./levels";
 import { blips } from "./evidence";
-import { SENDER_HELP_OUTRO, SENDER_HINT, SENDER_MAX, SENDER_PLACEHOLDER, SENDER_TIP, SUFFIX_HELP, showSenderTip } from "./sender";
+import { SENDER_HELP_OUTRO, SENDER_HINT, SENDER_MAX, SENDER_PLACEHOLDER, SENDER_TIP, SUFFIX_HELP, senderNote, showSenderTip } from "./sender";
 import SenderField from "../components/SenderField";
 import SenderChip from "../components/SenderChip";
 import VerdictPanel from "../components/VerdictPanel";
@@ -74,6 +74,23 @@ describe("S2 the sender chip", () => {
   test("anything else: Not recognised, no change to the level", () => {
     expect(fx("jio-other").sender!.label).toBe("Not recognised");
     expect(fx("jio-other").level).toBe(fx("jio-no-sender").level);
+  });
+  test("the sender evidence never pushes a warning out: with three warnings it is a note under the chip, else one of the reasons", () => {
+    // three warnings (the Jio text): the reasons are exactly the no-sender ones, the wording model's included; the sender line is the chip's note
+    for (const label of ["jio-bare", "jio-mobile", "kyc-promotional"]) {
+      const r = fx(label), note = senderNote(r);
+      if (label.startsWith("jio")) expect(r.reasons, label).toEqual(fx("jio-no-sender").reasons);
+      expect(r.reasons, label).toHaveLength(3);
+      expect(r.reasons.some((x) => x === note?.title), label).toBe(false);
+      expect(note?.id, label).toMatch(/^sender\./);
+      const html = renderToStaticMarkup(<SenderChip sender={r.sender!} note={note} />);
+      expect(textOf(html), label).toContain(note!.title);
+    }
+    expect(fx("jio-bare").reasons).toContain("The wording is very similar to known scam messages");
+    // a free place (the bank alert has no warning) or Promotional: the sender line is a reason, so no note
+    expect(senderNote(fx("bank-transactional"))).toBeNull();
+    expect(senderNote(fx("jio-promotional"))).toBeNull();
+    expect(senderNote(fx("jio-no-sender"))).toBeNull();
   });
   test("no sender: no chip", () => {
     const html = renderToStaticMarkup(<VerdictPanel level="likely_scam" sender={null} blips={[]} pointable={[]} onPoint={() => {}} headingRef={null} />);

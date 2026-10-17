@@ -2,6 +2,7 @@ from pii import mask_text
 from shield.core.verdict import PROMOTIONAL
 from shield.messages.sender import SenderID
 from shield.messages.tactics import TACTICS
+from shield.messages.threats import FAMILIES, fear_cues
 
 # ---------------------------------------------------------------- the sender rule layer (decision D22, docs/decisions/README.md)
 # Runs after everything else in router.analyse() (models, hard rules, gambling floor, safety-advice cap), on the sender the user typed; the models
@@ -29,18 +30,24 @@ PAYMENT_DEMAND_CUES = frozenset({"processing fee", "registration fee", "customs 
                                  "collect request", "approve request", "approve the request", "scan qr", "scan the qr"})
 
 # The hard-risk signals, most severe first, each with what the misuse reason says the message does. All existing signals of analyse()'s result:
-#   otp_request     r["cred_request"]      the OTP / PIN / CVV request rule (rules.cred_requests; "one-time password" is in it, a bare "password" is not)
+#   otp_request     r["cred_request"]      the OTP / PIN / CVV / password request rule (rules.cred_requests; plain passwords since 2026-10-18)
 #   pin_to_receive  r["pin_to_receive"]    rule R2 (rules.pin_to_receive)
 #   phishing_link   a link the URL model rates at its scam level: kind "model", base_level 2 (Likely scam, the model's threshold_high)
 #   lookalike_link  a free-hosted link with a brand or scam word in its name: kind "free", base_level 1 (platforms.assess_link). Free-hosted links
 #                   never reach the URL model, so without this a phishing page on a free host could be softened; added beyond the D22 request
 #   gambling        a G1 gambling match on any link (l["gambling"])
+#   legal_threat, secrecy, cutoff_threat, earning_promise   the fear-cue families (shield.messages.threats; tightening B, 2026-10-18): a legal / arrest
+#                   threat, secrecy, a cut-off / block threat, an investment or earning promise
 #   payment_demand  a PAYMENT_DEMAND_CUES match in the masked text
-RISKY_THING = {"otp_request": "it asks for your OTP, PIN or CVV",
+RISKY_THING = {"otp_request": "it asks for your OTP, PIN, CVV or password",
                "pin_to_receive": "it asks for your UPI PIN to receive money",
                "phishing_link": "its link looks like a phishing link",
                "lookalike_link": "its link is a lookalike site on free hosting",
                "gambling": "it links to a gambling or betting site",
+               "legal_threat": "it threatens arrest or legal action",
+               "secrecy": "it tells you to keep it secret",
+               "cutoff_threat": "it threatens to block or cut off a service",
+               "earning_promise": "it promises guaranteed or easy earnings",
                "payment_demand": "it asks for a payment or fee"}
 
 
@@ -52,13 +59,14 @@ def payment_demands(text):
 
 def hard_risks(text, r):
     """The hard-risk signals (RISKY_THING keys, most severe first) in analyse()'s result r for this text."""
-    links = r["links"]
+    links, fear = r["links"], fear_cues(mask_text(text), r["cred_request"])
     return [key for key, hit in (
         ("otp_request", bool(r["cred_request"])),
         ("pin_to_receive", bool(r["pin_to_receive"])),
         ("phishing_link", any(l["kind"] == "model" and l["base_level"] == 2 for l in links)),
         ("lookalike_link", any(l["kind"] == "free" and l["base_level"] == 1 for l in links)),
         ("gambling", any(l["gambling"] for l in links)),
+        *((fam, bool(fear[fam])) for fam in FAMILIES),
         ("payment_demand", bool(payment_demands(text)))) if hit]
 
 

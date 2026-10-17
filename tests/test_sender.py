@@ -11,6 +11,8 @@ from shield.links.lexical import load_url_model
 from shield.messages.sender import SenderID, parse_sender
 from shield.messages.tactics import tactic_tags
 from shield.messages.text_head import load_text_model
+from shield.messages.threats import fear_cues
+from pii import mask_text
 from tricky_inputs import INPUTS
 
 # python tests/test_sender.py   (from the project root; needs both models). The sender input (decision D22, docs/decisions/README.md):
@@ -19,12 +21,22 @@ from tricky_inputs import INPUTS
 #   H1  each hard-risk signal on its own blocks softening by a P sender (and is the one the misuse reason names)
 #   H2  a payment-demand cue is found even when the payment tactic already listed 4 cues before it (tactic_tags() keeps only 4)
 #   E1  the 14 demo messages with sender None, "" and "   " give exactly the Report of a call without a sender (sender null)
+# Tightening B (2026-10-18): the fear-cue families (shield.messages.threats) are hard-risk signals too, and the sender reason never pushes a warning out.
+#   F1  d01 (digital arrest), d05 (electricity), d07 (investment) + a P, a T and a bare header -> not softened, the misuse evidence names the family
+#   F2  each family: synthetic messages that must hit it, and negated / after-the-fact / advice forms that must not
+#   F3  promotional wording (offer, cashback, coupon, free, claim now, T&C, limited period, a WhatsApp channel, a 'secret sale') is never a hard-risk signal,
+#       and those texts with a P header are Promotional
+#   F4  a password request is caught by the OTP rule and shown with its own title; a one-time password keeps the OTP title
+#   R1  reason slots: over the demo and tricky inputs x 8 senders, the reasons without a sender come first and unchanged (so the wording model's "very
+#       similar to known scam messages" is never pushed out); the sender reason is added only into a free place, or first on Promotional
 # test_contracts.py A16 / A17 run the empty-sender identity and the table's invariants over all 363 contract inputs; test_api.py T10-T13 the HTTP side.
 JIO = "Dear User,\nYou've earned Lifetime Free\nKiwi UPI Credit Card (CC:\nJIOKIWI) on JioRecharge.\nClaim now:\nhttps://t.jio/JIOCPN/x48NuN\nT&C*\nJioCoupons"   # tests/test_ocr.py JIO_TEXT: the real Jio promo, typed
 MOBILE = "+91 98765 43210"
 DEMO = {e["id"]: e["text"] for e in load_demo()}
 TRICKY = {x["id"]: x["text"] for x in INPUTS}
 P_TITLE, MOBILE_TITLE = "Sent from a registered business ID (promotional)", "Sent from a personal mobile number; businesses use registered IDs like JM-JIOCPN-P"
+OTP_THING = "it asks for your OTP, PIN, CVV or password"
+SENDERS = ["JM-JIOCPN-P", "KA-ZOMATO-S", "VM-HDFCBK-T", "XY-GOVTIN-G", "AD-SBIINB", "JIOCPN", "+91 98765 43210", "Jio"]
 MISUSED = lambda thing: f"Registered sender, but {thing}. Registered IDs can still be misused."
 
 # (raw, kind, prefix, header, suffix)
@@ -94,7 +106,7 @@ def d2():
     _, rep = run(JIO, MOBILE)
     bad = []
     expect(bad, rep.level == base.level == Level.LIKELY_SCAM, f"level {rep.level.value}, without a sender {base.level.value}")
-    expect(bad, MOBILE_TITLE in rep.reasons, f"reasons {rep.reasons}")
+    expect(bad, MOBILE_TITLE in titles(rep) and rep.reasons == base.reasons, f"reasons {rep.reasons} (three warnings: the mobile reason is evidence, not a reason)")
     expect(bad, [e.effect for e in sender_ev(rep)] == [Effect.CAUTION], f"sender evidence {sender_ev(rep)}")
     dumped = rep.model_dump_json()
     expect(bad, "98765" not in dumped and "43210" not in dumped, "the mobile number appears in the Report")
@@ -103,11 +115,11 @@ def d2():
     return bad
 
 def d3():
-    """the demo OTP scam (d02) + a P sender -> still Likely scam, with the misuse reason naming the OTP request."""
+    """the demo OTP scam (d02) + a P sender -> still Likely scam, with the misuse evidence naming the OTP request (three warnings fill the reasons)."""
     _, rep = run(DEMO["d02"], "JM-JIOCPN-P")
     bad = []
     expect(bad, rep.level == Level.LIKELY_SCAM, f"level {rep.level.value}")
-    expect(bad, MISUSED("it asks for your OTP, PIN or CVV") in rep.reasons, f"reasons {rep.reasons}")
+    expect(bad, MISUSED(OTP_THING) in titles(rep), f"evidence {titles(rep)}")
     return bad
 
 def d4():
@@ -117,7 +129,7 @@ def d4():
     bad = []
     expect(bad, rep.level == base.level and rep.level != Level.PROMOTIONAL, f"level {rep.level.value}, without a sender {base.level.value}")
     expect(bad, rep.category == "gambling", f"category {rep.category}")
-    expect(bad, MISUSED("it links to a gambling or betting site") in rep.reasons, f"reasons {rep.reasons}")
+    expect(bad, MISUSED("it links to a gambling or betting site") in titles(rep), f"evidence {titles(rep)}")
     return bad
 
 def d5():
@@ -131,11 +143,14 @@ def d5():
     return bad
 
 def d6():
-    """Jio fixture + the bare header JIOCPN -> Suspicious (capped from Likely scam) + the positive reason; not Promotional (that needs suffix P)."""
+    """Jio fixture + the bare header JIOCPN -> Suspicious (capped from Likely scam) + the positive evidence; not Promotional (that needs suffix P).
+    The Jio text has three warnings, so the positive reason is evidence shown under the sender chip, and the three reasons are the ones without a sender."""
+    _, base = run(JIO)
     _, rep = run(JIO, "JIOCPN")
     bad = []
     expect(bad, rep.level == Level.SUSPICIOUS, f"level {rep.level.value}")
-    expect(bad, "Sent from a registered business ID (type unknown)" in rep.reasons, f"reasons {rep.reasons}")
+    expect(bad, "Sent from a registered business ID (type unknown)" in titles(rep), f"evidence {titles(rep)}")
+    expect(bad, rep.reasons == base.reasons and "The wording is very similar to known scam messages" in rep.reasons, f"reasons {rep.reasons}")
     expect(bad, rep.sender and (rep.sender.kind, rep.sender.label) == ("dlt_bare", "Registered business · type unknown"), f"sender {rep.sender}")
     return bad
 
@@ -154,7 +169,7 @@ def d8():
     _, rep = run(DEMO["d02"], "HDFCBK")
     bad = []
     expect(bad, rep.level == Level.LIKELY_SCAM, f"level {rep.level.value}")
-    expect(bad, MISUSED("it asks for your OTP, PIN or CVV") in rep.reasons, f"reasons {rep.reasons}")
+    expect(bad, MISUSED(OTP_THING) in titles(rep), f"evidence {titles(rep)}")
     return bad
 
 def d9():
@@ -164,7 +179,7 @@ def d9():
                     ("XY-GOVTIN-G", "Sent from a registered government sender ID"), ("AD-JIOCPN", "Sent from a registered business ID (type unknown)")):
         _, rep = run(JIO, s)
         expect(bad, rep.level == Level.SUSPICIOUS, f"{s}: level {rep.level.value}")
-        expect(bad, word in rep.reasons, f"{s}: reasons {rep.reasons}")
+        expect(bad, word in titles(rep), f"{s}: evidence {titles(rep)}")
     return bad
 
 def d10():
@@ -193,7 +208,7 @@ def d12():
         _, base = run(t)
         _, rep = run(t, MOBILE)
         expect(bad, rep.level == base.level, f"{i}: level {rep.level.value}, without a sender {base.level.value}")
-        expect(bad, (MOBILE_TITLE in rep.reasons) == (base.level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)), f"{i}: mobile reason {rep.reasons}")
+        expect(bad, (MOBILE_TITLE in titles(rep)) == (base.level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)), f"{i}: mobile evidence {titles(rep)}")
     return bad
 
 def d13():
@@ -206,7 +221,7 @@ def d13():
 
 
 # one input per signal whose ONLY hard-risk signal is that one (checked), and the risky thing the misuse reason must name
-SINGLE_RISK = [("otp_request", TRICKY["otp-forward"], "it asks for your OTP, PIN or CVV"),
+SINGLE_RISK = [("otp_request", TRICKY["otp-forward"], OTP_THING),
                ("pin_to_receive", TRICKY["pin-receive-cashback"], "it asks for your UPI PIN to receive money"),
                ("phishing_link", DEMO["d06"], "its link looks like a phishing link"),
                ("lookalike_link", TRICKY["free-hosting-brand"], "its link is a lookalike site on free hosting"),
@@ -250,6 +265,95 @@ def e1():
     return bad
 
 
+FEAR_THING = {"legal_threat": "it threatens arrest or legal action", "secrecy": "it tells you to keep it secret",
+              "cutoff_threat": "it threatens to block or cut off a service", "earning_promise": "it promises guaranteed or easy earnings"}
+
+def f1():
+    bad = []
+    for i, fam in (("d01", "legal_threat"), ("d05", "cutoff_threat"), ("d07", "earning_promise")):
+        r0, base = run(DEMO[i])
+        expect(bad, fam in hard_risks(DEMO[i], r0), f"{i}: hard-risk signals {hard_risks(DEMO[i], r0)}, wanted {fam} among them")
+        for s in ("JM-JIOCPN-P", "VM-HDFCBK-T", "JIOCPN"):
+            r, rep = run(DEMO[i], s)
+            expect(bad, rep.level == base.level and rep.level != Level.PROMOTIONAL, f"{i} + {s}: level {rep.level.value}, without a sender {base.level.value}")
+            first = r["sender"]["hard_risks"][0] if r["sender"]["hard_risks"] else None
+            expect(bad, first == fam and MISUSED(FEAR_THING[fam]) in titles(rep), f"{i} + {s}: first signal {first}, evidence {titles(rep)}")
+    return bad
+
+# (family, must hit, must not hit): all synthetic
+FAMILY_CASES = [
+    ("legal_threat", ["A case has been registered against your Aadhaar. You will be arrested today.", "You are under digital arrest. Stay on the video call.",
+                      "Your parcel with illegal items was seized by customs.", "Act immediately to avoid legal consequences."],
+                     ["You will not be arrested; this is only a reminder to update your address.", "Report fraud to the cyber crime police at 1930.",
+                      "Our court booking for Saturday badminton is confirmed."]),
+    ("secrecy", ["Do not tell anyone about this call.", "Keep this confidential and do not inform your bank.", "Do not disconnect this call."],
+                ["There is no need to keep this confidential.", "Your OTP is 482913. Do not share it with anyone.", "Join our WhatsApp channel for updates.",
+                 "Our secret sale is live! Up to 70% off."]),
+    ("cutoff_threat", ["Your SIM will be blocked within 2 hours. Call now.", "Dear consumer, your electricity connection will be disconnected tonight.",
+                       "Your account has been blocked. Update your PAN here: http://x.top", "Your KYC is pending. Update today or your account stops.",
+                       "Failure to respond will result in account suspension.", "Your account is being blocked. Update your PAN card now."],
+                      ["Your card will not be blocked.", "Your card has been blocked after 3 wrong PIN attempts. To unblock, call 1800-180-1234.",
+                       "Your KYC is complete. Thank you.", "Your order will be cancelled if not picked up in 3 days.", "Your Airtel pack will expire soon! Recharge now."]),
+    ("earning_promise", ["Guaranteed 20% returns every month. Join our stock tips group.", "Earn Rs 3,000 per day working from home, just like videos.",
+                         "VIP Task: send Rs 1000 and get Rs 1500 within 10 minutes.", "Double your money in 30 days."],
+                        ["Mutual funds are subject to market risk; returns are not guaranteed.", "We never promise guaranteed returns.",
+                         "Earn 10X reward points on every purchase this Diwali. T&C apply."]),
+]
+
+def f2():
+    bad = []
+    for fam, hits, misses in FAMILY_CASES:
+        for t in hits:
+            got = fear_cues(mask_text(t))
+            expect(bad, bool(got[fam]), f"{fam}: no hit on {t!r} ({got})")
+        for t in misses:
+            got = fear_cues(mask_text(t))
+            expect(bad, not got[fam], f"{fam}: hit {got[fam]} on {t!r}")
+    return bad
+
+PROMOS = [JIO, "Flat 50% off on all shoes! Use coupon SAVE50. Limited period offer. T&C apply.",
+          "Get Rs 100 cashback on your first UPI payment. Claim now: https://example-shop.in/c", "FREE 2GB data for 7 days on recharge of Rs 299. Claim now. T&C*",
+          "Limited period: free delivery on every order this weekend. Shop now.", "Join our WhatsApp channel for exclusive offers and early access to sales.",
+          "Our secret sale is live! Up to 70% off for members only.", "Earn 10X reward points on every purchase this Diwali. T&C apply.",
+          "Your free trial of Premium ends in 3 days. Upgrade now and get 20% off.", "Double data offer: get 2X data on all plans this month. Recharge now.",
+          "Invest in our Fixed Deposit at 7.5% p.a. Book now in the app.", "Lifetime FREE credit card + 5% unlimited cashback. Limited period offer! Apply now."]
+
+def f3():
+    bad = []
+    for t in PROMOS:
+        r0, _ = run(t)
+        expect(bad, not hard_risks(t, r0), f"hard-risk signals {hard_risks(t, r0)} on the promo {t[:50]!r}")
+        _, rep = run(t, "JM-JIOCPN-P")
+        expect(bad, rep.level == Level.PROMOTIONAL, f"{t[:50]!r} + P: level {rep.level.value}")
+    return bad
+
+def f4():
+    bad = []
+    _, rep = run("Dear customer, send your net banking password to verify your account today.")
+    ev = [e for e in rep.evidence if e.id == "rule.otp_request"]
+    expect(bad, [(e.title, e.tag, e.quote) for e in ev] == [("Asks you to share a password", "Password request", "send your net banking password")],
+           f"password evidence {[(e.title, e.tag, e.quote) for e in ev]}")
+    expect(bad, rep.level in (Level.SUSPICIOUS, Level.LIKELY_SCAM), f"level {rep.level.value}")
+    _, rep = run("Please share the one-time password sent to your phone.")
+    expect(bad, [e.title for e in rep.evidence if e.id == "rule.otp_request"] == ["Asks you to share an OTP, PIN or CVV"], "a one-time password is an OTP")
+    return bad
+
+def r1():
+    bad = []
+    texts = list(DEMO.items()) + [(f"tricky {k}", v) for k, v in TRICKY.items()]
+    for i, t in texts:
+        _, base = run(t)
+        for s in SENDERS:
+            _, rep = run(t, s)
+            sev = sender_ev(rep)
+            if rep.level == Level.PROMOTIONAL:
+                expect(bad, rep.reasons[:1] == [sev[0].title], f"{i} + {s}: promotional, reasons {rep.reasons}")
+                continue
+            want = base.reasons + ([sev[0].title] if sev and len(base.reasons) < 3 else [])
+            expect(bad, rep.reasons == want, f"{i} + {s}: reasons {rep.reasons}, wanted {want}")
+    return bad
+
+
 CHECKS = [("P1", f"parse_sender() on {len(PARSER_CASES)} cases", p1),
           ("D1", "Jio + JM-JIOCPN-P -> Promotional", d1), ("D2", "Jio + mobile -> unchanged level + mobile reason, number not echoed", d2),
           ("D3", "OTP scam d02 + P -> still Likely scam, misuse reason", d3), ("D4", "gambling d10 + P -> not softened", d4),
@@ -259,7 +363,12 @@ CHECKS = [("P1", f"parse_sender() on {len(PARSER_CASES)} cases", p1),
           ("D11", "mobile below Suspicious -> no change", d11), ("D12", "mobile never changes a level (14 demo messages)", d12),
           ("D13", "P + no hard-risk -> Promotional at any text level", d13),
           ("H1", "each hard-risk signal alone blocks softening (P, T, bare)", h1), ("H2", "a 5th-place payment-demand cue still counts", h2),
-          ("E1", "demo set: sender None / '' / '   ' == no sender argument", e1)]
+          ("E1", "demo set: sender None / '' / '   ' == no sender argument", e1),
+          ("F1", "d01 / d05 / d07 + P, T, bare -> not softened, misuse names the family", f1),
+          ("F2", f"fear-cue families on {sum(len(h) + len(m) for _, h, m in FAMILY_CASES)} synthetic hit / miss cases", f2),
+          ("F3", f"{len(PROMOS)} promotional texts: no hard-risk signal, Promotional with a P header", f3),
+          ("F4", "a password request has its own title; a one-time password keeps the OTP title", f4),
+          ("R1", "reason slots: the no-sender reasons come first, unchanged (demo + tricky x 8 senders)", r1)]
 
 def results():
     return [(cid, what, fn()) for cid, what, fn in CHECKS]

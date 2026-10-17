@@ -296,7 +296,11 @@
     .srow label { grid-area: label; } .srow .sinfo { grid-area: info; } .srow input { grid-area: input; }
   }
 
-  /* new (D22): the sender chip under the verdict, and the "check who sent it" tip in What to do */
+  /* new (D22): the sender chip under the verdict (with the sender evidence as a note under it when it is not one of the reasons), and the
+     "check who sent it" tip in What to do */
+  .sblock { display: grid; gap: 6px; justify-items: start; min-width: 0; }
+  .snote { margin: 0 2px; display: flex; gap: 8px; align-items: baseline; font: 400 13px/1.45 var(--sans); color: var(--muted); }
+  .snote i { flex: none; width: 7px; height: 7px; border-radius: 50%; transform: translateY(-1px); }
   .schip { justify-self: start; max-width: 100%; box-sizing: border-box; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
     padding: 6px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); font: 500 11px var(--mono); color: var(--faint);
     letter-spacing: .04em; text-transform: uppercase; }

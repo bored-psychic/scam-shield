@@ -14,8 +14,12 @@ _DISCLAIMER = re.compile(r"intended recipient|in error|by mistake|received this 
 # A negation only cancels a request when it is attached to the request verb itself. "Don't hesitate to share your OTP", "Please do not worry and
 # send the OTP", "Never forget to share your OTP", "Do not think twice, send the PIN" negate hesitating / worrying / forgetting, not sharing: they are
 # requests (see _NOT_THE_VERB).
+# Passwords (2026-10-18, D22 follow-up): a plain "password" / "passcode" (login, net banking, internet / mobile banking, bank, account, UPI, email password)
+# is a credential too; "one-time password" stays in the first alternative. UPI PIN and MPIN were already in the PIN alternative. The verbs and the negation
+# are unchanged, so "Never share your password with anyone" is not a request and "Your password was changed successfully" (no request verb) is not either.
 _CRED = (r"(?:otp|one[- ]?time[- ](?:password|pin|code)|verification code|security code|cvv2?|cvc|"
-         r"(?:(?:upi|atm|card|debit|credit|net ?banking|m|t)[ -]?)?pin(?![ -]?code))")
+         r"(?:(?:upi|atm|card|debit|credit|net ?banking|m|t)[ -]?)?pin(?![ -]?code)|"
+         r"(?:(?:login|net ?banking|internet banking|online banking|mobile banking|bank(?:ing)?|account|upi|e-?mail)[ -]?)?(?:password|passcode|passwd))")
 _ASK_VERBS = r"send|share|forward|give|provide|tell|read out|reply with|reply|submit|relay"
 _ASK_FIRST = re.compile(rf"\b(?:{_ASK_VERBS})\b[^.!?\n]{{0,40}}?\b{_CRED}\b", re.I)
 _ASK_LAST = re.compile(rf"\b{_CRED}\b[^.!?\n]{{0,25}}?\b(?:bata(?:o|do|dena|iye|yein)?|bhej(?:o|do|dena|iye|ein)?|share kar(?:o|iye|ein|do|na)?)\b", re.I)
@@ -36,16 +40,22 @@ _NEG_INSIDE = re.compile(r"\b(?:no one|nobody|not|never|mat|nahi|na)\b", re.I)
 # "You don't need to share ..." is covered by 'don't' in _NEG_BEFORE; 'need not', "no need for you to" and 'not required' are not recognised (BUGS.md).
 _NO_NEED_TO = re.compile(r"\bno need to\s+$", re.I)
 
-def _negated(text, m):
-    """Whether the match m of a request pattern sits under a negation (the three tests described above). The one copy, used by cred_requests
-    (negated = skipped) and advisory_phrases (negated = kept), so the two can never disagree about what is negated."""
-    before = text[max(0, m.start() - 60):m.start()]
-    if _NEG_INSIDE.search(m.group(0)) or _NO_NEED_TO.search(before):
+def _negated_before(text, start):
+    """Whether a negation sits in front of text[start:] (the 'no need to', three-word and comma-aside tests described above). Split out of _negated()
+    unchanged, so the fear-cue families (shield.messages.threats) use the same negation; a secrecy cue ("do not tell anyone") contains its own negation,
+    so it is checked with this part only."""
+    before = text[max(0, start - 60):start]
+    if _NO_NEED_TO.search(before):
         return True
     if any(not _NOT_THE_VERB.search(c.group(2)) for c in _NEG_BEFORE.finditer(before[-40:])):
         return True
     a = _NEG_ASIDE.search(before)
     return bool(a and not _NOT_THE_VERB.search(a.group(1)))
+
+def _negated(text, m):
+    """Whether the match m of a request pattern sits under a negation (the three tests described above). The one copy, used by cred_requests
+    (negated = skipped) and advisory_phrases (negated = kept), so the two can never disagree about what is negated."""
+    return bool(_NEG_INSIDE.search(m.group(0))) or _negated_before(text, m.start())
 
 def cred_requests(text):
     """Phrases that ask the reader to send / share / forward an OTP, PIN or CVV (empty list = none). Benign warnings are not requests."""

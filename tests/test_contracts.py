@@ -33,7 +33,8 @@ from tricky_inputs import INPUTS
 #   A16 empty sender: analyse(..., sender="   ") gives exactly the Report of a call without a sender argument, and Report.sender is None (None and "" take the
 #       same path after strip(); tests/test_sender.py E1 runs all three on the demo set, the session's HEAD comparison is in docs/decisions/README.md D22)
 #   A17 every input x SENDERS (P, S, T, G, no suffix, bare, mobile, other): the D22 table holds (see sender_rule.py), A1-A15 hold on the variant Report, the
-#       sender block echoes a header only for dlt / dlt_bare and never the mobile number, and the sender reason is one of the reasons (first on promotional).
+#       sender block echoes a header only for dlt / dlt_bare and never the mobile number, and the reasons are the no-sender ones unchanged plus the sender
+#       reason only in a free place (first on promotional), so no warning is ever pushed out.
 #       The variants apply sender_rule.apply_sender() to a copy of the no-sender result (the router does exactly that, last); for the tricky inputs the full
 #       analyse(..., sender=...) path is run too and must give the same Report.
 # Everything runs twice, with the cap forced OFF and ON (analyse(..., safety_cap=...)), so the contract holds whichever way config.SAFETY_ADVICE_CAP is set;
@@ -176,8 +177,8 @@ def check_models(reps):
 
 SENDER_TITLE = {"sender.registered", "sender.registered_misused", "sender.mobile"}
 
-def check_sender(text, r0, s, r, rep):
-    """A17 for one input and one sender: r0 = the result without a sender, r / rep = with sender s."""
+def check_sender(text, r0, rep0, s, r, rep):
+    """A17 for one input and one sender: r0 / rep0 = the result and Report without a sender, r / rep = with sender s."""
     bad, sid = [], parse_sender(s)
     base, risks, level = LEVEL_OF_INT[r0["level"]], hard_risks(text, r0), rep.level
     flagged_base = base in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
@@ -195,10 +196,13 @@ def check_sender(text, r0, s, r, rep):
         want = Level.PROMOTIONAL if sid.kind == "dlt" and sid.suffix == "P" else Level.SUSPICIOUS if base == Level.LIKELY_SCAM else base
         if level != want or [(e.id, e.effect) for e in sev] != [("sender.registered", Effect.REASSURING)]:
             bad.append(f"no hard-risk, {sid.kind} {sid.suffix}: level {base.value} -> {level.value} (wanted {want.value}), sender evidence {[e.id for e in sev]}")
-    if sev and sev[0].title not in rep.reasons:
-        bad.append(f"the sender reason is not among the reasons {rep.reasons}")
-    if level == Level.PROMOTIONAL and rep.reasons[:1] != [sev[0].title]:
-        bad.append(f"promotional, but the first reason is {rep.reasons[:1]}")
+    if level == Level.PROMOTIONAL:
+        if rep.reasons[:1] != [sev[0].title]:
+            bad.append(f"promotional, but the first reason is {rep.reasons[:1]}")
+    else:   # the sender reason never pushes a warning out: the no-sender reasons stay, and it fills a free place only
+        want = rep0.reasons + ([sev[0].title] if sev and len(rep0.reasons) < 3 else [])
+        if rep.reasons != want:
+            bad.append(f"reasons {rep.reasons}, wanted {want}")
     sb = rep.sender
     if sb is None or sb.kind != sid.kind or (sb.header is not None) != (sid.kind in ("dlt", "dlt_bare")) or sb.header != sid.header or sb.suffix != sid.suffix:
         bad.append(f"sender block {sb} for {sid}")
@@ -229,7 +233,7 @@ def run(cap):
         for s in SENDERS:
             rs = apply_sender(copy.deepcopy(r), parse_sender(s), text)
             rep_s = to_report(text, rs)
-            fails["A17"] += [f"{kind} {name} + {s}: {m}" for m in check_sender(text, r, s, rs, rep_s)]
+            fails["A17"] += [f"{kind} {name} + {s}: {m}" for m in check_sender(text, r, rep, s, rs, rep_s)]
             fails["A17"] += [f"{kind} {name} + {s}: {a} {m}" for a, m in check(text, rs, rep_s).items()]
             fails["A17"] += [f"{kind} {name} + {s}: A13 {m}" for m in check_advice(rep_s)]
             if not cap and kind == "tricky" and to_report(text, analyse(text, tm, um, safety_cap=cap, sender=s)) != rep_s:

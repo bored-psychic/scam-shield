@@ -39,8 +39,13 @@ _REGISTERED_TITLE = {"P": "Sent from a registered business ID (promotional)", "S
                      "T": "Sent from a registered business ID (transactional)", "G": "Sent from a registered government sender ID",
                      None: "Sent from a registered business ID (type unknown)"}
 _MOBILE_TITLE = "Sent from a personal mobile number; businesses use registered IDs like JM-JIOCPN-P"
-_RISK_NAMES = {"otp_request": "an OTP / PIN / CVV request", "pin_to_receive": "a UPI PIN asked for to receive money", "phishing_link": "a link the URL model rates as phishing",
-               "lookalike_link": "a lookalike link on free hosting", "gambling": "a gambling or betting link", "payment_demand": "a payment or fee demand"}
+_RISK_NAMES = {"otp_request": "an OTP / PIN / CVV / password request", "pin_to_receive": "a UPI PIN asked for to receive money", "phishing_link": "a link the URL model rates as phishing",
+               "lookalike_link": "a lookalike link on free hosting", "gambling": "a gambling or betting link", "legal_threat": "an arrest or legal threat",
+               "secrecy": "a demand for secrecy", "cutoff_threat": "a threat to block or cut off a service", "earning_promise": "a promise of guaranteed or easy earnings",
+               "payment_demand": "a payment or fee demand"}
+# The OTP rule also catches password requests (2026-10-18): a hit that names a password gets its own title and tag; every other hit keeps the old ones.
+_PASSWORD = re.compile(r"pass(?:word|code|wd)")
+_OTP_TITLE, _PASSWORD_TITLE = "Asks you to share an OTP, PIN or CVV", "Asks you to share a password"
 
 
 def _level(n):
@@ -115,8 +120,9 @@ def to_report(text: str, r: dict) -> Report:
                            title="Asks for your UPI PIN to receive money (receiving money never needs a PIN)"))
     for hit in r["cred_request"]:
         quote, span = _in_text(text, hit)
-        ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title="Asks you to share an OTP, PIN or CVV",
-                           tag=_TAGS["rule.otp_request"], quote=quote, span=span))
+        pw = bool(_PASSWORD.search(hit)) and not re.search(r"one[- ]?time", hit)   # a one-time password is an OTP
+        ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title=_PASSWORD_TITLE if pw else _OTP_TITLE,
+                           tag="Password request" if pw else _TAGS["rule.otp_request"], quote=quote, span=span))
     capped = bool(r.get("safety_advice"))   # the cap lowered Suspicious to No warning signs: say so, as reassurance
     if capped:
         quote, span = _in_text(text, r["safety_advice"][0])
@@ -146,9 +152,14 @@ def to_report(text: str, r: dict) -> Report:
     reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
     if level == Level.CANT_JUDGE and not reasons:
         reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
-    if sender_ev:   # the sender reason always gets one of the three places: first when it IS the verdict (Promotional), else after the two strongest
-        rest = [x for x in reasons if x != sender_ev.title]
-        reasons = [sender_ev.title] + rest[:2] if promo else rest[:2] + [sender_ev.title]
+    # The sender reason (D22) never pushes a warning out: it is first when it IS the verdict (Promotional, where the message itself carries no warning),
+    # otherwise it takes a free place after the warnings. With three warnings already there it is not a reason; the frontend shows it under the sender
+    # chip, right below the verdict word, so it is always on screen. This keeps the wording model's "very similar to known scam messages" (always the
+    # last warning) where it was.
+    if sender_ev and promo:
+        reasons = [sender_ev.title] + [x for x in reasons if x != sender_ev.title][:2]
+    elif sender_ev and len(reasons) < 3:
+        reasons = reasons + [sender_ev.title]
     meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False),
                 models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None

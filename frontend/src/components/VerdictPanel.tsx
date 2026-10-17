@@ -7,6 +7,7 @@ import SenderChip from "./SenderChip";
 type Props = {
   level: Level;
   sender: Sender | null;
+  senderNote?: Evidence | null;   // the sender evidence when it is not one of the reasons (lib/sender.ts senderNote)
   blips: Evidence[];
   pointable: boolean[];
   onPoint: (e: Evidence) => void;
@@ -15,7 +16,7 @@ type Props = {
 
 // The verdict: icon, word and colour (D4: always all three), the fixed one-line summary for the level, the sender chip when a sender was
 // given (D22), and the radar.
-export default function VerdictPanel({ level, sender, blips, pointable, onPoint, headingRef }: Props) {
+export default function VerdictPanel({ level, sender, senderNote = null, blips, pointable, onPoint, headingRef }: Props) {
   const lv = LEVELS[level];
   return (
     <div className="box verdict g-verdict">
@@ -30,7 +31,7 @@ export default function VerdictPanel({ level, sender, blips, pointable, onPoint,
           <div className="vline">{LEVEL_SUMMARY[level]}</div>
         </div>
       </div>
-      {sender && <SenderChip sender={sender} />}
+      {sender && <SenderChip sender={sender} note={senderNote} />}
       <Radar level={level} blips={blips} pointable={pointable} onPoint={onPoint} />
     </div>
   );

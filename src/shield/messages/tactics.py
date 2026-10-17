@@ -46,19 +46,28 @@ _SECRECY = _T(
     r"\bkeep (?:this|it|the matter|everything|all this)?\s*(?:strictly )?(?:confidential|secret|private|between us|to yourself)\b",
     r"\bsecret(?:ly)?\b")
 
+def tactic_matches(text, tag, cred_hits):
+    """The matches (re.Match, with positions) that tactic_tags() counts for one tag, in its order, before de-duplication and the cap of 4: the
+    secrecy cues only when the text isn't an OTP-style advisory, and no 'delete this message' in an email disclaimer. shield.messages.threats reuses
+    the isolation ones as its secrecy family."""
+    rxs = [TACTICS[tag]] + ([_SECRECY] if tag == "isolation" and (cred_hits or not _CRED_WORD.search(text)) else [])
+    for r_ in rxs:
+        for m in r_.finditer(text):
+            s = m.group(0).strip().lower()
+            if tag == "isolation" and _DISCLAIMER.search(text) and re.match(r"(?:delete|erase|remove)\b", s):
+                continue
+            if s:
+                yield m
+
 def tactic_tags(text, cred_hits=None):
     """tag -> up to 4 distinct matched phrases (empty list = tag absent). cred_hits: cred_requests(text), computed here if not given."""
     cred_hits = cred_requests(text) if cred_hits is None else cred_hits
     out = {}
-    for tag, rx in TACTICS.items():
-        rxs = [rx] + ([_SECRECY] if tag == "isolation" and (cred_hits or not _CRED_WORD.search(text)) else [])
+    for tag in TACTICS:
         seen = []
-        for r_ in rxs:
-            for m in r_.finditer(text):
-                s = m.group(0).strip().lower()
-                if tag == "isolation" and _DISCLAIMER.search(text) and re.match(r"(?:delete|erase|remove)\b", s):
-                    continue
-                if s and s not in seen:
-                    seen.append(s)
+        for m in tactic_matches(text, tag, cred_hits):
+            s = m.group(0).strip().lower()
+            if s not in seen:
+                seen.append(s)
         out[tag] = seen[:4]
     return out

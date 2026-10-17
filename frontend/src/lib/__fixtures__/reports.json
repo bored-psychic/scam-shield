@@ -5290,7 +5290,7 @@
    "reasons": [
     "Pushes you to act quickly",
     "Asks for money or payment details",
-    "Sent from a registered business ID (type unknown)"
+    "The wording is very similar to known scam messages"
    ],
    "advice": [
     "Don't click the link or share any code yet.",
@@ -5430,7 +5430,7 @@
    "reasons": [
     "Pushes you to act quickly",
     "Asks for money or payment details",
-    "Sent from a personal mobile number; businesses use registered IDs like JM-JIOCPN-P"
+    "The wording is very similar to known scam messages"
    ],
    "advice": [
     "Don't reply, click the link or call back.",
@@ -5718,8 +5718,8 @@
      "id": "sender.registered_misused",
      "module": "messages",
      "effect": "caution",
-     "title": "Registered sender, but it asks for your OTP, PIN or CVV. Registered IDs can still be misused.",
-     "detail": "JM-JIOCPN-P: type P (promotional). Not softened because of an OTP / PIN / CVV request, a link the URL model rates as phishing.",
+     "title": "Registered sender, but it asks for your OTP, PIN, CVV or password. Registered IDs can still be misused.",
+     "detail": "JM-JIOCPN-P: type P (promotional). Not softened because of an OTP / PIN / CVV / password request, a link the URL model rates as phishing, a threat to block or cut off a service.",
      "quote": null,
      "span": null,
      "tag": "Registered, but risky",
@@ -5730,7 +5730,7 @@
    "reasons": [
     "Asks you to share an OTP, PIN or CVV",
     "The link looks like known phishing links",
-    "Registered sender, but it asks for your OTP, PIN or CVV. Registered IDs can still be misused."
+    "Claims to be from a bank, government body or company"
    ],
    "advice": [
     "Don't reply, click the link or call back.",

@@ -1,4 +1,4 @@
-import type { Report } from "../types/report";
+import type { Evidence, Report } from "../types/report";
 
 // The optional sender input (decision D22). What the field says, the short TRAI explainer behind its info button, and when the result screen
 // suggests checking the sender. The verdict itself comes from the API; nothing here judges a sender (the API classifies it and labels it).
@@ -20,6 +20,13 @@ export const SENDER_HELP_OUTRO = "Scam SMS usually come from ordinary 10-digit m
 // The one piece of "what to do" copy the frontend owns. It cannot live in Report.advice: with the sender left blank the Report must be exactly
 // what it was before D22, so the tip is shown here when the sender is missing (Report.sender null), the verdict is a warning and there is a link.
 export const SENDER_TIP = "Check who sent it: registered businesses use IDs like JM-JIOCPN-P; scams usually come from ordinary numbers.";
+
+/** The sender evidence (id sender.*) when it is NOT one of the reasons. The backend gives the sender reason a place among the three only when one is
+ *  free (or first, on Promotional), so it never pushes a warning out; the page then shows it under the sender chip instead, right below the verdict. */
+export function senderNote(report: Report): Evidence | null {
+  const e = report.evidence.find((x) => x.id.startsWith("sender."));
+  return e && !report.reasons.includes(e.title) ? e : null;
+}
 
 export function showSenderTip(report: Report): boolean {
   return report.sender === null && (report.level === "suspicious" || report.level === "likely_scam") && report.children.length > 0;

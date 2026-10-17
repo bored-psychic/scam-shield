@@ -46,7 +46,7 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
 3. **Result (bento grid).**
    - The globe stays visible at 70% behind the panels.
    - **Top bar:** "← Check another message" and "nothing was stored".
-   - **Verdict panel:** icon, verdict word and one-line summary, the sender chip when a sender was given ("SENDER · Registered business · Promotional · JIOCPN", "Personal mobile number", "Not recognised"; D22), plus the radar meter.
+   - **Verdict panel:** icon, verdict word and one-line summary, the sender chip when a sender was given ("SENDER · Registered business · Promotional · JIOCPN", "Personal mobile number", "Not recognised"; D22) and, when the sender line is not one of the three reasons (three warnings already fill them; the sender never pushes a warning out), that line under the chip with a dot in its effect colour, plus the radar meter.
    - **Message panel:** as tall as its text (a long message scrolls inside it, at most 480px). Risky phrases are underlined in their severity colour, with a tooltip on hover or tap. *Changed 2026-10-18:* it used to span two grid rows, which stretched it to the height of the verdict and why panels and left a large empty area under a short message.
    - **Why panel:** at most 3 reasons. Tapping one pulses its phrase in the message.
    - **Link panel:** the domain broken into parts with the suspicious part highlighted, a list of checks, and "The link was not opened."
