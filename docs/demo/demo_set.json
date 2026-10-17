@@ -1,0 +1,16 @@
+[
+  {"id": "d01", "kind": "scam", "type": "digital_arrest", "text": "This is Inspector Rakesh Sharma from Mumbai Cyber Crime. A parcel in your name with illegal items was seized by customs. You are now under digital arrest. Do not disconnect this call or tell anyone. Transfer ₹49,999 to clear your name."},
+  {"id": "d02", "kind": "scam", "type": "kyc_link", "text": "Dear Customer, your SBI account will be blocked today due to pending KYC. Update now: sbi-kyc-update.top/login Share the OTP sent to your number to complete verification."},
+  {"id": "d03", "kind": "scam", "type": "upi_refund", "text": "Hello sir, I sent ₹5,000 to your number by mistake. Please return it. I have sent a collect request, just enter your UPI PIN to receive the refund."},
+  {"id": "d04", "kind": "scam", "type": "job_task", "text": "Part-time job! Earn ₹3,000 per day by liking YouTube videos from home. Message our HR on WhatsApp 9876543210. Registration fee only ₹500."},
+  {"id": "d05", "kind": "scam", "type": "electricity", "text": "Dear consumer, your electricity power will be disconnected tonight at 9:30 pm because your previous month bill was not updated. Please immediately contact our electricity officer 9876543210."},
+  {"id": "d06", "kind": "scam", "type": "delivery_fee", "text": "India Post: Your package is held at our warehouse due to an incomplete address. Update within 24 hours: https://indiapost-redelivery.top/track"},
+  {"id": "d07", "kind": "scam", "type": "investment", "text": "Join our VIP stock tips group. Guaranteed 30% returns every month! Limited seats, join today: https://bit.ly/vip-stock-tips"},
+  {"id": "d08", "kind": "scam", "type": "lottery", "text": "Congratulations! Your mobile number has won ₹25,00,000 in the KBC lucky draw. To claim, pay the processing fee of ₹12,500 and send your Aadhaar copy."},
+  {"id": "d09", "kind": "scam", "type": "hinglish_otp", "text": "Aapka bank account aaj band ho jayega. Abhi apna OTP bata do verify karne ke liye."},
+  {"id": "d10", "kind": "scam", "type": "gambling_promo", "text": "Get a 500% welcome bonus, play now: https://www.bet365.com/"},
+  {"id": "g01", "kind": "genuine", "type": "bank_debit", "text": "Rs.2,500.00 debited from A/c XX4821 on 14-10-26 to VPA swiggy@ybl. If this was not you, call the number on the back of your card. Never share your OTP with anyone. -HDFC Bank"},
+  {"id": "g02", "kind": "genuine", "type": "otp_alert", "text": "Your OTP is 482913. Do not share it with anyone. -SBI"},
+  {"id": "g03", "kind": "genuine", "type": "delivery_done", "text": "Your Amazon order has been delivered. Rate your delivery experience in the Amazon app."},
+  {"id": "g04", "kind": "genuine", "type": "friend_chat", "text": "Hey, are we still meeting at 6 near the college canteen?"}
+]
