@@ -118,8 +118,29 @@ def _tesseract(png):
 _BROKEN_SCHEME = re.compile(r"\b(https?):/{1,2}[^\s/w]{0,2}(?=www\.)", re.I)
 
 
+# Second shape (D19b): Tesseract puts a space beside the colon, "https :/Awww.bet365.com/" or "http : /Aexample.in/x". Still only a scheme: a space next to
+# the colon is never valid, a host-like token must follow at once ("www." or a lower-case name with a dot and an alphabetic ending), and the one stray
+# character must be one that Tesseract produces for a "/" (A ( [ | ! \), so a capitalised host such as "https :/Example.in" does not lose its "E".
+_HOST = r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,24}"
+_SPACED_SCHEME = re.compile(rf"\b(?i:(https?))(?:[ \t]+:[ \t]?|[ \t]?:[ \t]+)/{{1,2}}[ \t]?[A(\[|!\\]?(?=www\.|{_HOST}(?:[/:?#]|\b))")
+
+# Third shape (D19b): a space right after a dot inside a host, "https://t. jio/TIOCPN/x" (the dot is followed by a gap). Only inside a token that already
+# starts with scheme://, only when what follows the space is 2-24 lower-case letters (dotted names allowed) and then "/" or the end of the token. Without a "/"
+# it is joined only if the part before the space is a single label ("https://t.", "https://www."): "Visit https://ok.com. then pay" must not become ok.com.then.
+_SPLIT_HOST = re.compile(r"(?<!\S)((?i:https?)://[^\s/?#]*\.)[ \t]([a-z]{2,24}(?:\.[a-z]{2,24})*)(?=/|\s|$)")
+
+
+def _join_split_host(m):
+    before = m.group(1).split("://", 1)[1]
+    if m.string[m.end():m.end() + 1] == "/" or before.count(".") == 1:
+        return m.group(1) + m.group(2)
+    return m.group(0)
+
+
 def repair_links(text):
-    return _BROKEN_SCHEME.sub(r"\1://", text)
+    text = _SPACED_SCHEME.sub(r"\1://", text)
+    text = _BROKEN_SCHEME.sub(r"\1://", text)
+    return _SPLIT_HOST.sub(_join_split_host, text)
 
 
 # --- chat-noise cleanup -------------------------------------------------------------------------------------------------------------

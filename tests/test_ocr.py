@@ -23,6 +23,7 @@ from textprep import extract_urls
 #   O6 no disk writes: builtins.open, os.open and every tempfile entry point (incl. the spill of a >1 MB upload) are made to raise; TMPDIR stays empty
 #   O7 no network: sockets patched to record and refuse every connection / lookup while read_image runs
 #   O8 API end to end: POST /api/ocr (d02 image) -> text with "OTP"; POST that text to /api/analyse -> suspicious or likely_scam; nothing is logged
+#   O10 repair_links: the spaced-colon and space-after-a-dot repairs, the old pattern, and the cases that must stay unchanged (D19b). O9 / O11-O13 are not in this file yet.
 MAX_CER = 0.08
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 DEMO = [x for x in json.load(open(os.path.join(ROOT, "docs", "demo", "demo_set.json"), encoding="utf-8")) if x["kind"] == "scam"]
@@ -181,6 +182,47 @@ def o3(c):
     note("O3", f"CER {cer(HINDI, res['text']):.3f} (informational; Pillow here has no raqm, so the sentence is drawn unshaped)")
     note("O3", "got: " + norm(res["text"]).encode("ascii", "backslashreplace").decode())
     return [] if res["text"] else ["Hindi image gave no text"]
+
+REPAIRS = [   # (label, text in, text out)
+    ("spaced colon, bet365", "https :/Awww.bet365.com/", "https://www.bet365.com/"),
+    ("spaced colon, example.in", "http : /Aexample.in/x", "http://example.in/x"),
+    ("spaced colon, host without www", "https :/Aexample.in", "https://example.in"),
+    ("spaced colon inside a sentence", "Click https :/Awww.bet365.com/ now", "Click https://www.bet365.com/ now"),
+    ("spaced colon, proper slashes", "https : //www.x.com/a", "https://www.x.com/a"),
+    ("old pattern: https:/A", "https:/Awww.bet365.com/", "https://www.bet365.com/"),
+    ("old pattern: stray bracket", "https://(www.x.com/a", "https://www.x.com/a"),
+    ("old pattern: one slash", "https:/www.x.com", "https://www.x.com"),
+    ("old pattern: valid link unchanged", "https://www.x.com/", "https://www.x.com/"),
+    ("unspaced single slash + host stays", "https:/sbi.top/x", "https:/sbi.top/x"),
+    ("http:/ in a sentence stays", "see http:/ note", "see http:/ note"),
+    ("Awww without a scheme stays", "Awww.x.com and https://bit.ly/a", "Awww.x.com and https://bit.ly/a"),
+    ("valid link unchanged", "https://ok.com/a", "https://ok.com/a"),
+    ("not a scheme: ratio 3 :/A", "ratio 3 :/A done", "ratio 3 :/A done"),
+    ("bare https :/A stays", "https :/A", "https :/A"),
+    ("bare https :/A in a sentence stays", "see https :/A now", "see https :/A now"),
+    ("capitalised host keeps its E", "https :/Example.in", "https :/Example.in"),
+    ("space after the colon but no slash stays", "score http : 3 /A", "score http : 3 /A"),
+    ("space after a dot, the Jio link", "https://t. jio/TIOCPN/x48NuN", "https://t.jio/TIOCPN/x48NuN"),
+    ("space after a dot, www", "https://www. example.com/a", "https://www.example.com/a"),
+    ("space after a dot, no path", "https://t. jio", "https://t.jio"),
+    ("no scheme: Visit t. Then go", "Visit t. Then go", "Visit t. Then go"),
+    ("sentence-final link, capital next word", "https://ok.com. Next line", "https://ok.com. Next line"),
+    ("sentence-final link, lower-case next word", "Visit https://ok.com. then pay", "Visit https://ok.com. then pay"),
+    ("sentence-final link with a path, lower-case next word", "see https://bit.ly/a. then go", "see https://bit.ly/a. then go"),
+    ("two valid parts stay", "https://t.jio/a b", "https://t.jio/a b"),
+    ("both repairs in one line", "Claim now: https://t. jio/TIOCPN/x48NuN T&C*", "Claim now: https://t.jio/TIOCPN/x48NuN T&C*"),
+]
+
+def o10(c):
+    bad = []
+    for label, src, want in REPAIRS:
+        got = reader.repair_links(src)
+        if got != want:
+            bad.append(f"{label}: repair_links({src!r}) = {got!r}, wanted {want!r}")
+        if reader.repair_links(got) != got:
+            bad.append(f"{label}: not idempotent ({got!r} -> {reader.repair_links(got)!r})")
+    note("O10", f"{len(REPAIRS)} cases, each also checked to be idempotent")
+    return bad
 
 def o4(c):
     raw = "\n".join(["Forwarded many times", "Today", "Hello, pay Rs 500 now", "10:42 pm", "", "22:05", "✓✓", "Visit http://x.top/a",
@@ -426,7 +468,8 @@ CHECKS = [("O1", "10 demo scam texts as light chat bubbles: CER <= 0.08, key phr
           ("O5", "413 for 9 MB, 415 for text renamed .png, 422 for a 1x1 png; JPEG / WEBP / transparent / EXIF-rotated images read; 503 / 500 / timeout mapped", o5),
           ("O6", "no disk writes (open, os.open, tempfile, upload spill), TMPDIR stays empty", o6),
           ("O7", "no network while reading", lambda c: o7(c)),
-          ("O8", "API end to end: /api/ocr -> /api/analyse, nothing logged", o8)]
+          ("O8", "API end to end: /api/ocr -> /api/analyse, nothing logged", o8),
+          ("O10", "narrow link repairs: spaced colon, space after a dot; the old pattern and everything that must stay unchanged", o10)]
 
 def run():
     out = []
