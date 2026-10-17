@@ -4,11 +4,11 @@ import type { Level } from "../types/report";
 const HELPLINE = "1930";   // the national cyber-fraud helpline
 const PORTAL = "https://cybercrime.gov.in";
 
-type Props = { advice: string[]; level: Level; wide: boolean };
+type Props = { advice: string[]; level: Level };
 
 /* What to do now: Report.advice as steps to tick off (in memory only, gone with the result), as the backend wrote them. On a warning
    verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected. */
-export default function WhatToDo({ advice, level, wide }: Props) {
+export default function WhatToDo({ advice, level }: Props) {
   const uid = useId();
   const [done, setDone] = useState<boolean[]>(() => advice.map(() => false));
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
@@ -38,7 +38,7 @@ export default function WhatToDo({ advice, level, wide }: Props) {
   }
 
   return (
-    <div className={wide ? "box todo g-todo wide" : "box todo g-todo"}>
+    <div className="box todo g-todo">
       <span className="sect" style={{ margin: 0 }}>What to do now</span>
       {advice.map((a, i) => (
         <label key={i} htmlFor={`${uid}${i}`}>

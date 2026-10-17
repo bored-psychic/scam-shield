@@ -174,6 +174,17 @@
     .go kbd { display: none; } .local span { display: none; }
     footer { font-size: 10px; }
   }
+  /* new (2026-10-18): on phones the footer is part of the page instead of a bar floating over it. Fixed to the bottom of the screen it sat on
+     the last example chip whenever the screen was short (the browser's own bars showing, the keyboard open). In the flow it follows the content, and
+     still rests at the bottom of the screen when the content is short: the page is a full-height column and main takes the free space. `relative`
+     rather than `static` keeps its z-index, so the vignette (fixed, z-index 1) does not paint over it. main's 72px of bottom padding was the room
+     reserved for the floating footer; the other screens keep a small margin instead. */
+  @media (max-width: 640px) {
+    /* body keeps its default 8px margin (the prototype's layout); the page is exactly one screen tall when the content is short, and the footer cancels the margin so it spans the screen as it did when fixed */
+    body { display: flex; flex-direction: column; height: auto; min-height: calc(100vh - 16px); min-height: calc(100dvh - 16px); }
+    main { flex: 1 0 auto; min-height: 0; padding-block: 8px 24px; }
+    footer { position: relative; margin: auto -8px -8px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
@@ -247,15 +258,24 @@
     .sline i.on { animation: none; }
   }
 
-  /* result: a bento grid on wide screens, one column on phones */
-  .col.wide { max-width: 1180px; }   /* the prototype's body.checked .col */
+  /* result: two columns on wide screens, one column on phones. new (2026-10-18): the message panel used to span two grid rows and was
+     stretched to the height of the verdict and why panels, leaving a large empty area under a short message. Now each column is its own
+     stack (Result.tsx renders the DOM in the matching order) and every panel is as tall as its content; a long message still scrolls
+     inside its panel (.mtext). The breakpoint is the same 901px as useMedia("(min-width: 901px)") in Result.tsx. */
+  .col.wide { max-width: 1180px; align-self: start; }   /* the prototype's body.checked .col; new: top-aligned, so a short result is not centred lower than a long one */
   .rtop { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
   .rmeta { font: 500 11.5px var(--mono); color: var(--muted); }
-  .bento { display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: stretch; }
+  .bento { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
   .bento > * { min-width: 0; }
-  .g-verdict { grid-column: 1 / span 5; align-content: space-between; }
-  .g-msg { grid-column: 6 / span 7; grid-row: span 2; font-size: 18px; line-height: 1.85; padding: 22px 24px; }
-  .g-why { grid-column: 1 / span 5; padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
+  .bcol { display: grid; gap: 14px; align-content: start; }
+  .bcol > * { min-width: 0; }
+  @media (min-width: 901px) {
+    .bento { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+    .bcol:first-child { grid-column: 1 / span 5; }
+    .bcol:last-child { grid-column: 6 / span 7; }
+  }
+  .g-msg { font-size: 18px; line-height: 1.85; padding: 22px 24px; }
+  .g-why { padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
   .g-why .sect { margin: 2px 4px 6px; }
   .g-why .reasons { gap: 2px; }
   .g-why .reason { background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
@@ -264,17 +284,12 @@
   .g-why .reason:hover { background-color: rgba(255,255,255,.05); transform: none; }
   .g-why .reason.nospan:hover { background-color: transparent; }   /* new */
   .g-why > .note { margin: 0 4px 4px; }   /* new: the no-reasons line */
-  .g-link { grid-column: 1 / span 6; }
-  .g-todo { grid-column: 7 / span 6; }
-  .g-todo.wide { grid-column: 1 / -1; }
-  .g-link, .g-todo { align-content: start; }   /* new: side by side, the shorter panel keeps its rows together instead of spreading them */
   .g-verdict .vword { font-size: 36px; letter-spacing: -.03em; }
   .g-verdict .vicon { width: 52px; height: 52px; border-radius: 16px; }
   .g-verdict .vicon svg { width: 28px; height: 28px; }
   /* new: the verdict word takes focus when the result opens (for screen readers); that is not the user focusing the panel, so no ring */
   .g-verdict:has(.vword:focus) { border-color: rgba(255,255,255,.03); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2); }
   @media (max-width: 900px) {
-    .bento > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
     .g-msg { font-size: 16px; padding: 16px 18px; }
     .g-verdict .vword { font-size: 28px; }
   }
@@ -305,8 +320,9 @@
   .srcbtn i { width: 6px; height: 6px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1.6s ease infinite; }
   .srcbtn b { font-weight: 500; color: var(--ink); }
   .srcbtn:hover { color: var(--ink); }
-  .srcpop { position: absolute; left: 0; bottom: calc(100% + 10px); width: min(420px, calc(100vw - 40px)); padding: 14px 16px; border-radius: 18px; font: 400 13px/1.5 var(--sans); color: var(--muted);
+  .srcpop { position: absolute; left: 0; bottom: calc(100% + 10px); box-sizing: border-box; width: min(454px, calc(100vw - 40px)); padding: 14px 16px; border-radius: 18px; font: 400 13px/1.5 var(--sans); color: var(--muted);
     background: rgba(8,11,17,.82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.1); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.6); }
+  /* new: border-box, so the 100vw - 40px cap includes the padding and border (it was 34px wider than the cap and ran 14px off the edge of a phone); 454px = the 420px content width + padding + border it had on a desktop */
   .srcpop p { margin: 0 0 8px; } .srcpop p:last-child { margin: 0; }
   .srcpop b { color: var(--ink); font-weight: 600; }
   .srcpop a { color: var(--ink); }

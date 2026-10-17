@@ -8,6 +8,7 @@ import WhyPanel from "./WhyPanel";
 import LinkPanel from "./LinkPanel";
 import WhatToDo from "./WhatToDo";
 import Tip, { type TipAt } from "./Tip";
+import { useMedia } from "../lib/useMedia";
 
 type Props = { report: Report; text: string; onAgain: () => void };   // text: exactly what was sent, which the spans index
 
@@ -19,11 +20,14 @@ function inView(el: HTMLElement) {
   return r.top >= 0 && r.bottom <= innerHeight && (!box || (r.top >= box.top && r.bottom <= box.bottom));
 }
 
-/* The result screen (docs/design/README.md, Screens 3): a bento grid of verdict + radar, the message with its underlined parts, why,
-   the links and what to do now. On phones the panels stack in that order. Everything shown comes from the Report; the one line under
-   the verdict is fixed per level (lib/levels.ts). No score, threshold or timing is shown (D4). */
+/* The result screen (docs/design/README.md, Screens 3): the verdict + radar, the message with its underlined parts, why, the links and
+   what to do now. On a wide screen there are two columns, each panel as tall as its content (verdict, why | message, links, what to do);
+   on phones one column in the order verdict, message, why, links, what to do. The two arrangements are two different DOM orders, not a
+   CSS reordering, so the tab order always follows what is on screen. Everything shown comes from the Report; the one line under the
+   verdict is fixed per level (lib/levels.ts). No score, threshold or timing is shown (D4). */
 export default function Result({ report, text, onAgain }: Props) {
   const reduced = useReducedMotion();
+  const twoColumns = useMedia("(min-width: 901px)");   // the same breakpoint as the stylesheet's
   const root = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null);
   const segs = useMemo(() => segments(text, allEvidence(report), report.level), [text, report]);
   const blips = useMemo(() => blipsOf(report), [report]);
@@ -64,6 +68,11 @@ export default function Result({ report, text, onAgain }: Props) {
   }, [pulse, segs, reduced, showTip]);
 
   const hasLinks = report.children.length > 0;
+  const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading} />;
+  const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
+  const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
+  const links = hasLinks && <LinkPanel report={report} />;
+  const todo = <WhatToDo advice={report.advice} level={report.level} />;
   return (
     <section className="result" ref={root}>
       <div className="rtop">
@@ -71,11 +80,14 @@ export default function Result({ report, text, onAgain }: Props) {
         <span className="rmeta">Checked on this device · nothing was stored</span>
       </div>
       <div className="bento">
-        <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading} />
-        <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />
-        <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />
-        {hasLinks && <LinkPanel report={report} />}
-        <WhatToDo advice={report.advice} level={report.level} wide={!hasLinks} />
+        {twoColumns ? (
+          <>
+            <div className="bcol">{verdict}{why}</div>
+            <div className="bcol">{message}{links}{todo}</div>
+          </>
+        ) : (
+          <>{verdict}{message}{why}{links}{todo}</>
+        )}
       </div>
       <Tip at={tip} onHide={hideTip} />
     </section>

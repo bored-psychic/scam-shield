@@ -39,16 +39,17 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
    - **Hero:** "Got a message that feels off?"
    - **Glass paste box:** live detection chips as you type (links, UPI IDs, phone numbers, amounts, OTP/PIN mentions), a Check button, and Ctrl/Cmd+Enter.
    - **Example chips** below the box.
-   - **Footer:** a "Simulated from real rankings · not live ⓘ" button that opens the sources, and a feed of the last 4 simulated hits.
+   - **Footer:** a "Simulated from real rankings · not live ⓘ" button that opens the sources, and a feed of the last 4 simulated hits. On phones (640px and under) the footer is part of the page and follows the content (it rests at the bottom of the screen when the content is short), so it never covers the example chips; the feed is hidden there.
 2. **Checking.** A three-step checklist ticks through (reading the message → checking links and payment IDs → OTP requests and pressure tricks). No spinner.
 3. **Result (bento grid).**
    - The globe stays visible at 70% behind the panels.
    - **Top bar:** "← Check another message" and "nothing was stored".
    - **Verdict panel:** icon, verdict word and one-line summary, plus the radar meter.
-   - **Message panel:** the largest panel, spanning two rows. Risky phrases are underlined in their severity colour, with a tooltip on hover or tap.
+   - **Message panel:** as tall as its text (a long message scrolls inside it, at most 480px). Risky phrases are underlined in their severity colour, with a tooltip on hover or tap. *Changed 2026-10-18:* it used to span two grid rows, which stretched it to the height of the verdict and why panels and left a large empty area under a short message.
    - **Why panel:** at most 3 reasons. Tapping one pulses its phrase in the message.
    - **Link panel:** the domain broken into parts with the suspicious part highlighted, a list of checks, and "The link was not opened."
    - **What to do now:** steps you can tick off, plus "Copy helpline 1930" and cybercrime.gov.in.
+   - **Wide screens (901px and up), changed 2026-10-18:** two columns, each panel as tall as its content: left, verdict then why; right, message, link, what to do now.
    - **Phones:** the panels stack: verdict → message → why → link → what to do.
 
 ## Radar meter (option 8b)
