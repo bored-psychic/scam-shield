@@ -3,7 +3,7 @@ import { useReducedMotion } from "motion/react";
 import {
   AdditiveBlending, BackSide, type Blending, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, DoubleSide, Group, Line,
   LineBasicMaterial, LineLoop, LinearSRGBColorSpace, type Material, Mesh, MeshBasicMaterial, NormalBlending, PerspectiveCamera, Points,
-  PointsMaterial, RingGeometry, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
+  PointsMaterial, RingGeometry, Scene, ShaderMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer,
 } from "three";
 import type { Theme } from "../lib/theme";
 import LAND from "../data/land.json";     // land dots, flat [lat, lon, lat, lon, ...]
@@ -14,6 +14,11 @@ import INDIA from "../data/india.json";   // India's official outline (Natural E
 // when a tab came back), pointercancel ends a drag, and with reduced motion the static globe is drawn only when it is dragged or resized.
 // Colours (2026-10-18): read from the theme's --globe-* / --arc-* tokens in styles.css (the dark values are the prototype's) and re-read when
 // the theme changes, without rebuilding the scene. The light theme draws with normal blending: additive light vanishes on a light page.
+// Two globe styles (2026-10-18), picked by --globe-style; both are built once and the theme's is shown, so a theme switch needs no reload:
+//   flat (dark): the prototype's globe as above.
+//   shaded (light, docs/design/light-landing.html): a sphere darkening to its edge with a darker band on the top rim (a shader on the core), a
+//   red glow measured in screen space like the reference's 2D gradient, evenly spaced round land dots (a golden-angle spiral kept on land) and
+//   India's own dots in red only, with no land dot inside India's outline and no outline lines. Same camera, size, spin, drag, arcs and ripples.
 
 export type Hit = { src: string; tgt: string; kind: "wci" | "ddos" };   // a simulated hit, country names, for the footer feed
 
@@ -53,6 +58,73 @@ function spot(c: Code) {
   const p = P[c][Math.floor(Math.random() * P[c].length)];
   return vec(p[0] + (Math.random() - .5) * 2.2, p[1] + (Math.random() - .5) * 2.2).normalize();
 }
+// The shaded style's dots, built once per page. Land: 15,000 points of a golden-angle spiral (evenly spaced over the sphere), kept where a 1-degree
+// grid made from land.json (widened by one cell) has land and outside India's official outline. India: every dot of india.json. Both as
+// in docs/design/light-landing.html.
+function inIndia(lat: number, lon: number) {
+  if (lat < 5 || lat > 38 || lon < 67 || lon > 99) return false;
+  let hit = false;
+  for (const r of INDIA.rings)
+    for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2)
+      if ((r[i] > lat) !== (r[j] > lat) && lon < (r[j + 1] - r[i + 1]) * (lat - r[i]) / (r[j] - r[i]) + r[i + 1]) hit = !hit;
+  return hit;
+}
+let spiral: { land: Float32Array; india: Float32Array } | null = null;
+function spiralDots() {
+  if (spiral) return spiral;
+  const D2R = Math.PI / 180, cell = (lat: number, lon: number) => lat * 1000 + ((lon + 540) % 360), grid = new Set<number>();
+  for (let i = 0; i < LAND.length; i += 2) {
+    const la = Math.round(LAND[i]), lo = Math.round(LAND[i + 1]), rl = Math.min(6, Math.ceil(1 / Math.max(.2, Math.cos(LAND[i] * D2R))));
+    for (let a = -1; a <= 1; a++) for (let b = -rl; b <= rl; b++) grid.add(cell(la + a, lo + b));
+  }
+  const land: number[] = [], n = 15000, ga = Math.PI * (3 - Math.sqrt(5));
+  for (let k = 0; k < n; k++) {
+    const lat = Math.asin(1 - 2 * (k + .5) / n) / D2R, lon = ((k * ga) % (2 * Math.PI) - Math.PI) / D2R;
+    if (inIndia(lat, lon) || !grid.has(cell(Math.round(lat), Math.round(lon)))) continue;
+    const v = vec(lat, lon, R * 1.003); land.push(v.x, v.y, v.z);
+  }
+  const india: number[] = [];
+  for (let i = 0; i < INDIA.dots.length; i += 2) { const v = vec(INDIA.dots[i], INDIA.dots[i + 1], R * 1.004); india.push(v.x, v.y, v.z); }
+  return (spiral = { land: new Float32Array(land), india: new Float32Array(india) });
+}
+
+// Shaders of the shaded style. Round dots sized like three's attenuated points (uSize x half the buffer height / depth, so a size of 2k is the
+// reference's k), fading from 1 to .45 towards the globe's edge and gone on the far side, as in the reference.
+const DOT_VS = `uniform float uSize; uniform float uScale; varying float vA; varying float vR;
+void main(){
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  float facing = dot(normalize(wp.xyz), normalize(cameraPosition - wp.xyz));
+  vA = facing <= 0.0 ? 0.0 : 0.45 + 0.55 * min(1.0, facing * 1.6);
+  vec4 mv = viewMatrix * wp;
+  vR = 0.5 * uSize * uScale / -mv.z;
+  gl_PointSize = 2.0 * vR + 1.0;
+  gl_Position = projectionMatrix * mv;
+}`;
+const DOT_FS = `uniform vec3 uColor; uniform float uOpacity; varying float vA; varying float vR;
+void main(){
+  if (vA <= 0.0) discard;
+  float r = length(gl_PointCoord - 0.5) * (2.0 * vR + 1.0);
+  float a = vA * uOpacity * clamp(vR - r + 0.5, 0.0, 1.0);
+  if (a <= 0.0) discard;
+  gl_FragColor = vec4(uColor, a);
+}`;
+// The sphere: s = the sine of the view angle (0 in the middle, 1 at the silhouette: the radial position on the disc), through the four stops;
+// then the top band: a ring around a point .22 radii below the middle, so it is thickest along the top rim (the reference's second gradient).
+const SPHERE_VS = `varying vec3 vN; varying vec3 vV;
+void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = mv.xyz; gl_Position = projectionMatrix * mv; }`;
+const SPHERE_FS = `uniform vec3 uS0; uniform vec3 uS1; uniform vec3 uS2; uniform vec3 uS3; uniform vec3 uShade; uniform float uShadeA;
+varying vec3 vN; varying vec3 vV;
+void main(){
+  vec3 n = normalize(vN), v = normalize(-vV);
+  vec3 p = n - dot(n, v) * v;   // the normal's part across the line of sight: its length is the radial position, its xy the screen direction
+  vec2 q = p.xy;
+  float s = clamp(length(p), 0.0, 1.0);
+  vec3 c = s < 0.7 ? mix(uS0, uS1, clamp((s - 0.05) / 0.65, 0.0, 1.0)) : s < 0.93 ? mix(uS1, uS2, (s - 0.7) / 0.23) : mix(uS2, uS3, (s - 0.93) / 0.07);
+  float u = (length(q - vec2(0.0, -0.22)) - 0.55) / 0.67;
+  c = mix(c, uShade, uShadeA * clamp((u - 0.62) / 0.38, 0.0, 1.0));
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
 function dispose(o: Mesh | Points | Line) {
   o.geometry.dispose();
   (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
@@ -70,6 +142,10 @@ function readPalette() {
     core: color("--globe-core"), land: color("--globe-land"), landOpacity: parseFloat(v("--globe-land-opacity")), india: color("--globe-india"),
     outline: color("--globe-outline"), rim: color("--globe-rim"), rimGain: parseFloat(v("--globe-rim-gain")),
     blending: (v("--globe-blend") === "normal" ? NormalBlending : AdditiveBlending) as Blending,
+    shaded: v("--globe-style") === "shaded", outlineShow: v("--globe-outline-show") !== "0",
+    // the shaded style's own tokens (only the light theme defines them)
+    sphere: ["0", "1", "2", "3"].map((k) => v(`--globe-sphere-${k}`)), shade: v("--globe-shade"), shadeAlpha: parseFloat(v("--globe-shade-alpha")) || 0,
+    rimMid: parseFloat(v("--globe-rim-mid")) || 0, rimReach: parseFloat(v("--globe-rim-reach")) || 1,
     arc: { wci: color("--arc-wci"), ddos: color("--arc-ddos") } as Record<Hit["kind"], Color>, arcOpacity: parseFloat(v("--arc-opacity")),
     head: [v("--arc-head-core"), v("--arc-head-mid"), v("--arc-head-edge")],
   };
@@ -110,7 +186,13 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
     let pal: Palette = readPalette();
     // core sphere (dark in the dark theme) so back-side dots are hidden
     const coreMat = new MeshBasicMaterial({ color: pal.core });
-    globe.add(new Mesh(new SphereGeometry(R * 0.985, 64, 64), coreMat));
+    const core = new Mesh(new SphereGeometry(R * 0.985, 64, 64), coreMat);
+    globe.add(core);
+    // the shaded style's sphere: full radius, so its edge is where the reference draws it (its dots sit just above, at R * 1.003)
+    const shadedMat = new ShaderMaterial({ vertexShader: SPHERE_VS, fragmentShader: SPHERE_FS, uniforms: {
+      uS0: { value: new Color() }, uS1: { value: new Color() }, uS2: { value: new Color() }, uS3: { value: new Color() }, uShade: { value: new Color() }, uShadeA: { value: 0 } } });
+    const shadedCore = new Mesh(new SphereGeometry(R, 96, 96), shadedMat);
+    globe.add(shadedCore);
     // atmosphere rim. Dark (uLight 0): exactly the prototype's vec4(1.0,0.25,0.25,1.0)*i*0.55, added. Light (uLight 1): the rim colour itself,
     // blended normally with alpha i*gain, so it shows as a soft tint on a light page.
     const rimMat = new ShaderMaterial({
@@ -119,20 +201,36 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
       vertexShader: "varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
       fragmentShader: "uniform vec3 uColor; uniform float uGain; uniform float uLight; varying vec3 vN; void main(){ float i = pow(0.62 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(uColor * mix(i * uGain, 1.0, uLight), i * uGain); }",
     });
-    scene.add(new Mesh(new SphereGeometry(R * 1.12, 64, 64), rimMat));
+    // the shaded style's glow, worn by the same rim sphere: the rim colour blended normally, its alpha by the distance from the globe's centre on
+    // screen in globe radii (uCenter, uRadius in buffer pixels, set in resize()), uGain from 0.96 radii, uMid a third of the way out, 0 at uReach
+    // (the reference's 2D gradient); the sphere is scaled up so its back faces reach that far, and drawn first, under the dots.
+    const glowMat = new ShaderMaterial({
+      transparent: true, side: BackSide, depthWrite: false,
+      uniforms: { uColor: { value: new Color() }, uGain: { value: 0 }, uMid: { value: 0 }, uReach: { value: 1 }, uCenter: { value: new Vector2() }, uRadius: { value: 1 } },
+      vertexShader: "void main(){ gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
+      fragmentShader: `uniform vec3 uColor; uniform float uGain; uniform float uMid; uniform float uReach; uniform vec2 uCenter; uniform float uRadius;
+void main(){
+  float u = clamp((distance(gl_FragCoord.xy, uCenter) / uRadius - 0.96) / (uReach - 0.96), 0.0, 1.0);
+  gl_FragColor = vec4(uColor, u < 0.35 ? mix(uGain, uMid, u / 0.35) : mix(uMid, 0.0, (u - 0.35) / 0.65));
+}`,
+    });
+    const rim = new Mesh<SphereGeometry, ShaderMaterial>(new SphereGeometry(R * 1.12, 64, 64), rimMat);
+    scene.add(rim);
 
     // land dots
     const pos = new Float32Array(LAND.length / 2 * 3);
     for (let i = 0; i < LAND.length; i += 2) { const v = vec(LAND[i], LAND[i + 1], R); pos.set([v.x, v.y, v.z], i / 2 * 3); }
     const g = new BufferGeometry(); g.setAttribute("position", new BufferAttribute(pos, 3));
     const landMat = new PointsMaterial({ color: pal.land, size: 1.15, sizeAttenuation: true, transparent: true, opacity: pal.landOpacity });
-    globe.add(new Points(g, landMat));
+    const landPts = new Points(g, landMat);
+    globe.add(landPts);
     // India: dense dots inside India's official outline plus the outline itself
     const ip: number[] = [];
     for (let i = 0; i < INDIA.dots.length; i += 2) { const v = vec(INDIA.dots[i], INDIA.dots[i + 1], R * 1.002); ip.push(v.x, v.y, v.z); }
     const gi = new BufferGeometry(); gi.setAttribute("position", new BufferAttribute(new Float32Array(ip), 3));
     const indiaDotMat = new PointsMaterial({ color: pal.india, size: 0.9, transparent: true, opacity: 1 });
-    globe.add(new Points(gi, indiaDotMat));
+    const indiaPts = new Points(gi, indiaDotMat);
+    globe.add(indiaPts);
     // highlighted outline: a sharp red line plus a softer copy just above it, both pulsing gently (see frame)
     const indiaMats = [new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .95, blending: pal.blending, depthWrite: false }),
                        new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .35, blending: pal.blending, depthWrite: false })];
@@ -144,6 +242,17 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
         globe.add(new LineLoop(gl, indiaMats[m]));
       });
     }
+
+    // the shaded style's dots: round, land in --globe-land, India in --globe-india
+    const sd = spiralDots(), dotMats: ShaderMaterial[] = [], shadedDots: Points[] = [];
+    for (const [at, size] of [[sd.land, 1.7], [sd.india, 1.2]] as const) {
+      const m = new ShaderMaterial({ vertexShader: DOT_VS, fragmentShader: DOT_FS, transparent: true, depthWrite: false,
+        uniforms: { uColor: { value: new Color() }, uOpacity: { value: 1 }, uSize: { value: size }, uScale: { value: 1 } } });
+      const gs = new BufferGeometry(); gs.setAttribute("position", new BufferAttribute(at, 3));
+      const pts = new Points(gs, m); dotMats.push(m); shadedDots.push(pts); globe.add(pts);
+    }
+    const flat = [core, landPts, indiaPts], outlines: LineLoop[] = [];
+    globe.children.forEach((o) => { if (o instanceof LineLoop) outlines.push(o); });
 
     // face India
     const india = vec(20, 79);
@@ -204,6 +313,21 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
       coreMat.color.copy(pal.core);
       rimMat.uniforms.uColor.value = pal.rim; rimMat.uniforms.uGain.value = pal.rimGain; rimMat.uniforms.uLight.value = pal.blending === NormalBlending ? 1 : 0;
       blend(rimMat, pal.blending);
+      const gu = glowMat.uniforms;
+      gu.uColor.value.copy(pal.rim); gu.uGain.value = pal.rimGain; gu.uMid.value = pal.rimMid; gu.uReach.value = pal.rimReach;
+      // which style shows; the shaded glow is drawn first (under the dots, as in the reference) and reaches 1.32 R
+      for (const o of flat) o.visible = !pal.shaded;
+      for (const o of outlines) o.visible = !pal.shaded && pal.outlineShow;
+      shadedCore.visible = pal.shaded;
+      for (const o of shadedDots) o.visible = pal.shaded;
+      rim.material = pal.shaded ? glowMat : rimMat; rim.scale.setScalar(pal.shaded ? 1.32 / 1.12 : 1); rim.renderOrder = pal.shaded ? -1 : 0;
+      if (pal.shaded) {
+        const u = shadedMat.uniforms;
+        pal.sphere.forEach((c, i) => u[`uS${i}`].value.setStyle(c));
+        u.uShade.value.setStyle(pal.shade); u.uShadeA.value = pal.shadeAlpha;
+        dotMats[0].uniforms.uColor.value.copy(pal.land); dotMats[0].uniforms.uOpacity.value = pal.landOpacity;
+        dotMats[1].uniforms.uColor.value.copy(pal.india);
+      }
       landMat.color.copy(pal.land); landMat.opacity = pal.landOpacity;
       indiaDotMat.color.copy(pal.india);
       for (const m of indiaMats) { m.color.copy(pal.outline); blend(m, pal.blending); }
@@ -252,6 +376,12 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
       camera.position.set(0, lift, z);
       camera.lookAt(0, lift, 0);
       camera.updateProjectionMatrix();
+      // the shaded style: the globe's silhouette on screen (centre and radius, in buffer pixels: gl_FragCoord counts from the bottom left), and
+      // three's point scale (half the buffer height)
+      const buf = renderer.getDrawingBufferSize(new Vector2()), f = (h / 2) / Math.tan(21 * Math.PI / 180), d2 = z * z + lift * lift;
+      glowMat.uniforms.uCenter.value.set(buf.x / 2, (h / 2 - f * lift / z) * buf.y / h);
+      glowMat.uniforms.uRadius.value = f * R / Math.sqrt(d2 - R * R) * buf.y / h;
+      for (const m of dotMats) m.uniforms.uScale.value = buf.y / 2;
       if (reduced) redraw();
     }
     function onVisibility() {   // pause while the tab is hidden
@@ -271,6 +401,7 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
     }
     function onUp() { dragging = false; }
 
+    applyPalette();
     resize();
     addEventListener("resize", resize);
     document.addEventListener("visibilitychange", onVisibility);
@@ -296,6 +427,7 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointercancel", onUp);
       scene.traverse((o) => { if (o instanceof Mesh || o instanceof Points || o instanceof Line) dispose(o); });   // arcs and ripples in flight too
+      rimMat.dispose(); glowMat.dispose();   // the rim sphere wears one of the two; the other is not in the scene
       DOT.dispose();
       renderer.dispose();
       renderer.forceContextLoss();

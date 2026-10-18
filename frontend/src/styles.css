@@ -81,6 +81,8 @@
     /* the globe (Globe.tsx). Colours as #rrggbb or rgb(% % %); --globe-blend is additive (light on dark) or normal (ink on paper). */
     --globe-core: #070A10; --globe-land: #5B6B85; --globe-land-opacity: .85; --globe-india: #F4F7FB;
     --globe-outline: #FF4D4D; --globe-rim: rgb(100%, 25%, 25%); --globe-rim-gain: .55; --globe-blend: additive;
+    /* flat: the land.json dots on a flat core with the pulsing India outline (the prototype's globe); the light theme's "shaded" globe is below */
+    --globe-style: flat; --globe-outline-show: 1;
     --arc-wci: #FF3B3B; --arc-ddos: var(--orange); --arc-opacity: .9;
     --arc-head-core: rgba(255,255,255,1); --arc-head-mid: rgba(255,140,140,.9); --arc-head-edge: rgba(255,59,59,0);
     /* Fonts (2026-10-18, chosen by the user), bundled from @fontsource (main.tsx). Body and UI: Lexend. Headings (--display): Libre Baskerville,
@@ -95,21 +97,23 @@
     --fs-body: 15px; --fs-small: 13.5px; --fs-label: 12px; --fs-title: 18px;
     --fs-hero: clamp(31px, 6.6vw, 54px); --fs-verdict: 40px; --fs-score: 50px;
   }
-  /* Light theme: an off-white page with a faint black dot grid, solid white panels on top of it (text never sits on the dots inside a panel),
-     darker verdict colours so every one of them passes WCAG AA as text on white (4.5:1 and up; e2e/contrast.mjs and e2e/axe.mjs check it). */
+  /* Light theme (reworked 2026-10-18 to docs/design/light-landing.html and light-result.html): a cool grey page with a faint dot grid, a shaded
+     grey globe with a red glow, solid panels with subtle tinted fills on top (text never sits on the dots inside a panel), darker verdict
+     colours so every one of them passes WCAG AA as text on white (4.5:1 and up; e2e/contrast.mjs and e2e/axe.mjs check it). No warm tones. */
   :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #F3F3F1; --ink: #15181D; --muted: #4B5361; --faint: #5D6573; --line: rgba(17,20,24,.10); --glass: #FFFFFF;
+    --bg: #F2F3F5; --ink: #15181D; --muted: #4B5361; --faint: #535A67; --line: rgba(17,20,24,.10); --glass: #FFFFFF;
     --red: #C62828; --amber: #9A5B00; --green: #18794A; --grey: #5F6978; --accent: #D93030; --orange: #C2560F; --blue: #1F66B8;
-    --sub: #3A414C; --halo-hero: 0 0 2px #F7F7F5, 0 0 8px #F7F7F5, 0 2px 28px #F7F7F5; --halo-sub: 0 0 2px #F7F7F5, 0 0 3px #F7F7F5, 0 0 8px #F7F7F5, 0 1px 16px #F7F7F5;
+    --sub: #3A414C; --halo-hero: 0 1px 18px var(--bg), 0 0 2px var(--bg); --halo-sub: 0 1px 18px var(--bg), 0 0 2px var(--bg);
     --on-color: #FFFFFF;
     --on-ink: #FFFFFF; --kbd: #AEB4BF; --go-hover: #000;
     --go-fill: linear-gradient(180deg, #2A2E36, #15181D);
     --go-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 16px rgba(17,20,24,.20);
-    /* the dot grid: --dot-d across, every --dot-gap, black at --dot-alpha (tuned by eye: texture, never noise) */
-    --dot-d: 1.25px; --dot-gap: 22px; --dot-alpha: .14;
-    --page-dots: radial-gradient(circle at calc(var(--dot-gap) / 2) calc(var(--dot-gap) / 2), rgb(0 0 0 / var(--dot-alpha)) calc(var(--dot-d) / 2), transparent calc(var(--dot-d) / 2 + .6px));
-    --vignette: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(243,243,241,.6) 100%);
+    /* the dot grid: a 1 px ink dot every --dot-gap at 7% (texture, never noise) */
+    --dot-gap: 22px;
+    --page-dots: radial-gradient(rgba(22,24,29,.07) 1px, transparent 1.2px);
+    /* a soft wash of the page colour behind the hero (the reference's "calm" layer); none on the result screen (rule below) */
+    --vignette: radial-gradient(ellipse 40% 20% at 50% 42%, rgba(242,243,245,.55) 30%, transparent 100%);
     --glass-sheen: none;   /* solid white panels: no sheen layers (and so axe can read their background) */
     --glass-fill: #FFFFFF; --glass-blur: none; --glass-border: rgba(17,20,24,.09);
     --glass-shadow: 0 1px 2px rgba(17,20,24,.05), 0 8px 24px rgba(17,20,24,.07);
@@ -131,12 +135,24 @@
     --radar-border: rgba(17,20,24,.14); --radar-ring: rgba(17,20,24,.08); --radar-axis: rgba(17,20,24,.07);
     --label-fill: rgba(255,255,255,.94); --label-border: rgba(17,20,24,.16);
     --src-fill: #FFFFFF; --pop-fill: #FFFFFF; --pop-border: rgba(17,20,24,.10); --pop-shadow: 0 20px 50px rgba(17,20,24,.18);
-    --lowered-ink: #3A414C; --lowered-fill: rgba(95,105,120,.07); --lowered-border: rgba(95,105,120,.28);
+    --lowered-ink: #3A414C; --lowered-fill: rgba(255,255,255,.7); --lowered-border: rgba(95,105,120,.28);
     --meter-shadow: inset 0 0 0 1px rgba(17,20,24,.10); --knob-shadow: 0 2px 8px rgba(17,20,24,.28);
-    --globe-core: #FBFBFA; --globe-land: #A3ABB8; --globe-land-opacity: .9; --globe-india: #8A93A2;
-    --globe-outline: #D93030; --globe-rim: rgb(85%, 30%, 30%); --globe-rim-gain: .22; --globe-blend: normal;
+    /* the shaded globe (Globe.tsx): evenly spaced black land dots, India in solid red, no outline, a grey sphere darkening to its edge
+       (--globe-sphere-0 in the middle, -1 at 70%, -2 at 93%, -3 at the rim) with an extra --globe-shade band along the top rim, and a red
+       glow from --globe-rim-gain at the rim through --globe-rim-mid a third of the way out to nothing at --globe-rim-reach x the radius */
+    --globe-style: shaded; --globe-outline-show: 0;
+    --globe-core: #F1F3F6; --globe-land: #111317; --globe-land-opacity: 1; --globe-india: #C1121F;
+    --globe-sphere-0: #F1F3F6; --globe-sphere-1: #E4E7EC; --globe-sphere-2: #CDD2DA; --globe-sphere-3: #B8BEC8;
+    --globe-shade: #78808E; --globe-shade-alpha: .42;
+    --globe-outline: #D93030; --globe-rim: #C8222A; --globe-rim-gain: .34; --globe-rim-mid: .14; --globe-rim-reach: 1.28; --globe-blend: normal;
     --arc-wci: #D42A2A; --arc-ddos: #D9661A; --arc-opacity: .85;
     --arc-head-core: rgba(190,24,24,1); --arc-head-mid: rgba(214,52,52,.7); --arc-head-edge: rgba(214,52,52,0);
+    /* result panels: subtle fills, each a few percent off white (the verdict's is mixed with its level colour, --lvl, set by VerdictPanel) */
+    --verdict-paper: #FBFBFC;
+    --fill-why: #F6F7F9; --line-why: #E3E6EB;      /* cool grey */
+    --fill-msg: #FFFFFF;                           /* white: the message itself stays plain */
+    --fill-link: #F3F6FA; --line-link: #DFE5EE;    /* cool grey-blue */
+    --fill-todo: #F3F7F4; --line-todo: #DCE7DF;    /* green-grey */
   }
   /* The page background lives on <html> (the light theme's dot grid sits there, under the globe); body is transparent over it. */
   html { background-color: var(--bg); background-image: var(--page-dots); background-size: var(--dot-gap, 22px) var(--dot-gap, 22px); background-attachment: fixed; }
@@ -519,4 +535,16 @@
   .mzones span { box-sizing: border-box; padding-inline: 3px; text-align: center; text-wrap: balance; }
   .mnote { margin: 4px 0 0; font: 400 var(--fs-small)/1.45 var(--sans); color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { .meter .knob { animation: none; } }
+}
+
+/* Light theme, result panels (2026-10-18, docs/design/light-result.html): each panel gets its own subtle fill; the verdict's is 5% of its level
+   colour on near-white with a 24% border. Light only: the dark theme keeps --box-fill. */
+@layer components {
+  :root[data-theme="light"] .result .g-verdict { background-color: color-mix(in srgb, var(--lvl) 5%, var(--verdict-paper));
+    border-color: color-mix(in srgb, var(--lvl) 24%, transparent); }
+  :root[data-theme="light"] .result .g-why { background-color: var(--fill-why); border-color: var(--line-why); }
+  :root[data-theme="light"] .result .g-msg { background-color: var(--fill-msg); }
+  :root[data-theme="light"] .result .g-link { background-color: var(--fill-link); border-color: var(--line-link); }
+  :root[data-theme="light"] .result .g-todo { background-color: var(--fill-todo); border-color: var(--line-todo); }
+  :root[data-theme="light"] .stage.dim + .vignette { background: none; }   /* the hero's wash is not needed behind the result */
 }

@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { CSSProperties, Ref } from "react";
 import type { Evidence, Level } from "../types/report";
 import { LEVEL_SUMMARY, LEVELS } from "../lib/levels";
 import Radar from "./Radar";
@@ -26,7 +26,7 @@ function LoweredText({ text }: { text: string }) {
 export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef, note = null, score = null, lowered = null }: Props) {
   const lv = LEVELS[level];
   return (
-    <div className="box verdict g-verdict">
+    <div className="box verdict g-verdict" style={{ "--lvl": lv.color } as CSSProperties}>
       <div className="vtop">
         <div className="vicon" style={{ background: lv.color }}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">

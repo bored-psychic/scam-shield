@@ -20,12 +20,14 @@ import { preview } from "vite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = 4178, URL = `http://127.0.0.1:${PORT}/`;
-const BG = { dark: "rgb(4, 6, 10)", light: "rgb(243, 243, 241)" };
+const BG = { dark: "rgb(4, 6, 10)", light: "rgb(242, 243, 245)" };
 const results = [];
 const check = (name, ok, detail = "") => { results.push([name, ok, detail]); };
 
-// the reduced-motion rule in styles.css makes every change a 0.01 ms transition: let a frame pass before reading computed colours
-const state = async (page) => { await page.waitForTimeout(50); return page.evaluate(() => ({
+// the reduced-motion rule in styles.css makes every change a 0.01 ms transition: let frames pass before reading computed colours (two real
+// animation frames, not a fixed 50 ms: a frame can take longer than that in headless Chrome, and T2 / T4 then read the old background)
+const state = async (page) => { await page.waitForTimeout(50); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  return page.evaluate(() => ({
   theme: document.documentElement.dataset.theme,
   bg: getComputedStyle(document.documentElement).backgroundColor,
   label: document.querySelector(".themebtn")?.getAttribute("aria-label") ?? null,
