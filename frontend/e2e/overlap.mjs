@@ -2,6 +2,8 @@
 //
 //   cd frontend && npm run build && node e2e/overlap.mjs [--shots DIR]
 //
+// Every viewport x case runs in BOTH themes (2026-10-18; picked through prefers-color-scheme): the serif headings and the theme button change widths.
+//
 // Serves the built dist/ with Vite's preview server on 127.0.0.1:4173 and drives the INSTALLED Google Chrome through playwright-core (no
 // browser download). /api/analyse is answered inside the page from the real Reports in src/lib/__fixtures__/reports.json (offline: the network
 // rows pending), then a live answer made from the same Report with long values filled in, and an expanded answer for the short-link button.
@@ -20,6 +22,7 @@ const shotsAt = process.argv.indexOf("--shots");
 const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 const VIEWPORTS = [[360, 640], [360, 800], [390, 600], [390, 844], [430, 932], [1280, 800], [1440, 900]];
 const CASES = ["jio-no-sender", "kyc-promotional", "shortener-keywords"];
+const THEMES = ["dark", "light"];
 const PORT = 4173;
 
 const fx = (label) => {
@@ -103,10 +106,10 @@ function measure() {
   return out;
 }
 
-async function runCase(browser, [w, h], label) {
+async function runCase(browser, [w, h], label, theme) {
   const f = fx(label);
   const raised = label === "jio-no-sender";
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", deviceScaleFactor: 1, colorScheme: theme });
   const page = await ctx.newPage();
   const problems = [];
   let release;
@@ -122,10 +125,11 @@ async function runCase(browser, [w, h], label) {
   await page.fill("#msg", f.text);
   await page.click("button.go");
   await page.waitForSelector(".result .box.link");
-  const tag = `${w}x${h} ${label}`;
+  const tag = `${theme.padEnd(5)} ${w}x${h} ${label}`;
+  if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme) problems.push(`the page is not in the ${theme} theme`);
   const check = async (state) => {
     for (const p of await page.evaluate(measure)) problems.push(`${state}: ${p}`);
-    if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: join(SHOTS, `${label}_${w}x${h}_${state}.png`), fullPage: true }); }
+    if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: join(SHOTS, `${theme}_${label}_${w}x${h}_${state}.png`), fullPage: true }); }
   };
   if (!(await page.locator(".frow.pending").count()) && label !== "shortener-keywords") problems.push("pending: no pending row was shown");
   await check("pending");
@@ -149,9 +153,10 @@ const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 let failed = 0;
 try {
+  for (const theme of THEMES)
   for (const vp of VIEWPORTS)
     for (const label of CASES) {
-      const [tag, problems] = await runCase(browser, vp, label);
+      const [tag, problems] = await runCase(browser, vp, label, theme);
       console.log(`${problems.length ? "FAIL" : "ok  "} ${tag}`);
       for (const p of problems.slice(0, 8)) console.log(`      ${p}`);
       failed += problems.length ? 1 : 0;
@@ -160,5 +165,6 @@ try {
   await browser.close();
   await new Promise((res) => server.httpServer.close(res));
 }
-console.log(`\n${VIEWPORTS.length * CASES.length - failed}/${VIEWPORTS.length * CASES.length} viewport x case runs without a layout problem`);
+const RUNS = THEMES.length * VIEWPORTS.length * CASES.length;
+console.log(`\n${RUNS - failed}/${RUNS} theme x viewport x case runs without a layout problem`);
 process.exit(failed ? 1 : 0);

@@ -1,4 +1,5 @@
-// D24 typography checks on a BUILT site: no font CDN, no third-party request, and what the fonts cost.
+// Font checks on a BUILT site (D24; fonts since 2026-10-18: Lexend, Libre Baskerville, Geist Mono, Noto Devanagari / Kannada): no font CDN, no
+// third-party request, and what the fonts cost.
 //
 //   cd frontend && npm run build && node e2e/fonts.mjs [--dist DIR] [--shots DIR --label NAME] [--schema 4]
 //

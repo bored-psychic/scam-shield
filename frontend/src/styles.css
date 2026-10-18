@@ -27,27 +27,121 @@
 }
 
 @layer base {
-  /* Design tokens (docs/design/README.md). Single dark theme. */
+  /* Design tokens (docs/design/README.md). Two themes: dark (the approved design, the default) and light. EVERY colour the page draws comes
+     from a token here, including the globe's (Globe.tsx reads the --globe-* and --arc-* tokens with getComputedStyle) and the radar's (the
+     level colours below, mixed with transparent in Radar.tsx). The theme is the data-theme attribute on <html>: set before the first paint by
+     the inline script in index.html (the stored choice, else the system setting), then by the sun/moon button (lib/theme.ts).
+     The dark values are the design's own literals, moved here unchanged (2026-10-18). */
   :root {
+    color-scheme: dark;
     --bg: #04060A; --ink: #EDF1F7; --muted: #9AA5B8; --faint: #8590A3; --line: rgba(255,255,255,.10); --glass: rgba(14,18,26,.62);
     --red: #FF3B3B; --amber: #F2B13B; --green: #3DD68C; --grey: #98A2B3; --accent: #FF4D4D;
     --orange: #FF8A3B;   /* DDoS-source arcs (a literal in the prototype) */
     --blue: #5AB0FF;     /* new (D22): the Promotional verdict, a calm colour that is neither the green of "no warning signs" nor the amber of "suspicious" */
-    /* Fonts are bundled from @fontsource/geist and @fontsource/geist-mono (main.tsx): the same Google Fonts builds the prototype
-       loaded. Not @fontsource/geist-sans: that is Vercel's build, ~2.5% wider, and it wraps the headline onto two lines. */
-    --sans: "Geist", "Noto Sans Devanagari", "Noto Sans Kannada", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    /* D24 contrast: --faint is #8590A3 (was #4A5363, 2.6:1 on the stage), --muted #9AA5B8 (was #8A94A6) and --grey #98A2B3 (was #7C8696) are lighter,
+       and panels are tinted darker (--box-fill), so text passes WCAG AA over the globe (e2e/contrast.mjs measures it). */
+    --sub: #C3CBD8; --halo-hero: 0 2px 28px #04060A, 0 0 2px #04060A; --halo-sub: 0 1px 16px #04060A;
+    --on-color: #04060A;   /* text and icons drawn on a solid verdict / tick colour */
+    --on-ink: #0B0D12; --kbd: #4A5363; --go-hover: #fff;
+    --go-fill: linear-gradient(180deg, rgba(255,255,255,.98), rgba(226,231,240,.92));
+    --go-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.35);
+    --page-dots: none;     /* the light theme's dot grid; none here */
+    --vignette: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(4,6,10,.55) 70%, var(--bg) 100%);
+    /* glass panels, chips and buttons (the "iOS-style glass finish" rule in components) */
+    --glass-sheen: radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.05), transparent 50%),
+                   linear-gradient(160deg, rgba(255,255,255,.03), transparent 45%, rgba(255,255,255,.015));
+    --glass-fill: rgba(8,11,17,.05); --glass-blur: blur(4px) saturate(140%); --glass-border: rgba(255,255,255,.03);
+    --glass-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+    --glass-rim: linear-gradient(145deg, rgba(255,255,255,.28), rgba(255,255,255,.05) 30%, rgba(255,255,255,.01) 55%, rgba(255,255,255,.07) 85%, rgba(255,255,255,.16));
+    --box-fill: rgba(8,11,17,.42);
+    --box-shadow-old: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
+    --box-focus-old: 0 20px 60px rgba(0,0,0,.5), 0 0 0 4px rgba(255,59,59,.10);
+    --box-focus-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 40px rgba(0,0,0,.45), 0 0 0 4px rgba(255,59,59,.12);
+    --focus-border: rgba(255,77,77,.45);
+    --hover-fill: rgba(20,26,38,.28); --hover-border: rgba(255,255,255,.08);
+    --local-fill: rgba(10,13,19,.5); --ex-fill: rgba(10,13,19,.55); --chip-fill: rgba(255,255,255,.04); --soft-fill: rgba(255,255,255,.05);
+    --step-fill: rgba(255,255,255,.07); --strong-border: rgba(255,255,255,.25); --reason-hover-border: rgba(255,255,255,.22);
+    --vicon-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 16px rgba(0,0,0,.35);
+    --tip-solid: #12161E; --tip-fill: rgba(10,13,20,.72); --tip-shadow: 0 10px 30px rgba(0,0,0,.5);
+    /* evidence tints (marks, the owner part of a link) */
+    --tint-danger-strong: rgba(255,59,59,.18); --tint-danger: rgba(255,59,59,.16); --tint-caution: rgba(242,177,59,.16);
+    --tint-quiet: rgba(124,134,150,.18); --tint-quiet-soft: rgba(124,134,150,.12); --pulse-ring: rgba(255,255,255,.12);
+    /* screenshot box */
+    --scan: rgba(255,77,77,.45); --drop-border: rgba(255,77,77,.5); --drop-dash: rgba(255,77,77,.6); --drop-fill: rgba(4,6,10,.78);
+    --sender-fill: rgba(90,176,255,.06); --sender-border: rgba(90,176,255,.2);
+    /* radar */
+    --radar-border: rgba(255,255,255,.12); --radar-ring: rgba(255,255,255,.07); --radar-axis: rgba(255,255,255,.06);
+    --label-fill: rgba(4,6,10,.78); --label-border: rgba(255,255,255,.14);
+    /* footer pill and its popover */
+    --src-fill: rgba(8,11,17,.55); --pop-fill: rgba(8,11,17,.82); --pop-border: rgba(255,255,255,.1);
+    --pop-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.6);
+    /* D24 "Lowered from..." note and the risk meter */
+    --lowered-ink: #C9D1DE; --lowered-fill: rgba(124,134,150,.10); --lowered-border: rgba(124,134,150,.30);
+    --meter-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 0 18px rgba(0,0,0,.35); --knob-shadow: 0 2px 10px rgba(0,0,0,.6);
+    /* the globe (Globe.tsx). Colours as #rrggbb or rgb(% % %); --globe-blend is additive (light on dark) or normal (ink on paper). */
+    --globe-core: #070A10; --globe-land: #5B6B85; --globe-land-opacity: .85; --globe-india: #F4F7FB;
+    --globe-outline: #FF4D4D; --globe-rim: rgb(100%, 25%, 25%); --globe-rim-gain: .55; --globe-blend: additive;
+    --arc-wci: #FF3B3B; --arc-ddos: var(--orange); --arc-opacity: .9;
+    --arc-head-core: rgba(255,255,255,1); --arc-head-mid: rgba(255,140,140,.9); --arc-head-edge: rgba(255,59,59,0);
+    /* Fonts (2026-10-18, chosen by the user), bundled from @fontsource (main.tsx). Body and UI: Lexend. Headings (--display): Libre Baskerville,
+       400 and 700 only, for the logo, the hero, the verdict word, the risk score number, the panel titles and the "Lowered from..." lead-in;
+       buttons, chips, reasons, the message and the advice stay in Lexend. Codes, link addresses and data: Geist Mono (tabular figures).
+       Hindi / Kannada letters are not in Lexend, so the browser falls through --sans to the Noto faces per character.
+       Type scale: Lexend's large x-height reads about one size bigger than Geist at the same px, so body text is 15px (was 16 in Geist) and the
+       message 17px (was 18); the paste box stays 16px (below that iOS zooms into the field). The serif keeps light tracking (-.01em). */
+    --sans: "Lexend Variable", "Noto Sans Devanagari", "Noto Sans Kannada", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
-    /* D24 typography. --display is the ONE heading-font variable: src/fonts/<choice>.css sets it (vite.config.ts DISPLAY_FONT); until one does it is
-       Geist. Use it as font-family: var(--display), var(--sans). --faint is #8590A3 (was #4A5363, 2.6:1 on the stage), --muted #9AA5B8 (was #8A94A6) and --grey #98A2B3 (was #7C8696) are lighter, and panels are tinted darker (.box background-color), so
-       text passes WCAG AA over the globe (e2e/contrast.mjs measures it).
-       Hindi / Kannada characters are not in Geist, so the browser falls through --sans to the Noto faces per character. */
-    --display: "Geist"; --display-track: -.035em;
-    --fs-body: 16px; --fs-small: 14px; --fs-label: 12px;
-    --fs-hero: clamp(34px, 7.4vw, 62px); --fs-verdict: 46px; --fs-score: 58px;
-    color-scheme: dark;
+    --display: "Libre Baskerville", Georgia, "Times New Roman", serif; --display-track: -.01em;
+    --fs-body: 15px; --fs-small: 13.5px; --fs-label: 12px; --fs-title: 18px;
+    --fs-hero: clamp(31px, 6.6vw, 54px); --fs-verdict: 40px; --fs-score: 50px;
   }
+  /* Light theme: an off-white page with a faint black dot grid, solid white panels on top of it (text never sits on the dots inside a panel),
+     darker verdict colours so every one of them passes WCAG AA as text on white (4.5:1 and up; e2e/contrast.mjs and e2e/axe.mjs check it). */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #F3F3F1; --ink: #15181D; --muted: #4B5361; --faint: #5D6573; --line: rgba(17,20,24,.10); --glass: #FFFFFF;
+    --red: #C62828; --amber: #9A5B00; --green: #18794A; --grey: #5F6978; --accent: #D93030; --orange: #C2560F; --blue: #1F66B8;
+    --sub: #3A414C; --halo-hero: 0 0 2px #F7F7F5, 0 0 8px #F7F7F5, 0 2px 28px #F7F7F5; --halo-sub: 0 0 2px #F7F7F5, 0 0 3px #F7F7F5, 0 0 8px #F7F7F5, 0 1px 16px #F7F7F5;
+    --on-color: #FFFFFF;
+    --on-ink: #FFFFFF; --kbd: #AEB4BF; --go-hover: #000;
+    --go-fill: linear-gradient(180deg, #2A2E36, #15181D);
+    --go-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 16px rgba(17,20,24,.20);
+    /* the dot grid: --dot-d across, every --dot-gap, black at --dot-alpha (tuned by eye: texture, never noise) */
+    --dot-d: 1.25px; --dot-gap: 22px; --dot-alpha: .14;
+    --page-dots: radial-gradient(circle at calc(var(--dot-gap) / 2) calc(var(--dot-gap) / 2), rgb(0 0 0 / var(--dot-alpha)) calc(var(--dot-d) / 2), transparent calc(var(--dot-d) / 2 + .6px));
+    --vignette: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(243,243,241,.6) 100%);
+    --glass-sheen: none;   /* solid white panels: no sheen layers (and so axe can read their background) */
+    --glass-fill: #FFFFFF; --glass-blur: none; --glass-border: rgba(17,20,24,.09);
+    --glass-shadow: 0 1px 2px rgba(17,20,24,.05), 0 8px 24px rgba(17,20,24,.07);
+    --glass-rim: none;
+    --box-fill: #FFFFFF;
+    --box-shadow-old: 0 1px 2px rgba(17,20,24,.05), 0 8px 24px rgba(17,20,24,.07);
+    --box-focus-old: 0 1px 2px rgba(17,20,24,.05), 0 0 0 4px rgba(198,40,40,.14);
+    --box-focus-shadow: 0 1px 2px rgba(17,20,24,.05), 0 8px 24px rgba(17,20,24,.08), 0 0 0 4px rgba(198,40,40,.14);
+    --focus-border: rgba(198,40,40,.5);
+    --hover-fill: #F6F6F4; --hover-border: rgba(17,20,24,.18);
+    --local-fill: #FFFFFF; --ex-fill: #FFFFFF; --chip-fill: #F4F4F2; --soft-fill: rgba(17,20,24,.045);
+    --step-fill: rgba(17,20,24,.05); --strong-border: rgba(17,20,24,.28); --reason-hover-border: rgba(17,20,24,.18);
+    --vicon-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 4px 12px rgba(17,20,24,.16);
+    --tip-solid: #FFFFFF; --tip-fill: #FFFFFF; --tip-shadow: 0 10px 30px rgba(17,20,24,.18);
+    --tint-danger-strong: rgba(198,40,40,.12); --tint-danger: rgba(198,40,40,.10); --tint-caution: rgba(154,91,0,.12);
+    --tint-quiet: rgba(95,105,120,.14); --tint-quiet-soft: rgba(95,105,120,.10); --pulse-ring: rgba(17,20,24,.10);
+    --scan: rgba(198,40,40,.35); --drop-border: rgba(198,40,40,.5); --drop-dash: rgba(198,40,40,.6); --drop-fill: rgba(255,255,255,.94);
+    --sender-fill: rgba(31,102,184,.06); --sender-border: rgba(31,102,184,.24);
+    --radar-border: rgba(17,20,24,.14); --radar-ring: rgba(17,20,24,.08); --radar-axis: rgba(17,20,24,.07);
+    --label-fill: rgba(255,255,255,.94); --label-border: rgba(17,20,24,.16);
+    --src-fill: #FFFFFF; --pop-fill: #FFFFFF; --pop-border: rgba(17,20,24,.10); --pop-shadow: 0 20px 50px rgba(17,20,24,.18);
+    --lowered-ink: #3A414C; --lowered-fill: rgba(95,105,120,.07); --lowered-border: rgba(95,105,120,.28);
+    --meter-shadow: inset 0 0 0 1px rgba(17,20,24,.10); --knob-shadow: 0 2px 8px rgba(17,20,24,.28);
+    --globe-core: #FBFBFA; --globe-land: #A3ABB8; --globe-land-opacity: .9; --globe-india: #8A93A2;
+    --globe-outline: #D93030; --globe-rim: rgb(85%, 30%, 30%); --globe-rim-gain: .22; --globe-blend: normal;
+    --arc-wci: #D42A2A; --arc-ddos: #D9661A; --arc-opacity: .85;
+    --arc-head-core: rgba(190,24,24,1); --arc-head-mid: rgba(214,52,52,.7); --arc-head-edge: rgba(214,52,52,0);
+  }
+  /* The page background lives on <html> (the light theme's dot grid sits there, under the globe); body is transparent over it. */
+  html { background-color: var(--bg); background-image: var(--page-dots); background-size: var(--dot-gap, 22px) var(--dot-gap, 22px); background-attachment: fixed; }
   html, body { height: 100%; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: var(--fs-body); line-height: 1.55; overflow-x: hidden; }
+  body { color: var(--ink); font-family: var(--sans); font-size: var(--fs-body); line-height: 1.55; overflow-x: hidden; }
   #root { display: contents; }   /* new: React's mount point adds no box, so the page lays out exactly like the prototype's <body> */
 }
 
@@ -58,27 +152,34 @@
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
   .stage.dim { opacity: .7; }
   .vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
-    background: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(4,6,10,.55) 70%, var(--bg) 100%); }
+    background: var(--vignette); }
 
   header { position: relative; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 12px;
     padding-inline: 20px; padding-block: 18px; }
-  .mark { display: flex; align-items: center; gap: 10px; font: 700 18px var(--display), var(--sans); letter-spacing: -.01em; }
+  .mark { display: flex; align-items: center; gap: 10px; font: 700 17px var(--display); letter-spacing: var(--display-track); }
   .mark svg { width: 22px; height: 22px; }
   .local { font: 500 11.5px var(--mono); color: var(--muted); display: flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: rgba(10,13,19,.5); }
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: var(--local-fill); }
   .local i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  /* new (2026-10-18): the theme button beside the pill; it wears the same glass finish (listed in the glass rule below) */
+  .hright { display: flex; align-items: center; gap: 8px; }
+  .themebtn { width: 34px; height: 34px; padding: 0; border-radius: 999px; display: grid; place-items: center; color: var(--muted); cursor: pointer; transition: color .2s; }
+  .themebtn:hover { color: var(--ink); }
+  .themebtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .themebtn svg { width: 18px; height: 18px; animation: turnin .45s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes turnin { from { opacity: 0; transform: rotate(-70deg) scale(.6); } }
 
   main { pointer-events: none; position: relative; z-index: 2; min-height: calc(100% - 64px); display: grid; place-items: center; padding-inline: 16px; padding-block: 8px 72px; }
   .col { pointer-events: auto; width: 100%; max-width: 660px; display: grid; gap: 18px; }
 
   .hero { display: grid; gap: 18px; transition: opacity .35s ease, transform .35s ease; }
-  h1 { margin: 0; text-align: center; font-family: var(--display), var(--sans); font-size: var(--fs-hero); line-height: 1.02; letter-spacing: var(--display-track); font-weight: 700; text-wrap: balance; text-shadow: 0 2px 28px #04060A, 0 0 2px #04060A; }
+  h1 { margin: 0; text-align: center; font-family: var(--display); font-size: var(--fs-hero); line-height: 1.14; letter-spacing: var(--display-track); font-weight: 700; text-wrap: balance; text-shadow: var(--halo-hero); }
   h1 em { font-style: normal; color: var(--accent); }
-  .sub { text-shadow: 0 1px 16px #04060A; margin: -6px 0 6px; text-align: center; color: #C3CBD8; font-size: 17px; line-height: 1.55; text-wrap: balance; }
+  .sub { text-shadow: var(--halo-sub); margin: -6px 0 6px; text-align: center; color: var(--sub); font-size: 16px; line-height: 1.6; text-wrap: balance; }
 
   .box { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); transition: border-color .25s, box-shadow .25s; }
-  .box:focus-within { border-color: rgba(255,77,77,.45); box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 4px rgba(255,59,59,.10); }
+    box-shadow: var(--box-shadow-old); transition: border-color .25s, box-shadow .25s; }
+  .box:focus-within { border-color: var(--focus-border); box-shadow: var(--box-focus-old); }
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; outline: 0; background: transparent; color: var(--ink);
     font: 400 16px/1.55 var(--sans); padding: 18px 18px 6px; min-height: 92px; max-height: 260px; }
   textarea::placeholder { color: var(--faint); }
@@ -88,30 +189,30 @@
   /* new: the quiet length counter (shown past 18,000 of the API's 20,000 characters), right next to the Check button */
   .count { font: 500 12px var(--mono); color: var(--faint); margin-left: auto; font-variant-numeric: tabular-nums; }
   .count.full { color: var(--muted); }
-  .fchip { font: 500 11.5px var(--mono); color: var(--ink); border: 1px solid var(--line); background: rgba(255,255,255,.04); border-radius: 999px;
+  .fchip { font: 500 11.5px var(--mono); color: var(--ink); border: 1px solid var(--line); background: var(--chip-fill); border-radius: 999px;
     padding: 4px 9px; display: inline-flex; gap: 6px; align-items: center; animation: pop .25s ease both; }
   .fchip b { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
   .fchip.warn b { background: var(--red); }
   @keyframes pop { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
-  .go { font: 600 14px var(--sans); color: #0B0D12; background: var(--ink); border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer;
+  .go { font: 600 14px var(--sans); color: var(--on-ink); background: var(--ink); border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer;
     display: inline-flex; gap: 10px; align-items: center; transition: transform .15s, opacity .2s, background .2s; }
-  .go kbd { font: 500 11px var(--mono); color: #4A5363; }
-  .go:hover:not(:disabled) { transform: translateY(-1px); background: #fff; }
+  .go kbd { font: 500 11px var(--mono); color: var(--kbd); }
+  .go:hover:not(:disabled) { transform: translateY(-1px); background: var(--go-hover); }
   .go:disabled { opacity: .35; cursor: default; }
   .go:focus-visible, .ex button:focus-visible, .ghost:focus-visible, .reason:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .ex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .ex span { font: 500 11.5px var(--mono); color: var(--faint); align-self: center; margin-right: 2px; }
-  .ex button { font: 500 14px var(--sans); color: var(--muted); background: rgba(10,13,19,.55); border: 1px solid var(--line); border-radius: 999px;
+  .ex button { font: 500 14px var(--sans); color: var(--muted); background: var(--ex-fill); border: 1px solid var(--line); border-radius: 999px;
     padding: 7px 12px; cursor: pointer; transition: color .2s, border-color .2s, transform .15s; }
-  .ex button:hover { color: var(--ink); border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
+  .ex button:hover { color: var(--ink); border-color: var(--strong-border); transform: translateY(-1px); }
 
   /* checking (rendered only on the checking screen, so no display toggle) */
   .steps { display: grid; gap: 10px; padding: 18px; }
   .step { display: flex; align-items: center; gap: 10px; font: 500 15px var(--sans); color: var(--faint); transition: color .25s; }
   .step i { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--faint); display: grid; place-items: center; font-style: normal; font-size: 11px; transition: all .25s; }
   .step.on { color: var(--ink); } .step.on i { border-color: var(--ink); animation: spin 1s linear infinite; border-top-color: transparent; }
-  .step.done { color: var(--muted); } .step.done i { border-color: var(--green); background: var(--green); color: #04060A; animation: none; }
+  .step.done { color: var(--muted); } .step.done i { border-color: var(--green); background: var(--green); color: var(--on-color); animation: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* result. The prototype's bar meter and gauge rules are not ported: the radar (8b) was chosen. */
@@ -121,25 +222,27 @@
   .vtop { display: flex; align-items: center; gap: 12px; }
   .vicon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; }
   .vicon svg { width: 22px; height: 22px; }
-  .vword { font-family: var(--display), var(--sans); font-size: 30px; font-weight: 800; letter-spacing: var(--display-track); line-height: 1.05; text-wrap: balance; }
+  .vword { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: var(--display-track); line-height: 1.12; text-wrap: balance; }
   .vword { margin: 0; } .vword:focus { outline: none; }   /* new: the verdict word is an <h2> that takes focus when the result opens */
   .vline { color: var(--muted); font-size: var(--fs-body); line-height: 1.45; margin-top: 4px; }
 
   .msg { padding: 16px 18px; line-height: 1.7; font-size: 15.5px; animation: rise .45s .08s cubic-bezier(.2,.7,.2,1) both; }
-  .msg .lab, .sect { font: 500 var(--fs-label) var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
+  .msg .lab, .sect { font: 700 var(--fs-title)/1.3 var(--display); letter-spacing: var(--display-track); color: var(--ink); margin-bottom: 8px; display: block; }
+  /* new (2026-10-18): panel titles are serif headings now; the hint after "Your message" stays a small Lexend note */
+  .msg .lab small { font: 400 var(--fs-small) var(--sans); letter-spacing: 0; color: var(--muted); }
   mark { color: inherit; background: transparent; border-radius: 4px; padding: 1px 2px; cursor: help; position: relative;
     text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; transition: background .2s; }
-  mark.danger { text-decoration-color: var(--red); } mark.danger:hover, mark.danger.pulse { background: rgba(255,59,59,.18); }
-  mark.caution { text-decoration-color: var(--amber); } mark.caution:hover, mark.caution.pulse { background: rgba(242,177,59,.16); }
+  mark.danger { text-decoration-color: var(--red); } mark.danger:hover, mark.danger.pulse { background: var(--tint-danger-strong); }
+  mark.caution { text-decoration-color: var(--amber); } mark.caution:hover, mark.caution.pulse { background: var(--tint-caution); }
   mark.neutral { text-decoration-color: var(--grey); text-decoration-style: dotted; }
   /* new: unknown evidence (a hidden or unreadable link) is a solid grey line; marks get a hover tint and a focus ring like the buttons */
-  mark.unknown { text-decoration-color: var(--grey); } mark.unknown:hover, mark.unknown.pulse { background: rgba(124,134,150,.18); }
-  mark.neutral:hover, mark.neutral.pulse { background: rgba(124,134,150,.12); }
+  mark.unknown { text-decoration-color: var(--grey); } mark.unknown:hover, mark.unknown.pulse { background: var(--tint-quiet); }
+  mark.neutral:hover, mark.neutral.pulse { background: var(--tint-quiet-soft); }
   mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   mark.pulse { animation: pulse 1.2s ease 2; }
-  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(255,255,255,.12); } }
-  .tip { position: fixed; z-index: 10; max-width: 260px; background: #12161E; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
-    font-size: 13px; line-height: 1.4; color: var(--ink); pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,.5); opacity: 0; transition: opacity .15s; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--pulse-ring); } }
+  .tip { position: fixed; z-index: 10; max-width: 260px; background: var(--tip-solid); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+    font-size: 13px; line-height: 1.4; color: var(--ink); pointer-events: none; box-shadow: var(--tip-shadow); opacity: 0; transition: opacity .15s; }
   .tip.show { opacity: 1; }
   /* new: the message keeps its line breaks, long links wrap, and a long message scrolls inside its panel; the tooltip lists every
      piece of evidence of the underlined part, one line each */
@@ -151,16 +254,16 @@
   .reasons { display: grid; gap: 8px; }
   .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 var(--fs-body)/1.5 var(--sans);
     background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; transition: border-color .2s, transform .15s; }
-  .reason:hover { border-color: rgba(255,255,255,.22); transform: translateX(2px); }
+  .reason:hover { border-color: var(--reason-hover-border); transform: translateX(2px); }
   .reason .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; }
   .reason small { display: block; color: var(--muted); font-size: var(--fs-small); margin-top: 2px; }
   .reason.nospan { cursor: default; }   /* new: a reason with nothing to point at in the message (e.g. the wording model's) */
 
   .link { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .2s cubic-bezier(.2,.7,.2,1) both; }
   .url { font: 500 14px var(--mono); overflow-wrap: anywhere; color: var(--muted); }
-  .url b { color: var(--ink); font-weight: 500; background: rgba(255,59,59,.16); border-radius: 4px; padding: 0 3px; }
+  .url b { color: var(--ink); font-weight: 500; background: var(--tint-danger); border-radius: 4px; padding: 0 3px; }
   /* new: the owner part is tinted by the link's most severe evidence; label dots are faint; a disguised link is written in words */
-  .url b.caution { background: rgba(242,177,59,.16); } .url b.quiet { background: rgba(124,134,150,.18); }
+  .url b.caution { background: var(--tint-caution); } .url b.quiet { background: var(--tint-quiet); }
   .url i { font-style: normal; color: var(--faint); margin: 0 1px; } .url b i { color: var(--muted); }
   .url.disguised { font: 500 14px var(--sans); color: var(--ink); }
   .lblock { display: grid; gap: 6px; } .lblock + .lblock { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
@@ -171,11 +274,11 @@
   .steplist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
   .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
-    font-variant-numeric: tabular-nums; color: var(--ink); background: rgba(255,255,255,.07); border: 1px solid var(--line); }
+    font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
   .helpline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */
-  .ghost { font: 500 13px var(--sans); color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
-  .ghost:hover { border-color: rgba(255,255,255,.25); }
+  .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
+  .ghost:hover { border-color: var(--strong-border); }
   .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
 
   footer { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
@@ -199,35 +302,35 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
+  /* new (2026-10-18): a 0.3 s colour cross-fade while the theme button switches themes (lib/theme.ts adds the class for 320 ms, and not at all with reduced motion) */
+  html.theming, html.theming *, html.theming *::before, html.theming *::after {
+    transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease, text-shadow .3s ease, fill .3s ease, stroke .3s ease !important; }
 
   /* iOS-style glass finish: strong frosted blur with boosted colour, a bright specular rim that fades round the edge,
      a soft sheen across the top and a deep floating shadow. One recipe, applied to every panel, chip and button.
      This rule's position: relative overrides the prototype's .tip { position: fixed } (a prototype bug: its hidden tooltip sits in
      the page flow and adds 18px of scroll), so the tooltip is declared fixed again after this rule. */
-  .box, .reason, .ex button, .ghost, .local, .fchip, .tip, .shot.on {
+  .box, .reason, .ex button, .ghost, .local, .themebtn, .fchip, .tip, .shot.on {
     position: relative;
-    background:
-      radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.05), rgba(255,255,255,0) 50%),
-      linear-gradient(160deg, rgba(255,255,255,.03), rgba(255,255,255,0) 45%, rgba(255,255,255,.015));
-    background-color: rgba(8,11,17,.05);
-    -webkit-backdrop-filter: blur(4px) saturate(140%); backdrop-filter: blur(4px) saturate(140%);
-    border: 1px solid rgba(255,255,255,.03);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+    background: var(--glass-sheen);
+    background-color: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
   }
-  .box::before, .reason::before, .ex button::before, .ghost::before, .local::before, .shot.on::before {
+  .box::before, .reason::before, .ex button::before, .ghost::before, .local::before, .themebtn::before, .shot.on::before {
     content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
-    background: linear-gradient(145deg, rgba(255,255,255,.28), rgba(255,255,255,.05) 30%, rgba(255,255,255,.01) 55%, rgba(255,255,255,.07) 85%, rgba(255,255,255,.16));
+    background: var(--glass-rim);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   }
-  .box { border-radius: 26px; background-color: rgba(8,11,17,.42); }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
+  .box { border-radius: 26px; background-color: var(--box-fill); }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
   .reason { border-radius: 22px; }
-  .box:focus-within { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 40px rgba(0,0,0,.45), 0 0 0 4px rgba(255,59,59,.12); }
-  .reason:hover, .ex button:hover, .ghost:hover { background-color: rgba(20,26,38,.28); border-color: rgba(255,255,255,.08); }
-  .tip { background-color: rgba(10,13,20,.72); border-radius: 14px; }
-  .go { background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(226,231,240,.92)); border-radius: 14px;
-    box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.35); }
-  .vicon { border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 16px rgba(0,0,0,.35); }
+  .box:focus-within { box-shadow: var(--box-focus-shadow); }
+  .reason:hover, .ex button:hover, .ghost:hover { background-color: var(--hover-fill); border-color: var(--hover-border); }
+  .tip { background-color: var(--tip-fill); border-radius: 14px; }
+  .go { background: var(--go-fill); border-radius: 14px; box-shadow: var(--go-shadow); }
+  .vicon { border-radius: 14px; box-shadow: var(--vicon-shadow); }
 
   /* the prototype's tooltip bug, fixed: fixed again after the glass rule, out of the page flow, so a hidden tooltip adds no scroll
      (it is also rendered into <body>, outside the panels, whose backdrop-filter would otherwise become its containing block) */
@@ -240,16 +343,16 @@
   .paste { display: flex; flex-direction: column; }
   .shot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .shot.on { padding: 10px 12px; margin-bottom: 10px; border-radius: 20px; animation: rise .35s cubic-bezier(.2,.7,.2,1) both; }
-  .thumb { position: relative; flex: none; width: 44px; height: 56px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+  .thumb { position: relative; flex: none; width: 44px; height: 56px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--chip-fill); }
   .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
   .thumb.scan::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40%; transform: translateY(-100%);
-    background: linear-gradient(transparent, rgba(255,77,77,.45), transparent); animation: scan 1.3s ease-in-out infinite alternate; }
+    background: linear-gradient(transparent, var(--scan), transparent); animation: scan 1.3s ease-in-out infinite alternate; }
   @keyframes scan { to { transform: translateY(250%); } }
   .sline { flex: 1 1 220px; min-width: 0; display: flex; gap: 10px; align-items: flex-start; }
   .sline i { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--faint); display: grid; place-items: center;
     font: 600 11px var(--sans); font-style: normal; }
   .sline i.on { border-color: var(--ink); animation: breathe 1.2s ease-in-out infinite; }
-  .sline i.done { border-color: var(--green); background: var(--green); color: #04060A; }
+  .sline i.done { border-color: var(--green); background: var(--green); color: var(--on-color); }
   .sline i.warn { border-color: var(--amber); color: var(--amber); }
   .sline i.bad { border-color: var(--red); color: var(--red); }
   @keyframes breathe { 50% { opacity: .35; } }
@@ -260,9 +363,9 @@
   .shotbtn { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); padding: 9px 12px; border-radius: 12px; }
   .shotbtn:hover { color: var(--ink); }
   .shotbtn svg { width: 16px; height: 16px; }
-  .box.drop { border-color: rgba(255,77,77,.5); }
+  .box.drop { border-color: var(--drop-border); }
   .dropzone { position: absolute; inset: 8px; z-index: 2; display: grid; place-items: center; text-align: center; padding: 12px; pointer-events: none;
-    border: 1.5px dashed rgba(255,77,77,.6); border-radius: 20px; background: rgba(4,6,10,.78); font: 500 13px var(--mono); color: var(--ink); animation: pop .2s ease both; }
+    border: 1.5px dashed var(--drop-dash); border-radius: 20px; background: var(--drop-fill); font: 500 13px var(--mono); color: var(--ink); animation: pop .2s ease both; }
   @media (max-width: 560px) { .shot.on { align-items: flex-start; } }   /* the notice runs to several lines: thumbnail and tick stay at its top */
   @media (prefers-reduced-motion: reduce) {
     .thumb.scan::after { display: none; }
@@ -273,7 +376,7 @@
      the TRAI explainer and the sender chip under the verdict were removed on 2026-10-18 (product decision), with their styles. */
   .nobr { white-space: nowrap; }
   .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 14.5px/1.5 var(--sans); color: var(--muted);
-    background: rgba(90,176,255,.06); border: 1px solid rgba(90,176,255,.2); }
+    background: var(--sender-fill); border: 1px solid var(--sender-border); }
   .sendertip b { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
 
   /* result: two columns on wide screens, one column on phones. new (2026-10-18): the message panel used to span two grid rows and was
@@ -292,31 +395,34 @@
     .bcol:first-child { grid-column: 1 / span 5; }
     .bcol:last-child { grid-column: 6 / span 7; }
   }
-  .g-msg { font-size: 18px; line-height: 1.85; padding: 22px 24px; }
+  .g-msg { font-size: 17px; line-height: 1.8; padding: 22px 24px; }
+  /* new (2026-10-18): a readable measure in the wide column, about 65 characters a line (Lexend at 17px / 15px; measured on the longest demo message) */
+  .g-msg .mtext { max-width: 31em; }
+  .steplist li, .sendertip { max-width: 35em; }
   .g-why { padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
   .g-why .sect { margin: 2px 4px 6px; }
   .g-why .reasons { gap: 2px; }
   .g-why .reason { background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
     -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
   .g-why .reason::before { display: none; }
-  .g-why .reason:hover { background-color: rgba(255,255,255,.05); transform: none; }
+  .g-why .reason:hover { background-color: var(--soft-fill); transform: none; }
   .g-why .reason.nospan:hover { background-color: transparent; }   /* new */
   .g-why > .note { margin: 0 4px 4px; }   /* new: the no-reasons line */
   .g-verdict .vword { font-size: var(--fs-verdict); }
   .g-verdict .vicon { width: 52px; height: 52px; border-radius: 16px; }
   .g-verdict .vicon svg { width: 28px; height: 28px; }
   /* new: the verdict word takes focus when the result opens (for screen readers); that is not the user focusing the panel, so no ring */
-  .g-verdict:has(.vword:focus) { border-color: rgba(255,255,255,.03); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2); }
+  .g-verdict:has(.vword:focus) { border-color: var(--glass-border); box-shadow: var(--glass-shadow); }
   @media (max-width: 900px) {
     .g-msg { font-size: 16px; padding: 16px 18px; }
-    .g-verdict .vword { font-size: 36px; }
+    .g-verdict .vword { font-size: 32px; }
   }
 
   /* radar meter (option 8b): one labelled blip per warning sign; calm green sweep with no blips when nothing was found */
   .rwrap { display: grid; justify-items: center; gap: 6px; padding-block: 6px 2px; }
-  .radar { width: 200px; height: 200px; border-radius: 50%; position: relative; border: 1px solid rgba(255,255,255,.12);
-    background: radial-gradient(circle, transparent 32%, rgba(255,255,255,.07) 33%, transparent 34%, transparent 65%, rgba(255,255,255,.07) 66%, transparent 67%),
-                linear-gradient(transparent 49.7%, rgba(255,255,255,.06) 50%, transparent 50.3%), linear-gradient(90deg, transparent 49.7%, rgba(255,255,255,.06) 50%, transparent 50.3%); }
+  .radar { width: 200px; height: 200px; border-radius: 50%; position: relative; border: 1px solid var(--radar-border);
+    background: radial-gradient(circle, transparent 32%, var(--radar-ring) 33%, transparent 34%, transparent 65%, var(--radar-ring) 66%, transparent 67%),
+                linear-gradient(transparent 49.7%, var(--radar-axis) 50%, transparent 50.3%), linear-gradient(90deg, transparent 49.7%, var(--radar-axis) 50%, transparent 50.3%); }
   .radar .sweep { position: absolute; inset: 0; border-radius: 50%; animation: spin 2.6s linear infinite; }
   .radar .sweep.still { animation: none; }   /* new: Can't judge, and reduced motion */
   .radar .core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px var(--ink); }
@@ -324,28 +430,28 @@
   .radar .blip::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0; animation: ping 2.2s ease-out infinite; }
   @keyframes ping { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
   .radar .lbl { position: absolute; font: 500 11px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 7px; cursor: pointer;
-    background: rgba(4,6,10,.78); border: 1px solid rgba(255,255,255,.14); color: inherit; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, border-color .2s; }
+    background: var(--label-fill); border: 1px solid var(--label-border); color: inherit; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, border-color .2s; }
   .radar .lbl:hover, .radar .lbl:focus-visible { border-color: currentColor; outline: none; }
   /* new: a tag with nothing to point at. Not "static": Tailwind's utility of that name would set position: static */
-  .radar .lbl.nopoint { cursor: default; } .radar .lbl.nopoint:hover { border-color: rgba(255,255,255,.14); }
+  .radar .lbl.nopoint { cursor: default; } .radar .lbl.nopoint:hover { border-color: var(--label-border); }
   .radar .on { opacity: 1 !important; transform: none !important; }
   .rcap { font: 500 11px var(--mono); color: var(--muted); text-align: center; }
 
   /* data source button + popover, and the simulated event feed */
   footer .srcwrap { position: relative; pointer-events: auto; }
-  .srcbtn { font: 500 11px var(--mono); color: var(--muted); background: rgba(8,11,17,.55); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; cursor: pointer;
+  .srcbtn { font: 500 11px var(--mono); color: var(--muted); background: var(--src-fill); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; cursor: pointer;
     display: inline-flex; gap: 8px; align-items: center; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   .srcbtn i { width: 6px; height: 6px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: blink 1.6s ease infinite; }
   .srcbtn b { font-weight: 500; color: var(--ink); }
   .srcbtn:hover { color: var(--ink); }
   .srcpop { position: absolute; left: 0; bottom: calc(100% + 10px); box-sizing: border-box; width: min(454px, calc(100vw - 40px)); padding: 14px 16px; border-radius: 18px; font: 400 13px/1.5 var(--sans); color: var(--muted);
-    background: rgba(8,11,17,.82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.1); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 20px 50px rgba(0,0,0,.6); }
+    background: var(--pop-fill); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border: 1px solid var(--pop-border); box-shadow: var(--pop-shadow); }
   /* new: border-box, so the 100vw - 40px cap includes the padding and border (it was 34px wider than the cap and ran 14px off the edge of a phone); 454px = the 420px content width + padding + border it had on a desktop */
   .srcpop p { margin: 0 0 8px; } .srcpop p:last-child { margin: 0; }
   .srcpop b { color: var(--ink); font-weight: 600; }
   .srcpop a { color: var(--ink); }
   .k { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
-  .k.wci, .ev.wci i { background: #FF3B3B; box-shadow: 0 0 6px #FF3B3B; } .k.ddos, .ev.ddos i { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .k.wci, .ev.wci i { background: var(--arc-wci); box-shadow: 0 0 6px var(--arc-wci); } .k.ddos, .ev.ddos i { background: var(--arc-ddos); box-shadow: 0 0 6px var(--arc-ddos); }
   .feed { display: grid; gap: 4px; justify-items: end; align-content: end; font: 500 11px var(--mono); color: var(--muted); }
   .ev { display: flex; gap: 8px; align-items: center; animation: evin .4s ease both; }
   .ev:nth-child(2) { opacity: .7; } .ev:nth-child(3) { opacity: .45; } .ev:nth-child(4) { opacity: .25; }
@@ -359,7 +465,7 @@
    what was sent off the device. Rows stack label over value on phones; a pending value pulses unless motion is reduced. */
 @layer components {
   .facts { border-top: 1px dashed var(--line); padding-top: 8px; }
-  .facts summary { cursor: pointer; font: 500 12.5px var(--mono); color: var(--muted); list-style-position: inside; padding: 2px 0; }
+  .facts summary { cursor: pointer; font: 700 15px/1.3 var(--display); letter-spacing: var(--display-track); color: var(--ink); list-style-position: inside; padding: 2px 0; }
   .facts summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .facts[open] summary { margin-bottom: 6px; }
   .facts dl { display: grid; gap: 7px; margin: 0; }
@@ -390,20 +496,21 @@
    tabular figures in the verdict's colour; the bar runs green > amber > red with the two band edges (30, 70) drawn as ticks and written under it. */
 @layer components {
   .vlowered { margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; font: 400 15px/1.45 var(--sans);
-    color: #C9D1DE; background: rgba(124,134,150,.10); border: 1px solid rgba(124,134,150,.30); }
+    color: var(--lowered-ink); background: var(--lowered-fill); border: 1px solid var(--lowered-border); }
+  .vlowered b { font: 700 15px/1.45 var(--display); letter-spacing: var(--display-track); color: var(--ink); }   /* the "Lowered from <level>:" lead-in */
   .vlowered i { font-style: normal; flex: none; width: 1.2em; text-align: center; font-weight: 600; color: var(--ink); }
   .score { display: grid; gap: 6px; }
   .sline2 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .sline2 .sect { margin: 0; }
   .snum { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-  .snum b { font: 600 var(--fs-score)/1 var(--mono); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .snum b { font: 700 var(--fs-score)/1 var(--display); letter-spacing: var(--display-track); font-variant-numeric: lining-nums tabular-nums; }
   .snum span { font: 500 18px var(--mono); color: var(--muted); }
   .meter { position: relative; height: 14px; margin-block: 10px 2px; border-radius: 999px;
     background: linear-gradient(90deg, var(--green) 0%, var(--green) 22%, var(--amber) 36%, var(--amber) 64%, var(--red) 78%, var(--red) 100%);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 0 18px rgba(0,0,0,.35); }
+    box-shadow: var(--meter-shadow); }
   .meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); opacity: .8; }
   .meter .knob { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--bg);
-    border: 3px solid var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,.6); animation: knobin .9s cubic-bezier(.2,.8,.2,1) both; }
+    border: 3px solid var(--ink); box-shadow: var(--knob-shadow); animation: knobin .9s cubic-bezier(.2,.8,.2,1) both; }
   @keyframes knobin { from { left: 0; } }
   .mscale { position: relative; height: 16px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .mscale span { position: absolute; top: 0; transform: translateX(-50%); }

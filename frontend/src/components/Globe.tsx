@@ -1,16 +1,19 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import {
-  AdditiveBlending, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, ColorManagement, DoubleSide, Group, Line, LineBasicMaterial,
-  LineLoop, LinearSRGBColorSpace, Mesh, MeshBasicMaterial, PerspectiveCamera, Points, PointsMaterial, RingGeometry, Scene, ShaderMaterial,
-  SphereGeometry, Vector3, WebGLRenderer,
+  AdditiveBlending, BackSide, type Blending, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, DoubleSide, Group, Line,
+  LineBasicMaterial, LineLoop, LinearSRGBColorSpace, type Material, Mesh, MeshBasicMaterial, NormalBlending, PerspectiveCamera, Points,
+  PointsMaterial, RingGeometry, Scene, ShaderMaterial, SphereGeometry, Vector3, WebGLRenderer,
 } from "three";
+import type { Theme } from "../lib/theme";
 import LAND from "../data/land.json";     // land dots, flat [lat, lon, lat, lon, ...]
 import INDIA from "../data/india.json";   // India's official outline (Natural Earth, India point of view): { rings, dots }
 
 // The dotted globe from the prototype (docs/design/prototype-globe.html, "globe"), ported as is: same geometry, colours, timings and
 // weights. Changes: everything it creates is disposed on unmount, one animation loop at most (the prototype could start a second one
 // when a tab came back), pointercancel ends a drag, and with reduced motion the static globe is drawn only when it is dragged or resized.
+// Colours (2026-10-18): read from the theme's --globe-* / --arc-* tokens in styles.css (the dark values are the prototype's) and re-read when
+// the theme changes, without rebuilding the scene. The light theme draws with normal blending: additive light vanishes on a light page.
 
 export type Hit = { src: string; tgt: string; kind: "wci" | "ddos" };   // a simulated hit, country names, for the footer feed
 
@@ -56,13 +59,31 @@ function dispose(o: Mesh | Points | Line) {
 }
 
 type Arc = { line: Line<BufferGeometry, LineBasicMaterial>; head: Points<BufferGeometry, PointsMaterial>; headAt: Float32Array; headPos: BufferAttribute;
-  pts: Float32Array; b: Vector3; col: number; t: number; dur: number; hit: boolean; ev: [Code, Code, Hit["kind"]] };
+  pts: Float32Array; b: Vector3; kind: Hit["kind"]; t: number; dur: number; hit: boolean; ev: [Code, Code, Hit["kind"]] };
 type Ripple = { m: Mesh<RingGeometry, MeshBasicMaterial>; t: number };
 
-type Props = { dim?: boolean; onHit?: (hit: Hit) => void };
+// The theme's globe colours, from the tokens on <html> (styles.css). Colours are "#rrggbb" or CSS rgb() with percentages, which three's Color reads.
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement), v = (name: string) => cs.getPropertyValue(name).trim();
+  const color = (name: string) => new Color().setStyle(v(name));
+  return {
+    core: color("--globe-core"), land: color("--globe-land"), landOpacity: parseFloat(v("--globe-land-opacity")), india: color("--globe-india"),
+    outline: color("--globe-outline"), rim: color("--globe-rim"), rimGain: parseFloat(v("--globe-rim-gain")),
+    blending: (v("--globe-blend") === "normal" ? NormalBlending : AdditiveBlending) as Blending,
+    arc: { wci: color("--arc-wci"), ddos: color("--arc-ddos") } as Record<Hit["kind"], Color>, arcOpacity: parseFloat(v("--arc-opacity")),
+    head: [v("--arc-head-core"), v("--arc-head-mid"), v("--arc-head-edge")],
+  };
+}
+type Palette = ReturnType<typeof readPalette>;
+function blend(m: Material, b: Blending) {
+  if (m.blending !== b) { m.blending = b; m.needsUpdate = true; }
+}
 
-export default function Globe({ dim = false, onHit }: Props) {
+type Props = { dim?: boolean; onHit?: (hit: Hit) => void; theme?: Theme };
+
+export default function Globe({ dim = false, onHit, theme }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
+  const repaint = useRef<(() => void) | null>(null);   // re-reads the palette; set while the scene exists
   const reduced = useReducedMotion() ?? false;   // read once at mount, like the prototype's RM
   const emitHit = useEffectEvent((hit: Hit) => onHit?.(hit));
 
@@ -86,28 +107,35 @@ export default function Globe({ dim = false, onHit }: Props) {
     const globe = new Group();
     scene.add(globe);
 
-    // dark core so back-side dots are hidden
-    globe.add(new Mesh(new SphereGeometry(R * 0.985, 64, 64), new MeshBasicMaterial({ color: 0x070A10 })));
-    // atmosphere rim
-    scene.add(new Mesh(new SphereGeometry(R * 1.12, 64, 64), new ShaderMaterial({
-      transparent: true, side: BackSide, depthWrite: false, blending: AdditiveBlending,
+    let pal: Palette = readPalette();
+    // core sphere (dark in the dark theme) so back-side dots are hidden
+    const coreMat = new MeshBasicMaterial({ color: pal.core });
+    globe.add(new Mesh(new SphereGeometry(R * 0.985, 64, 64), coreMat));
+    // atmosphere rim. Dark (uLight 0): exactly the prototype's vec4(1.0,0.25,0.25,1.0)*i*0.55, added. Light (uLight 1): the rim colour itself,
+    // blended normally with alpha i*gain, so it shows as a soft tint on a light page.
+    const rimMat = new ShaderMaterial({
+      transparent: true, side: BackSide, depthWrite: false, blending: pal.blending,
+      uniforms: { uColor: { value: pal.rim }, uGain: { value: pal.rimGain }, uLight: { value: pal.blending === NormalBlending ? 1 : 0 } },
       vertexShader: "varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
-      fragmentShader: "varying vec3 vN; void main(){ float i = pow(0.62 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(1.0,0.25,0.25,1.0)*i*0.55; }",
-    })));
+      fragmentShader: "uniform vec3 uColor; uniform float uGain; uniform float uLight; varying vec3 vN; void main(){ float i = pow(0.62 - dot(vN, vec3(0,0,1.0)), 3.0); gl_FragColor = vec4(uColor * mix(i * uGain, 1.0, uLight), i * uGain); }",
+    });
+    scene.add(new Mesh(new SphereGeometry(R * 1.12, 64, 64), rimMat));
 
     // land dots
     const pos = new Float32Array(LAND.length / 2 * 3);
     for (let i = 0; i < LAND.length; i += 2) { const v = vec(LAND[i], LAND[i + 1], R); pos.set([v.x, v.y, v.z], i / 2 * 3); }
     const g = new BufferGeometry(); g.setAttribute("position", new BufferAttribute(pos, 3));
-    globe.add(new Points(g, new PointsMaterial({ color: 0x5B6B85, size: 1.15, sizeAttenuation: true, transparent: true, opacity: .85 })));
+    const landMat = new PointsMaterial({ color: pal.land, size: 1.15, sizeAttenuation: true, transparent: true, opacity: pal.landOpacity });
+    globe.add(new Points(g, landMat));
     // India: dense dots inside India's official outline plus the outline itself
     const ip: number[] = [];
     for (let i = 0; i < INDIA.dots.length; i += 2) { const v = vec(INDIA.dots[i], INDIA.dots[i + 1], R * 1.002); ip.push(v.x, v.y, v.z); }
     const gi = new BufferGeometry(); gi.setAttribute("position", new BufferAttribute(new Float32Array(ip), 3));
-    globe.add(new Points(gi, new PointsMaterial({ color: 0xF4F7FB, size: 0.9, transparent: true, opacity: 1 })));
+    const indiaDotMat = new PointsMaterial({ color: pal.india, size: 0.9, transparent: true, opacity: 1 });
+    globe.add(new Points(gi, indiaDotMat));
     // highlighted outline: a sharp red line plus a softer copy just above it, both pulsing gently (see frame)
-    const indiaMats = [new LineBasicMaterial({ color: 0xFF4D4D, transparent: true, opacity: .95, blending: AdditiveBlending, depthWrite: false }),
-                       new LineBasicMaterial({ color: 0xFF4D4D, transparent: true, opacity: .35, blending: AdditiveBlending, depthWrite: false })];
+    const indiaMats = [new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .95, blending: pal.blending, depthWrite: false }),
+                       new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .35, blending: pal.blending, depthWrite: false })];
     for (const outline of INDIA.rings) {
       ([[1.004, 0], [1.012, 1]] as const).forEach(([lift, m]) => {
         const p: number[] = [];
@@ -123,17 +151,19 @@ export default function Globe({ dim = false, onHit }: Props) {
     globe.rotation.y = -Math.atan2(india.x, india.z);
     globe.rotation.x = -14 * Math.PI / 180;   // India sits high on the visible face, just below the input
 
-    // glowing head of an arc
-    const DOT = (() => {
-      const c = document.createElement("canvas"); c.width = c.height = 32;
-      const g2 = c.getContext("2d");
-      if (g2) {
-        const r = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
-        r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(.35, "rgba(255,140,140,.9)"); r.addColorStop(1, "rgba(255,59,59,0)");
-        g2.fillStyle = r; g2.fillRect(0, 0, 32, 32);
-      }
-      return new CanvasTexture(c);
-    })();
+    // glowing head of an arc: a radial gradient in the theme's three --arc-head-* colours, redrawn when the theme changes
+    const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 32;
+    const DOT = new CanvasTexture(dotCanvas);
+    function drawDot() {
+      const g2 = dotCanvas.getContext("2d");
+      if (!g2) return;
+      g2.clearRect(0, 0, 32, 32);
+      const r = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
+      r.addColorStop(0, pal.head[0]); r.addColorStop(.35, pal.head[1]); r.addColorStop(1, pal.head[2]);
+      g2.fillStyle = r; g2.fillRect(0, 0, 32, 32);
+      DOT.needsUpdate = true;
+    }
+    drawDot();
 
     const arcs: Arc[] = [], ripples: Ripple[] = [];
 
@@ -142,7 +172,7 @@ export default function Globe({ dim = false, onHit }: Props) {
       const src = pick(kind === "wci" ? WCI : CF_SRC);
       let tgt = pick(CF_TGT), guard = 0; while (tgt === src && guard++ < 8) tgt = pick(CF_TGT);
       if (tgt === src) return;
-      const a = spot(src), b = spot(tgt), col = kind === "wci" ? 0xFF3B3B : 0xFF8A3B;
+      const a = spot(src), b = spot(tgt);
       const ang = a.angleTo(b); if (ang < 0.25) return;
       const pts = new Float32Array(N * 3), h = R * (0.08 + 0.32 * ang / Math.PI);
       for (let i = 0; i < N; i++) {
@@ -151,22 +181,36 @@ export default function Globe({ dim = false, onHit }: Props) {
         p.multiplyScalar(R + h * Math.sin(Math.PI * t)); pts.set([p.x, p.y, p.z], i * 3);
       }
       const lg = new BufferGeometry(); lg.setAttribute("position", new BufferAttribute(pts, 3)); lg.setDrawRange(0, 0);
-      const line = new Line(lg, new LineBasicMaterial({ color: col, transparent: true, opacity: .9, blending: AdditiveBlending, depthWrite: false }));
+      const line = new Line(lg, new LineBasicMaterial({ color: pal.arc[kind], transparent: true, opacity: pal.arcOpacity, blending: pal.blending, depthWrite: false }));
       const headAt = new Float32Array(3), headPos = new BufferAttribute(headAt, 3), hg = new BufferGeometry(); hg.setAttribute("position", headPos);
-      const head = new Points(hg, new PointsMaterial({ map: DOT, size: 7, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+      const head = new Points(hg, new PointsMaterial({ map: DOT, size: 7, transparent: true, blending: pal.blending, depthWrite: false }));
       globe.add(line, head);
-      arcs.push({ line, head, headAt, headPos, pts, b, col, t: 0, dur: 1.4 + ang * 0.6, hit: false, ev: [src, tgt, kind] });
+      arcs.push({ line, head, headAt, headPos, pts, b, kind, t: 0, dur: 1.4 + ang * 0.6, hit: false, ev: [src, tgt, kind] });
     }
 
     // the expanding ring where an arc lands (the prototype's ring())
-    function ripple(at: Vector3, col = 0xFF3B3B) {
-      const m = new Mesh(new RingGeometry(0.9, 1.5, 40), new MeshBasicMaterial({ color: col, transparent: true, side: DoubleSide, blending: AdditiveBlending, depthWrite: false }));
+    function ripple(at: Vector3, kind: Hit["kind"]) {
+      const m = new Mesh(new RingGeometry(0.9, 1.5, 40), new MeshBasicMaterial({ color: pal.arc[kind], transparent: true, side: DoubleSide, blending: pal.blending, depthWrite: false }));
       // aimed before it joins the globe (as in the prototype), so lookAt works in the globe's own coordinates and the ring faces outwards
       const p = at.clone().multiplyScalar(R * 1.004); m.position.copy(p); m.lookAt(at.clone().multiplyScalar(R * 2));
       globe.add(m); ripples.push({ m, t: 0 });
     }
 
     let raf = 0, last = performance.now(), running = !document.hidden, dragging = false, vel = 0;
+
+    // a theme change: every colour and blending mode from the new tokens, arcs and ripples in flight included
+    function applyPalette() {
+      pal = readPalette();
+      coreMat.color.copy(pal.core);
+      rimMat.uniforms.uColor.value = pal.rim; rimMat.uniforms.uGain.value = pal.rimGain; rimMat.uniforms.uLight.value = pal.blending === NormalBlending ? 1 : 0;
+      blend(rimMat, pal.blending);
+      landMat.color.copy(pal.land); landMat.opacity = pal.landOpacity;
+      indiaDotMat.color.copy(pal.india);
+      for (const m of indiaMats) { m.color.copy(pal.outline); blend(m, pal.blending); }
+      drawDot();
+      for (const a of arcs) { a.line.material.color.copy(pal.arc[a.kind]); a.line.material.opacity = pal.arcOpacity; blend(a.line.material, pal.blending); blend(a.head.material, pal.blending); }
+      for (const r of ripples) blend(r.m.material, pal.blending);
+    }
 
     function frame(now: number) {
       raf = 0;
@@ -179,7 +223,7 @@ export default function Globe({ dim = false, onHit }: Props) {
         a.line.geometry.setDrawRange(Math.floor(tail), Math.max(0, Math.ceil(head - tail) + 1));
         const hi = Math.min(N - 1, Math.round(head)); a.headAt.set(a.pts.subarray(hi * 3, hi * 3 + 3)); a.headPos.needsUpdate = true;
         a.head.material.opacity = a.t < 1 ? 1 : 0;
-        if (a.t >= 1 && !a.hit) { a.hit = true; ripple(a.b, a.col); emitHit({ src: NAME[a.ev[0]], tgt: NAME[a.ev[1]], kind: a.ev[2] }); }
+        if (a.t >= 1 && !a.hit) { a.hit = true; ripple(a.b, a.kind); emitHit({ src: NAME[a.ev[0]], tgt: NAME[a.ev[1]], kind: a.ev[2] }); }
         if (tail >= N - 1) { globe.remove(a.line, a.head); dispose(a.line); dispose(a.head); arcs.splice(i, 1); }
       }
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -197,6 +241,7 @@ export default function Globe({ dim = false, onHit }: Props) {
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderer.render(scene, camera); });
     }
     const wake = reduced ? redraw : animate;
+    repaint.current = () => { applyPalette(); redraw(); };
 
     function resize() {
       const w = innerWidth, h = innerHeight;
@@ -241,6 +286,7 @@ export default function Globe({ dim = false, onHit }: Props) {
     wake();
 
     return () => {
+      repaint.current = null;
       clearInterval(spawner);
       cancelAnimationFrame(raf);
       removeEventListener("resize", resize);
@@ -256,6 +302,9 @@ export default function Globe({ dim = false, onHit }: Props) {
       canvas.remove();
     };
   }, [reduced]);
+
+  // the attribute on <html> has already changed (lib/theme.ts sets it before the state), so the tokens read here are the new theme's
+  useEffect(() => { repaint.current?.(); }, [theme]);
 
   return (
     <>

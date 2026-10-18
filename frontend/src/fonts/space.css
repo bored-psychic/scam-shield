@@ -1,3 +1,0 @@
-/* Display option 2: Space Grotesk, variable (weight axis, 300-700). Self-hosted from @fontsource-variable. */
-@import "@fontsource-variable/space-grotesk/index.css";
-:root { --display: "Space Grotesk Variable"; --display-track: -.03em; }

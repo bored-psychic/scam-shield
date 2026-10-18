@@ -42,25 +42,29 @@ adapter or the models, from the repo root with the project venv:
 
     .venv/bin/python frontend/scripts/dump_fixture.py
 
-## Fonts and the display-font choice (D24)
+## Fonts and themes (D24, D25)
 
-Body Geist, numbers Geist Mono, Hindi / Kannada Noto Sans Devanagari / Kannada (`src/fonts/indic.css`), headings behind ONE CSS
-variable, `--display`. The heading font is chosen when the app is built or started; only the chosen font is bundled:
+Headings Libre Baskerville (400 / 700, behind `--display`), body and UI Lexend (variable), codes and data Geist Mono, Hindi / Kannada
+Noto Sans Devanagari / Kannada (`src/fonts/indic.css`). All are npm `@fontsource` packages, self-hosted (no CDN).
 
-    DISPLAY_FONT=bricolage npm run dev     # default: Bricolage Grotesque (variable)
-    DISPLAY_FONT=space     npm run build   # Space Grotesk (variable)
-    DISPLAY_FONT=fraunces  npm run build   # Fraunces (variable)
+Two themes, dark (the default design) and light, from one set of colour tokens per theme in `src/styles.css`; nothing else names a colour
+(the globe reads its colours from the tokens). The sun / moon button in the header switches them (`src/lib/theme.ts`); the first visit
+follows the system setting, the choice is kept in `localStorage`, and an inline script in `index.html` sets the theme before the first paint.
 
-All fonts are npm `@fontsource` packages, self-hosted. Checks on the built site (`npm run build` first): `node e2e/fonts.mjs` (no font
-CDN, no third-party request, font KB per screen; `--shots DIR --label NAME` saves screenshots), `node e2e/contrast.mjs` (WCAG AA on the
-real rendered backgrounds), `node e2e/overlap.mjs` (layout).
+Checks on the built site (`npm run build` first):
+
+    node e2e/fonts.mjs      # no font CDN, no third-party request, font KB per screen (--shots DIR --label NAME saves screenshots)
+    node e2e/theme.mjs      # toggle, reload, system setting, no flash, blocked storage, reduced motion, the globe repaints
+    node e2e/axe.mjs        # axe-core colour contrast, both themes
+    node e2e/contrast.mjs   # WCAG AA on the real rendered backgrounds (glass over the globe), both themes
+    node e2e/overlap.mjs    # layout of the result screen, phones and desktop, both themes
 
 ## Rules this code keeps
 
 - **No third-party requests at runtime** (docs/ARCHITECTURE.md §1): three.js and the fonts come from npm and are bundled; the globe
   data is bundled JSON (`src/data/`, copied byte for byte from the prototype). The only outside URLs are links the user clicks.
 - **The message text is never logged**: no `console.*` calls; it goes only into the POST body. A screenshot goes only into the
-  body of `POST /api/ocr` (under a fixed part name, not its file name) and is never put in localStorage, sessionStorage or IndexedDB.
+  body of `POST /api/ocr` (under a fixed part name, not its file name) and is never put in localStorage, sessionStorage or IndexedDB. The only thing stored is the theme choice (`scam-shield-theme`).
 - **Everything shown comes from the `Report`**: `src/types/report.ts` mirrors `src/shield/contracts.py` (schema v5); an answer with
   another `schema_version` is shown as an error. No percentage anywhere (D4): the risk score (D24) is a 0-100 warning-sign meter, never written as a percentage.
 - **Globe**: pixel ratio capped at 1.75, paused while the tab is hidden, fully disposed on unmount; with reduced motion it is a static

@@ -10,6 +10,7 @@ import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
 import { analyse, CheckError, type Failure } from "./api";
 import { markLiveFailed, raisedByLive } from "./lib/facts";
+import { useTheme } from "./lib/theme";
 import type { Report } from "./types/report";
 
 type Screen = "home" | "checking" | "result" | "error";
@@ -28,6 +29,7 @@ export default function App() {
   const run = useRef(0), hitId = useRef(0);
   const input = useRef<HTMLTextAreaElement>(null);
   const reduced = useReducedMotion();
+  const [theme, toggleTheme] = useTheme();
 
   const onHit = useCallback((h: Hit) => {
     const id = ++hitId.current;
@@ -73,8 +75,8 @@ export default function App() {
 
   return (
     <>
-      <Globe dim={screen === "result"} onHit={onHit} />
-      <Header />
+      <Globe dim={screen === "result"} onHit={onHit} theme={theme} />
+      <Header theme={theme} onToggleTheme={toggleTheme} />
       <main>
         <div className={screen === "result" ? "col wide" : "col"}>
           {screen === "home" && (

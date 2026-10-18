@@ -1,9 +1,9 @@
-/* Hindi and Kannada message text (Geist has no Devanagari or Kannada glyphs): Noto Sans Devanagari and Noto Sans Kannada, regular weight, self-hosted
+/* Hindi and Kannada message text (Lexend, the body font, has no Devanagari or Kannada glyphs): Noto Sans Devanagari and Noto Sans Kannada, regular weight, self-hosted
    from @fontsource (only the script subset, woff2 only). @fontsource's own per-subset files (devanagari-400.css, kannada-400.css) carry NO
-   unicode-range, so a browser downloaded them for any glyph Geist lacks (the arrows and ticks the result screen draws, ✕ ○ ↓ ←) and an English page
+   unicode-range, so a browser downloaded them for any glyph the body font lacks (the arrows and ticks the result screen draws, ✕ ○ ↓ ←) and an English page
    paid 78 KB for nothing. These faces carry the script's own range, so they load only when the page really shows Devanagari or Kannada letters.
    The ranges are @fontsource's, minus the characters the scripts share with Latin text (ZWJ / ZWNJ, the rupee sign, the dotted circle): those take the
-   font of the letter beside them, and Geist has the rupee sign. */
+   font of the letter beside them, and Lexend has the rupee sign. */
 @font-face {
   font-family: "Noto Sans Devanagari"; font-style: normal; font-display: swap; font-weight: 400;
   src: url("../../node_modules/@fontsource/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-400-normal.woff2") format("woff2");

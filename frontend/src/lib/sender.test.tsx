@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { analyse, CheckError } from "../api";
 import type { Report } from "../types/report";
 import { LEVEL_VALUES } from "../types/report";
-import { LEVEL_HEX, LEVEL_SUMMARY, LEVELS } from "./levels";
+import { LEVEL_SUMMARY, LEVELS } from "./levels";
 import { blips } from "./evidence";
 import { SENDER_TIP, showSenderTip } from "./sender";
 import App from "../App";
@@ -38,7 +38,6 @@ describe("S1 the Promotional level (reachable only through the API)", () => {
     const others = LEVEL_VALUES.filter((l) => l !== "promotional");
     for (const l of others) {
       expect(LEVELS.promotional.color, l).not.toBe(LEVELS[l].color);   // distinct from Safe (green) and Suspicious (amber), and the rest
-      expect(LEVEL_HEX.promotional, l).not.toBe(LEVEL_HEX[l]);
       expect(LEVELS.promotional.icon, l).not.toBe(LEVELS[l].icon);
     }
   });

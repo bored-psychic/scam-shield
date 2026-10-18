@@ -19,7 +19,7 @@ export default function MessagePanel({ segs, truncated, pulse, onShow, onHide }:
   const marked = segs.flatMap((s) => (s.cluster ? [s.cluster] : []));
   return (
     <div className="box msg g-msg">
-      <span className="lab">Your message{marked.length > 0 && " · hover or tap the underlined parts"}</span>
+      <span className="lab">Your message{marked.length > 0 && <small> · hover or tap the underlined parts</small>}</span>
       <div className="mtext" data-scroll>
         {segs.map((s, i) => {
           const c = s.cluster;

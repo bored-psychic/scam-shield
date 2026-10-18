@@ -3,10 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
     <title>Scam Shield</title>
-    <!-- the page background before the stylesheet arrives, so there is no white flash -->
-    <style>html { background: #04060A; }</style>
+    <!-- The theme, before anything is painted (no flash of the wrong theme): the choice stored by the sun / moon button, else the system
+         setting, dark when the system has none. The same rule as resolveTheme() in src/lib/theme.ts; keep the two in step. Storage may be
+         blocked (the getter throws): then the system setting decides. -->
+    <script>
+      (function () {
+        var t = null;
+        try { t = window.localStorage.getItem("scam-shield-theme"); } catch (e) {}
+        if (t !== "light" && t !== "dark") t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      })();
+    </script>
+    <!-- the page background before the stylesheet arrives, so there is no flash: the two themes' --bg -->
+    <style>html { background-color: #04060A; } html[data-theme="light"] { background-color: #F3F3F1; }</style>
   </head>
   <body>
     <div id="root"></div>

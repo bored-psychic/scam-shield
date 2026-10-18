@@ -1,4 +1,6 @@
-// WCAG AA contrast of every visible text element on the home and Jio result screens (D24 typography).
+// WCAG AA contrast of every visible text element on the home and Jio result screens (D24 typography), in BOTH themes (2026-10-18; the theme
+// is picked through prefers-color-scheme, which the first visit follows). axe-core cannot judge text over the glass and the globe (e2e/axe.mjs
+// lists it as incomplete); this measures it on the rendered pixels.
 //
 //   cd frontend && npm run build && node e2e/contrast.mjs
 //
@@ -60,9 +62,10 @@ const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 let fails = 0, total = 0;
 try {
+  for (const theme of ["dark", "light"])
   for (const [w, h] of [[390, 844], [1440, 1150]])
     for (const screen of ["home", "result"]) {
-      const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce" });
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", colorScheme: theme });
       const page = await ctx.newPage();
       await page.route("**/api/analyse", (r) => r.fulfill({ json: jio.report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
@@ -71,7 +74,8 @@ try {
       const rows = await audit(page);
       const bad = rows.filter((r) => r.ratio < r.need);
       total += rows.length; fails += bad.length;
-      console.log(`${bad.length ? "FAIL" : "ok  "} ${w}px ${screen}: ${rows.length} text elements, lowest ${Math.min(...rows.map((r) => r.ratio))}:1`);
+      console.log(`${bad.length ? "FAIL" : "ok  "} ${theme.padEnd(5)} ${w}px ${screen}: ${rows.length} text elements, lowest ${Math.min(...rows.map((r) => r.ratio))}:1`);
+      if (process.env.CONTRAST_ALL) for (const r of [...rows].sort((a, b) => a.ratio / a.need - b.ratio / b.need).slice(0, 4)) console.log(`      lowest: ${r.ratio}:1 (needs ${r.need}) <${r.tag}> ${r.px}px "${r.text}"`);
       for (const r of bad) console.log(`      ${r.ratio}:1 (needs ${r.need}) <${r.tag}> ${r.px}px "${r.text}"`);
       await ctx.close();
     }

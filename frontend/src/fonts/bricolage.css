@@ -1,3 +1,0 @@
-/* Display option 1 (default): Bricolage Grotesque, variable (weight axis only, 200-800). Self-hosted from @fontsource-variable. */
-@import "@fontsource-variable/bricolage-grotesque/index.css";
-:root { --display: "Bricolage Grotesque Variable"; --display-track: -.035em; }
