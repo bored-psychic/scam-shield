@@ -38,7 +38,7 @@ const LIVE_VALUES = {
 function liveOf(report, raised) {
   const r = clone(report);
   r.pending = [];
-  if (raised) r.level = "likely_scam";
+  if (raised) { r.level = "likely_scam"; r.risk_score = Math.max(r.risk_score ?? 0, 70); r.lowered = null; }   // a live red flag ends the P1 lowering (D24)
   for (const c of r.children) {
     c.pending = [];
     if (!c.link) continue;

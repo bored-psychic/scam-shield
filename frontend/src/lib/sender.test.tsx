@@ -45,7 +45,7 @@ describe("S1 the Promotional level (reachable only through the API)", () => {
   test("the Jio promo with a P header is Promotional: the P reason first, no blips, its own advice", () => {
     const r = fx("jio-promotional").report;
     expect(r.level).toBe("promotional");
-    expect(r.schema_version).toBe("4");
+    expect(r.schema_version).toBe("5");
     expect(r.reasons[0]).toBe("Sent from a registered business ID (promotional)");
     expect(blips(r)).toEqual([]);
     expect(r.advice.join(" ")).toMatch(/expected/);

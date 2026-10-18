@@ -42,14 +42,27 @@ adapter or the models, from the repo root with the project venv:
 
     .venv/bin/python frontend/scripts/dump_fixture.py
 
+## Fonts and the display-font choice (D24)
+
+Body Geist, numbers Geist Mono, Hindi / Kannada Noto Sans Devanagari / Kannada (`src/fonts/indic.css`), headings behind ONE CSS
+variable, `--display`. The heading font is chosen when the app is built or started; only the chosen font is bundled:
+
+    DISPLAY_FONT=bricolage npm run dev     # default: Bricolage Grotesque (variable)
+    DISPLAY_FONT=space     npm run build   # Space Grotesk (variable)
+    DISPLAY_FONT=fraunces  npm run build   # Fraunces (variable)
+
+All fonts are npm `@fontsource` packages, self-hosted. Checks on the built site (`npm run build` first): `node e2e/fonts.mjs` (no font
+CDN, no third-party request, font KB per screen; `--shots DIR --label NAME` saves screenshots), `node e2e/contrast.mjs` (WCAG AA on the
+real rendered backgrounds), `node e2e/overlap.mjs` (layout).
+
 ## Rules this code keeps
 
 - **No third-party requests at runtime** (docs/ARCHITECTURE.md §1): three.js and the fonts come from npm and are bundled; the globe
   data is bundled JSON (`src/data/`, copied byte for byte from the prototype). The only outside URLs are links the user clicks.
 - **The message text is never logged**: no `console.*` calls; it goes only into the POST body. A screenshot goes only into the
   body of `POST /api/ocr` (under a fixed part name, not its file name) and is never put in localStorage, sessionStorage or IndexedDB.
-- **Everything shown comes from the `Report`**: `src/types/report.ts` mirrors `src/shield/contracts.py` (schema v2); an answer with
-  another `schema_version` is shown as an error. No percentage anywhere (D4).
+- **Everything shown comes from the `Report`**: `src/types/report.ts` mirrors `src/shield/contracts.py` (schema v5); an answer with
+  another `schema_version` is shown as an error. No percentage anywhere (D4): the risk score (D24) is a 0-100 warning-sign meter, never written as a percentage.
 - **Globe**: pixel ratio capped at 1.75, paused while the tab is hidden, fully disposed on unmount; with reduced motion it is a static
   globe (no rotation, arcs or pulse) that can still be dragged.
 

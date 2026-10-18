@@ -29,10 +29,10 @@ export const EFFECT_COLOR: Record<Effect, string> = {
 // The radar's colours as hex (the prototype's HEX by level and SEVHEX by effect): the sweep appends an alpha ("66") and the blips glow
 // in their own colour, which a var() cannot do. Same values as the tokens in styles.css.
 export const LEVEL_HEX: Record<Level, string> = {
-  no_warning_signs: "#3DD68C", suspicious: "#F2B13B", likely_scam: "#FF3B3B", cant_judge: "#7C8696", promotional: "#5AB0FF",
+  no_warning_signs: "#3DD68C", suspicious: "#F2B13B", likely_scam: "#FF3B3B", cant_judge: "#98A2B3", promotional: "#5AB0FF",
 };
 export const EFFECT_HEX: Record<Effect, string> = {
-  danger: "#FF3B3B", caution: "#F2B13B", neutral: "#7C8696", reassuring: "#3DD68C", unknown: "#7C8696",
+  danger: "#FF3B3B", caution: "#F2B13B", neutral: "#98A2B3", reassuring: "#3DD68C", unknown: "#98A2B3",
 };
 
 // A shape per effect, so colour is never the only signal (link checks, tooltip lines).

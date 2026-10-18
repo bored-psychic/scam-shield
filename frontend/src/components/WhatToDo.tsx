@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Level } from "../types/report";
 
 const HELPLINE = "1930";   // the national cyber-fraud helpline
@@ -12,12 +12,11 @@ function NoBreakIds({ text }: { text: string }) {
   return <>{parts.map((p, i) => (i % 2 ? <span key={i} className="nobr">{p}</span> : p))}</>;
 }
 
-/* What to do now: Report.advice as steps to tick off (in memory only, gone with the result), as the backend wrote them. On a warning
+/* What to do now: Report.advice as a numbered list, as the backend wrote it, in its order (D24: the tick boxes are gone; nothing here has state but the
+   copy button). The numbers are drawn by CSS counters on a real <ol>, so assistive tech still reads a list of N steps. On a warning
    verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected.
    tip: the "check who sent it" line (lib/sender.ts, D22), shown as a note rather than a step. */
 export default function WhatToDo({ advice, level, tip }: Props) {
-  const uid = useId();
-  const [done, setDone] = useState<boolean[]>(() => advice.map(() => false));
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
   const num = useRef<HTMLSpanElement>(null);
   const warn = level === "likely_scam" || level === "suspicious";
@@ -47,12 +46,9 @@ export default function WhatToDo({ advice, level, tip }: Props) {
   return (
     <div className="box todo g-todo">
       <span className="sect" style={{ margin: 0 }}>What to do now</span>
-      {advice.map((a, i) => (
-        <label key={i} htmlFor={`${uid}${i}`}>
-          <input id={`${uid}${i}`} type="checkbox" checked={done[i]} onChange={(e) => setDone((d) => d.map((v, j) => (j === i ? e.target.checked : v)))} />
-          <span>{a}</span>
-        </label>
-      ))}
+      <ol className="steplist" role="list">
+        {advice.map((a, i) => <li key={i}>{a}</li>)}
+      </ol>
       {tip && <p className="sendertip"><b>Tip</b><NoBreakIds text={tip} /></p>}
       {warn && (
         <div className="helpline">

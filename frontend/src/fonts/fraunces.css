@@ -1,0 +1,3 @@
+/* Display option 3: Fraunces, variable (weight axis, 100-900). Self-hosted from @fontsource-variable. A serif: its tracking is looser than the grotesques'. */
+@import "@fontsource-variable/fraunces/index.css";
+:root { --display: "Fraunces Variable"; --display-track: -.02em; }

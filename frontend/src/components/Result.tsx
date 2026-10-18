@@ -33,7 +33,8 @@ function inView(el: HTMLElement) {
    what to do now. On a wide screen there are two columns, each panel as tall as its content (verdict, why | message, links, what to do);
    on phones one column in the order verdict, message, why, links, what to do. The two arrangements are two different DOM orders, not a
    CSS reordering, so the tab order always follows what is on screen. Everything shown comes from the Report; the one line under the
-   verdict is fixed per level (lib/levels.ts). No score, threshold or timing is shown (D4). */
+   verdict is fixed per level (lib/levels.ts). The 0-100 risk score (D24) is shown as a warning-sign meter, never as a percentage; the model's own
+   score, its thresholds and timings are not shown (D4). */
 export default function Result({ report, text, onAgain, raised = false, onExpand, expanding = null, expandFailed = null }: Props) {
   const reduced = useReducedMotion();
   const twoColumns = useMedia("(min-width: 901px)");   // the same breakpoint as the stylesheet's
@@ -78,7 +79,8 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
 
   const hasLinks = report.children.length > 0;
   const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading}
-                                note={raised ? "Raised after the website checks." : null} />;
+                                note={raised ? "Raised after the website checks." : null}
+                                score={report.risk_score} lowered={report.lowered?.text ?? null} />;
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
   const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;

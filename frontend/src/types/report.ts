@@ -1,7 +1,8 @@
-// The Report contract, schema v3: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
+// The Report contract, schema v5: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
 // exactly; the API sends every field (pydantic model_dump), so none are optional here. Change both files together and bump the version.
 // v3 (D22): Report.sender and the level "promotional". v4 (D23): Report.link, a link's "Website details" (LinkInfo + Fact rows).
-export const SCHEMA_VERSION = "4";
+// v5 (D24): Report.risk_score (the 0-100 warning-sign meter) and Report.lowered (a P1 link signal lowered the verdict).
+export const SCHEMA_VERSION = "5";
 
 export type Level = "likely_scam" | "suspicious" | "no_warning_signs" | "cant_judge" | "promotional";
 export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_warning_signs", "cant_judge", "promotional"];
@@ -69,8 +70,15 @@ export interface LinkInfo {
   sent: string[];          // every live call made for this link
 }
 
+/** D24: a P1 link signal (a verified .brand ending or a .bank.in address) lowered the verdict. `text` is the whole calm sentence, written by the backend:
+ *  "Lowered from Likely scam: the link belongs to Jio (only Reliance can register .jio addresses)." Set only when the level really fell. */
+export interface Lowered {
+  from_level: "likely_scam";
+  text: string;
+}
+
 export interface Report {
-  schema_version: "4";
+  schema_version: "5";
   module: Module;
   level: Level;
   score: number | null;    // never shown as a percentage (D4)
@@ -82,5 +90,9 @@ export interface Report {
   children: Report[];
   pending: string[];       // ids of live checks still running (message: "links"; link: "registration", "dns", "sb")
   link: LinkInfo | null;   // D23: on a link's child Report; null on the message Report
+  /** D24: 0-100 warning-sign meter, always inside the band of `level` (No warning signs / Promotional 0-29, Suspicious 30-69, Likely scam 70-100).
+   *  null for Can't judge and on a child Report. A meter, NOT a probability: the model is not calibrated. */
+  risk_score: number | null;
+  lowered: Lowered | null;   // D24
   meta: Meta;
 }

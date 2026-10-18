@@ -29,18 +29,25 @@
 @layer base {
   /* Design tokens (docs/design/README.md). Single dark theme. */
   :root {
-    --bg: #04060A; --ink: #EDF1F7; --muted: #8A94A6; --faint: #4A5363; --line: rgba(255,255,255,.10); --glass: rgba(14,18,26,.62);
-    --red: #FF3B3B; --amber: #F2B13B; --green: #3DD68C; --grey: #7C8696; --accent: #FF4D4D;
+    --bg: #04060A; --ink: #EDF1F7; --muted: #9AA5B8; --faint: #8590A3; --line: rgba(255,255,255,.10); --glass: rgba(14,18,26,.62);
+    --red: #FF3B3B; --amber: #F2B13B; --green: #3DD68C; --grey: #98A2B3; --accent: #FF4D4D;
     --orange: #FF8A3B;   /* DDoS-source arcs (a literal in the prototype) */
     --blue: #5AB0FF;     /* new (D22): the Promotional verdict, a calm colour that is neither the green of "no warning signs" nor the amber of "suspicious" */
     /* Fonts are bundled from @fontsource/geist and @fontsource/geist-mono (main.tsx): the same Google Fonts builds the prototype
        loaded. Not @fontsource/geist-sans: that is Vercel's build, ~2.5% wider, and it wraps the headline onto two lines. */
-    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --sans: "Geist", "Noto Sans Devanagari", "Noto Sans Kannada", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+    /* D24 typography. --display is the ONE heading-font variable: src/fonts/<choice>.css sets it (vite.config.ts DISPLAY_FONT); until one does it is
+       Geist. Use it as font-family: var(--display), var(--sans). --faint is #8590A3 (was #4A5363, 2.6:1 on the stage), --muted #9AA5B8 (was #8A94A6) and --grey #98A2B3 (was #7C8696) are lighter, and panels are tinted darker (.box background-color), so
+       text passes WCAG AA over the globe (e2e/contrast.mjs measures it).
+       Hindi / Kannada characters are not in Geist, so the browser falls through --sans to the Noto faces per character. */
+    --display: "Geist"; --display-track: -.035em;
+    --fs-body: 16px; --fs-small: 14px; --fs-label: 12px;
+    --fs-hero: clamp(34px, 7.4vw, 62px); --fs-verdict: 46px; --fs-score: 58px;
     color-scheme: dark;
   }
   html, body { height: 100%; }
-  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; overflow-x: hidden; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: var(--fs-body); line-height: 1.55; overflow-x: hidden; }
   #root { display: contents; }   /* new: React's mount point adds no box, so the page lays out exactly like the prototype's <body> */
 }
 
@@ -55,7 +62,7 @@
 
   header { position: relative; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 12px;
     padding-inline: 20px; padding-block: 18px; }
-  .mark { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.01em; }
+  .mark { display: flex; align-items: center; gap: 10px; font: 700 18px var(--display), var(--sans); letter-spacing: -.01em; }
   .mark svg { width: 22px; height: 22px; }
   .local { font: 500 11.5px var(--mono); color: var(--muted); display: flex; align-items: center; gap: 8px;
     border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; background: rgba(10,13,19,.5); }
@@ -65,9 +72,9 @@
   .col { pointer-events: auto; width: 100%; max-width: 660px; display: grid; gap: 18px; }
 
   .hero { display: grid; gap: 18px; transition: opacity .35s ease, transform .35s ease; }
-  h1 { margin: 0; text-align: center; font-size: clamp(30px, 6vw, 50px); line-height: 1.04; letter-spacing: -.035em; font-weight: 600; text-wrap: balance; text-shadow: 0 2px 28px #04060A, 0 0 2px #04060A; }
+  h1 { margin: 0; text-align: center; font-family: var(--display), var(--sans); font-size: var(--fs-hero); line-height: 1.02; letter-spacing: var(--display-track); font-weight: 700; text-wrap: balance; text-shadow: 0 2px 28px #04060A, 0 0 2px #04060A; }
   h1 em { font-style: normal; color: var(--accent); }
-  .sub { text-shadow: 0 1px 16px #04060A; margin: -6px 0 6px; text-align: center; color: var(--muted); line-height: 1.5; text-wrap: balance; }
+  .sub { text-shadow: 0 1px 16px #04060A; margin: -6px 0 6px; text-align: center; color: #C3CBD8; font-size: 17px; line-height: 1.55; text-wrap: balance; }
 
   .box { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05); transition: border-color .25s, box-shadow .25s; }
@@ -79,7 +86,7 @@
   .found { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; }
   .found .hint { font: 500 11.5px var(--mono); color: var(--faint); }
   /* new: the quiet length counter (shown past 18,000 of the API's 20,000 characters), right next to the Check button */
-  .count { font: 500 11.5px var(--mono); color: var(--faint); margin-left: auto; }
+  .count { font: 500 12px var(--mono); color: var(--faint); margin-left: auto; font-variant-numeric: tabular-nums; }
   .count.full { color: var(--muted); }
   .fchip { font: 500 11.5px var(--mono); color: var(--ink); border: 1px solid var(--line); background: rgba(255,255,255,.04); border-radius: 999px;
     padding: 4px 9px; display: inline-flex; gap: 6px; align-items: center; animation: pop .25s ease both; }
@@ -95,13 +102,13 @@
 
   .ex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .ex span { font: 500 11.5px var(--mono); color: var(--faint); align-self: center; margin-right: 2px; }
-  .ex button { font: 500 13px var(--sans); color: var(--muted); background: rgba(10,13,19,.55); border: 1px solid var(--line); border-radius: 999px;
+  .ex button { font: 500 14px var(--sans); color: var(--muted); background: rgba(10,13,19,.55); border: 1px solid var(--line); border-radius: 999px;
     padding: 7px 12px; cursor: pointer; transition: color .2s, border-color .2s, transform .15s; }
   .ex button:hover { color: var(--ink); border-color: rgba(255,255,255,.25); transform: translateY(-1px); }
 
   /* checking (rendered only on the checking screen, so no display toggle) */
   .steps { display: grid; gap: 10px; padding: 18px; }
-  .step { display: flex; align-items: center; gap: 10px; font: 500 14px var(--sans); color: var(--faint); transition: color .25s; }
+  .step { display: flex; align-items: center; gap: 10px; font: 500 15px var(--sans); color: var(--faint); transition: color .25s; }
   .step i { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--faint); display: grid; place-items: center; font-style: normal; font-size: 11px; transition: all .25s; }
   .step.on { color: var(--ink); } .step.on i { border-color: var(--ink); animation: spin 1s linear infinite; border-top-color: transparent; }
   .step.done { color: var(--muted); } .step.done i { border-color: var(--green); background: var(--green); color: #04060A; animation: none; }
@@ -109,17 +116,17 @@
 
   /* result. The prototype's bar meter and gauge rules are not ported: the radar (8b) was chosen. */
   .result { display: grid; gap: 14px; }
-  .verdict { padding: 18px 18px 16px; display: grid; gap: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+  .verdict { padding: 18px 18px 16px; display: grid; gap: 16px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .vtop { display: flex; align-items: center; gap: 12px; }
   .vicon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; }
   .vicon svg { width: 22px; height: 22px; }
-  .vword { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+  .vword { font-family: var(--display), var(--sans); font-size: 30px; font-weight: 800; letter-spacing: var(--display-track); line-height: 1.05; text-wrap: balance; }
   .vword { margin: 0; } .vword:focus { outline: none; }   /* new: the verdict word is an <h2> that takes focus when the result opens */
-  .vline { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .vline { color: var(--muted); font-size: var(--fs-body); line-height: 1.45; margin-top: 4px; }
 
   .msg { padding: 16px 18px; line-height: 1.7; font-size: 15.5px; animation: rise .45s .08s cubic-bezier(.2,.7,.2,1) both; }
-  .msg .lab, .sect { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; display: block; }
+  .msg .lab, .sect { font: 500 var(--fs-label) var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
   mark { color: inherit; background: transparent; border-radius: 4px; padding: 1px 2px; cursor: help; position: relative;
     text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; transition: background .2s; }
   mark.danger { text-decoration-color: var(--red); } mark.danger:hover, mark.danger.pulse { background: rgba(255,59,59,.18); }
@@ -142,11 +149,11 @@
   .tip .tl i, .checks i { font-style: normal; flex: none; width: 1em; text-align: center; }
 
   .reasons { display: grid; gap: 8px; }
-  .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 14.5px/1.45 var(--sans);
+  .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 var(--fs-body)/1.5 var(--sans);
     background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; transition: border-color .2s, transform .15s; }
   .reason:hover { border-color: rgba(255,255,255,.22); transform: translateX(2px); }
   .reason .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; }
-  .reason small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .reason small { display: block; color: var(--muted); font-size: var(--fs-small); margin-top: 2px; }
   .reason.nospan { cursor: default; }   /* new: a reason with nothing to point at in the message (e.g. the wording model's) */
 
   .link { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .2s cubic-bezier(.2,.7,.2,1) both; }
@@ -157,17 +164,19 @@
   .url i { font-style: normal; color: var(--faint); margin: 0 1px; } .url b i { color: var(--muted); }
   .url.disguised { font: 500 14px var(--sans); color: var(--ink); }
   .lblock { display: grid; gap: 6px; } .lblock + .lblock { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
-  .checks { display: grid; gap: 6px; font-size: 13.5px; color: var(--muted); }
+  .checks { display: grid; gap: 6px; font-size: 14.5px; color: var(--muted); }
   .checks div { display: flex; gap: 8px; }
   .todo { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .28s cubic-bezier(.2,.7,.2,1) both; }
-  .todo label { display: flex; gap: 10px; align-items: center; cursor: pointer; font-size: 14.5px; }
-  .todo input { accent-color: var(--green); width: 16px; height: 16px; }
-  .todo label:has(input:checked) span { color: var(--faint); text-decoration: line-through; }
+  /* D24: What to do now is a numbered list (the tick boxes are gone). A real <ol>; the numbers are CSS counters. */
+  .steplist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
+  .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
+  .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
+    font-variant-numeric: tabular-nums; color: var(--ink); background: rgba(255,255,255,.07); border: 1px solid var(--line); }
   .helpline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: rgba(255,255,255,.25); }
-  .note { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
 
   footer { position: fixed; z-index: 3; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
     padding-inline: 20px; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); font: 500 11px var(--mono); color: var(--faint); pointer-events: none; }
@@ -211,7 +220,7 @@
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   }
-  .box { border-radius: 26px; }
+  .box { border-radius: 26px; background-color: rgba(8,11,17,.42); }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
   .reason { border-radius: 22px; }
   .box:focus-within { box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 40px rgba(0,0,0,.45), 0 0 0 4px rgba(255,59,59,.12); }
   .reason:hover, .ex button:hover, .ghost:hover { background-color: rgba(20,26,38,.28); border-color: rgba(255,255,255,.08); }
@@ -244,7 +253,7 @@
   .sline i.warn { border-color: var(--amber); color: var(--amber); }
   .sline i.bad { border-color: var(--red); color: var(--red); }
   @keyframes breathe { 50% { opacity: .35; } }
-  .shotmsg { margin: 0; font: 400 14px/1.45 var(--sans); color: var(--ink); overflow-wrap: anywhere; }
+  .shotmsg { margin: 0; font: 400 15px/1.45 var(--sans); color: var(--ink); overflow-wrap: anywhere; }
   .shot.reading .shotmsg { font-weight: 500; }
   .sacts { display: flex; gap: 8px; margin-left: auto; }
   .acts { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -263,7 +272,7 @@
   /* new (D22): the "check who sent it" tip in What to do. Sender IDs in it never break at their hyphens (.nobr). The sender input, its hint,
      the TRAI explainer and the sender chip under the verdict were removed on 2026-10-18 (product decision), with their styles. */
   .nobr { white-space: nowrap; }
-  .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 13.5px/1.5 var(--sans); color: var(--muted);
+  .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 14.5px/1.5 var(--sans); color: var(--muted);
     background: rgba(90,176,255,.06); border: 1px solid rgba(90,176,255,.2); }
   .sendertip b { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
 
@@ -273,7 +282,7 @@
      inside its panel (.mtext). The breakpoint is the same 901px as useMedia("(min-width: 901px)") in Result.tsx. */
   .col.wide { max-width: 1180px; align-self: start; }   /* the prototype's body.checked .col; new: top-aligned, so a short result is not centred lower than a long one */
   .rtop { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
-  .rmeta { font: 500 11.5px var(--mono); color: var(--muted); }
+  .rmeta { font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .bento { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
   .bento > * { min-width: 0; }
   .bcol { display: grid; gap: 14px; align-content: start; }
@@ -293,14 +302,14 @@
   .g-why .reason:hover { background-color: rgba(255,255,255,.05); transform: none; }
   .g-why .reason.nospan:hover { background-color: transparent; }   /* new */
   .g-why > .note { margin: 0 4px 4px; }   /* new: the no-reasons line */
-  .g-verdict .vword { font-size: 36px; letter-spacing: -.03em; }
+  .g-verdict .vword { font-size: var(--fs-verdict); }
   .g-verdict .vicon { width: 52px; height: 52px; border-radius: 16px; }
   .g-verdict .vicon svg { width: 28px; height: 28px; }
   /* new: the verdict word takes focus when the result opens (for screen readers); that is not the user focusing the panel, so no ring */
   .g-verdict:has(.vword:focus) { border-color: rgba(255,255,255,.03); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03), 0 12px 40px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2); }
   @media (max-width: 900px) {
     .g-msg { font-size: 16px; padding: 16px 18px; }
-    .g-verdict .vword { font-size: 28px; }
+    .g-verdict .vword { font-size: 36px; }
   }
 
   /* radar meter (option 8b): one labelled blip per warning sign; calm green sweep with no blips when nothing was found */
@@ -354,7 +363,7 @@
   .facts summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .facts[open] summary { margin-bottom: 6px; }
   .facts dl { display: grid; gap: 7px; margin: 0; }
-  .frow { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 10px; font-size: 13.5px; }
+  .frow { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 10px; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
   .frow dt { color: var(--muted); }
   .frow dd { margin: 0; min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
   .fval { display: flex; gap: 8px; }
@@ -367,7 +376,7 @@
   .expand .ghost { justify-self: start; }
   .expand .ghost:disabled { opacity: .7; cursor: progress; }
   .facts .sent { margin-top: 8px; font-size: 12px; overflow-wrap: anywhere; }
-  .vraised { margin-top: 4px; font: 500 12.5px var(--sans); color: var(--amber); }
+  .vraised { margin-top: 6px; font: 500 14px var(--sans); color: var(--amber); }
   @media (max-width: 560px) {
     .frow { grid-template-columns: 1fr; gap: 1px; }
     .frow dt { font-size: 12.5px; }
@@ -375,4 +384,32 @@
   @media (prefers-reduced-motion: reduce) {
     .frow.pending .fval span { animation: none; }
   }
+}
+
+/* D24: the verdict's "Lowered from..." line and the risk score. The line is calm (grey, no warning colour); the score's number is Geist Mono with
+   tabular figures in the verdict's colour; the bar runs green > amber > red with the two band edges (30, 70) drawn as ticks and written under it. */
+@layer components {
+  .vlowered { margin: 0; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; font: 400 15px/1.45 var(--sans);
+    color: #C9D1DE; background: rgba(124,134,150,.10); border: 1px solid rgba(124,134,150,.30); }
+  .vlowered i { font-style: normal; flex: none; width: 1.2em; text-align: center; font-weight: 600; color: var(--ink); }
+  .score { display: grid; gap: 6px; }
+  .sline2 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .sline2 .sect { margin: 0; }
+  .snum { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+  .snum b { font: 600 var(--fs-score)/1 var(--mono); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .snum span { font: 500 18px var(--mono); color: var(--muted); }
+  .meter { position: relative; height: 14px; margin-block: 10px 2px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--green) 0%, var(--green) 22%, var(--amber) 36%, var(--amber) 64%, var(--red) 78%, var(--red) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 0 18px rgba(0,0,0,.35); }
+  .meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); opacity: .8; }
+  .meter .knob { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--bg);
+    border: 3px solid var(--ink); box-shadow: 0 2px 10px rgba(0,0,0,.6); animation: knobin .9s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes knobin { from { left: 0; } }
+  .mscale { position: relative; height: 16px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mscale span { position: absolute; top: 0; transform: translateX(-50%); }
+  .mscale span:first-child { transform: none; } .mscale span:last-child { transform: translateX(-100%); }
+  .mzones { display: flex; font: 500 13px/1.25 var(--sans); color: var(--muted); }
+  .mzones span { box-sizing: border-box; padding-inline: 3px; text-align: center; text-wrap: balance; }
+  .mnote { margin: 4px 0 0; font: 400 var(--fs-small)/1.45 var(--sans); color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .meter .knob { animation: none; } }
 }
