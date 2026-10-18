@@ -12,3 +12,6 @@ frontend/node_modules/
 frontend/dist/
 # data/ above matches every directory named data; the frontend's bundled globe data is source code, keep it tracked
 !frontend/src/data/
+
+# Claude Code local settings (per machine)
+.claude/settings.local.json
