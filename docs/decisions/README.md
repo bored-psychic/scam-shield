@@ -139,6 +139,8 @@ Password rule on val: requests found on benign rows 9 → 10, on scam rows 0 →
 
 How the patterns were set: written from the user's cue list; then the SMS-length scams that a P header would still soften were read (val only). That reading showed cut-off and legal wordings the first version missed: "is being blocked", "has been blocked ... update your PAN", "put on hold", "will result in account suspension", "to avoid legal consequences", "VIP task". They were added as wordings, not row copies, and re-measured. This is tuning on val; the final test set stays untouched.
 
+Hard-risk cue phrases were tuned on val (dev) SMS scams that slipped through, so the val softening numbers (1,001→901 overall, 137→63 india_fraud_final) are optimistic; the true rate on unseen messages will be higher. Test split untouched.
+
 What the 901 still softenable are:
 - 594 `phishing_email` rows: English spam emails (pharma, adult, loans, 419 letters). They never arrive with a DLT header.
 - 70 `scam_ham_india` rows, almost all genuine brand promotions labelled scam (JioMart, Airtel, Vi, Shoppers Stop). These are D5b's `promo_gray`, relabel pending, so a P header softening them is right.
