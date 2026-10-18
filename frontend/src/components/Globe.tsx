@@ -1,11 +1,12 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import {
-  AdditiveBlending, BackSide, type Blending, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, DoubleSide, Group, Line,
+  AdditiveBlending, AlwaysStencilFunc, BackSide, type Blending, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, DoubleSide, EqualStencilFunc, Group, InvertStencilOp, Line,
   LineBasicMaterial, LineLoop, LinearSRGBColorSpace, type Material, Mesh, MeshBasicMaterial, NormalBlending, PerspectiveCamera, Points,
   PointsMaterial, RingGeometry, Scene, ShaderMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer,
 } from "three";
 import type { Theme } from "../lib/theme";
+import type { Pt, Side } from "../lib/themeSwitch";
 import LAND from "../data/land.json";     // land dots, flat [lat, lon, lat, lon, ...]
 import INDIA from "../data/india.json";   // India's official outline (Natural Earth, India point of view): { rings, dots }
 
@@ -19,6 +20,7 @@ import INDIA from "../data/india.json";   // India's official outline (Natural E
 //   shaded (light, docs/design/light-landing.html): a sphere darkening to its edge with a darker band on the top rim (a shader on the core), a
 //   red glow measured in screen space like the reference's 2D gradient, evenly spaced round land dots (a golden-angle spiral kept on land) and
 //   India's own dots in red only, with no land dot inside India's outline and no outline lines. Same camera, size, spin, drag, arcs and ripples.
+// The theme switch (lib/themeSwitch.ts) shows the globe live in both themes at once, each on its side of the switch's edge: see above Globe().
 
 export type Hit = { src: string; tgt: string; kind: "wci" | "ddos" };   // a simulated hit, country names, for the footer feed
 
@@ -130,44 +132,58 @@ function dispose(o: Mesh | Points | Line) {
   (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
 }
 
-type Arc = { line: Line<BufferGeometry, LineBasicMaterial>; head: Points<BufferGeometry, PointsMaterial>; headAt: Float32Array; headPos: BufferAttribute;
+type Arc = { id: number; line: Line<BufferGeometry, LineBasicMaterial>; head: Points<BufferGeometry, PointsMaterial>; headAt: Float32Array; headPos: BufferAttribute;
   pts: Float32Array; b: Vector3; kind: Hit["kind"]; t: number; dur: number; hit: boolean; ev: [Code, Code, Hit["kind"]] };
-type Ripple = { m: Mesh<RingGeometry, MeshBasicMaterial>; t: number };
+type Ripple = { m: Mesh<RingGeometry, MeshBasicMaterial>; t: number; kind: Hit["kind"] };
 
 // The theme's globe colours, from the tokens on <html> (styles.css). Colours are "#rrggbb" or CSS rgb() with percentages, which three's Color reads.
 function readPalette() {
   const cs = getComputedStyle(document.documentElement), v = (name: string) => cs.getPropertyValue(name).trim();
-  const color = (name: string) => new Color().setStyle(v(name));
+  const color = (name: string) => new Color().setStyle(v(name)), shaded = v("--globe-style") === "shaded";
   return {
     core: color("--globe-core"), land: color("--globe-land"), landOpacity: parseFloat(v("--globe-land-opacity")), india: color("--globe-india"),
     outline: color("--globe-outline"), rim: color("--globe-rim"), rimGain: parseFloat(v("--globe-rim-gain")),
     blending: (v("--globe-blend") === "normal" ? NormalBlending : AdditiveBlending) as Blending,
-    shaded: v("--globe-style") === "shaded", outlineShow: v("--globe-outline-show") !== "0",
-    // the shaded style's own tokens (only the light theme defines them)
-    sphere: ["0", "1", "2", "3"].map((k) => v(`--globe-sphere-${k}`)), shade: v("--globe-shade"), shadeAlpha: parseFloat(v("--globe-shade-alpha")) || 0,
+    shaded, outlineShow: v("--globe-outline-show") !== "0",
+    // the shaded style's own tokens (only the light theme defines them), parsed here once: the theme switch uses a palette twice a frame
+    sphere: shaded ? ["0", "1", "2", "3"].map((k) => color(`--globe-sphere-${k}`)) : [], shade: shaded ? color("--globe-shade") : new Color(),
+    shadeAlpha: parseFloat(v("--globe-shade-alpha")) || 0,
     rimMid: parseFloat(v("--globe-rim-mid")) || 0, rimReach: parseFloat(v("--globe-rim-reach")) || 1,
     arc: { wci: color("--arc-wci"), ddos: color("--arc-ddos") } as Record<Hit["kind"], Color>, arcOpacity: parseFloat(v("--arc-opacity")),
     head: [v("--arc-head-core"), v("--arc-head-mid"), v("--arc-head-edge")],
   };
 }
 type Palette = ReturnType<typeof readPalette>;
+type Look = { pal: Palette; dot: CanvasTexture };   // a theme's palette and its arc-head sprite
+// Blending is GL state that three reads at every draw; only an opaque material's shader depends on it (three's "opaque" program parameter), and
+// needsUpdate would make three look the shader up again. The theme switch changes the blending twice a frame, so it is set without it here.
 function blend(m: Material, b: Blending) {
-  if (m.blending !== b) { m.blending = b; m.needsUpdate = true; }
+  if (m.blending !== b) { m.blending = b; if (!m.transparent) m.needsUpdate = true; }
 }
 
 type Props = { dim?: boolean; onHit?: (hit: Hit) => void; theme?: Theme };
 
-// The theme switch (lib/themeSwitch.ts) talks to the mounted globe through these three; with no globe (no WebGL) they return null / do nothing.
-// The switch animates snapshots of the page (View Transitions), so the globe holds still while it runs, as the prototype's globe does
-// (docs/design/theme-switch.html): the old and the new snapshot then show it at the same angle, and it changes along exactly the same edge as the page.
+// The theme switch (lib/themeSwitch.ts) talks to the mounted globe through these; with no globe (no WebGL) they return null / do nothing.
+// The switch clips snapshots of the page (View Transitions) along a moving edge. The globe is not in those snapshots: its stage has a group of
+// its own whose live view shows in both themes, and while the switch runs the globe draws itself twice a frame through a stencil cut from the
+// page's clip polygon, the old theme's look on one side and the new theme's on the other. So it keeps turning (and can be dragged) and still
+// changes along exactly the page's edge. The switch draws those frames itself (clipGlobe), so the globe and the page use the same polygon in
+// the same frame. No arc starts during a switch; the ones in flight hurry (1.5 x) and land as usual.
 export type GlobeCircle = { cx: number; cy: number; r: number };   // CSS px from the top left of the screen
-let link: { circle: () => GlobeCircle; hold: (on: boolean) => void; repaint: () => void } | null = null;
+let link: { circle: () => GlobeCircle; begin: (newInside: boolean) => void; retheme: () => void; clip: (now: number, pts: Pt[], side: Side) => void; end: () => void } | null = null;
 /** The globe's circle on screen (centre and radius), from its camera. */
 export const globeCircle = (): GlobeCircle | null => link?.circle() ?? null;
-/** Stops (true) or restarts (false) the spin, the arcs and new arcs. */
-export const holdGlobe = (on: boolean) => link?.hold(on);
-/** Re-reads the theme's tokens and draws one frame now (the switch calls it right after the theme changes, before the new page is snapshotted). */
-export const repaintGlobe = () => link?.repaint();
+/** A switch begins, before the old page is snapshotted: the globe keeps the old theme's look, starts no new arcs and speeds up the ones in
+    flight. newInside: the new theme is the one inside the clip polygon (the comet), else the old one is (the black hole). */
+export const beginGlobeSwitch = (newInside: boolean) => link?.begin(newInside);
+/** The theme has changed (in the switch's callback): reads the new theme's look. */
+export const rethemeGlobe = () => link?.retheme();
+/** One frame of the switch at `now` (performance.now()): moves the globe on and draws it, the inside theme within `pts` (the page's clip polygon,
+    screen px) and the other one outside; `side`: where the globe's reach lies against it (drawn once when all of it is on one side). From the
+    first call on, the switch draws every frame and the globe's own loop waits. */
+export const clipGlobe = (now: number, pts: Pt[], side: Side) => link?.clip(now, pts, side);
+/** The switch is over: one look again, new arcs again, and the globe's own loop again, counting the time since the switch's last frame. */
+export const endGlobeSwitch = () => link?.end();
 
 export default function Globe({ dim = false, onHit, theme }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -183,19 +199,30 @@ export default function Globe({ dim = false, onHit, theme }: Props) {
     ColorManagement.enabled = false;
     let renderer: WebGLRenderer;
     try {
-      renderer = new WebGLRenderer({ antialias: true, alpha: true });
+      renderer = new WebGLRenderer({ antialias: true, alpha: true, stencil: true });   // the stencil: the theme switch's two sides
     } catch {
       return;   // no WebGL: the page works without the globe
     }
     renderer.outputColorSpace = LinearSRGBColorSpace;
-    const canvas = renderer.domElement;
+    const canvas = renderer.domElement, html = document.documentElement;
     stage.appendChild(canvas);
     const scene = new Scene();
     const camera = new PerspectiveCamera(42, 1, 1, 2000);
     const globe = new Group();
     scene.add(globe);
 
-    let pal: Palette = readPalette();
+    // A theme's look: its palette, and the glowing head of an arc drawn in its three --arc-head-* colours (a radial gradient)
+    function makeLook(): Look {
+      const p = readPalette(), c = document.createElement("canvas"); c.width = c.height = 32;
+      const g2 = c.getContext("2d");
+      if (g2) {
+        const r = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
+        r.addColorStop(0, p.head[0]); r.addColorStop(.35, p.head[1]); r.addColorStop(1, p.head[2]);
+        g2.fillStyle = r; g2.fillRect(0, 0, 32, 32);
+      }
+      return { pal: p, dot: new CanvasTexture(c) };
+    }
+    let look = makeLook(), pal = look.pal;   // the current theme's look, and the palette last put on the scene
     // core sphere (dark in the dark theme) so back-side dots are hidden
     const coreMat = new MeshBasicMaterial({ color: pal.core });
     const core = new Mesh(new SphereGeometry(R * 0.985, 64, 64), coreMat);
@@ -243,7 +270,7 @@ void main(){
     const indiaDotMat = new PointsMaterial({ color: pal.india, size: 0.9, transparent: true, opacity: 1 });
     const indiaPts = new Points(gi, indiaDotMat);
     globe.add(indiaPts);
-    // highlighted outline: a sharp red line plus a softer copy just above it, both pulsing gently (see frame)
+    // highlighted outline: a sharp red line plus a softer copy just above it, both pulsing gently (see advance)
     const indiaMats = [new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .95, blending: pal.blending, depthWrite: false }),
                        new LineBasicMaterial({ color: pal.outline, transparent: true, opacity: .35, blending: pal.blending, depthWrite: false })];
     for (const outline of INDIA.rings) {
@@ -272,21 +299,11 @@ void main(){
     globe.rotation.y = -Math.atan2(india.x, india.z);
     globe.rotation.x = -14 * Math.PI / 180;   // India sits high on the visible face, just below the input
 
-    // glowing head of an arc: a radial gradient in the theme's three --arc-head-* colours, redrawn when the theme changes
-    const dotCanvas = document.createElement("canvas"); dotCanvas.width = dotCanvas.height = 32;
-    const DOT = new CanvasTexture(dotCanvas);
-    function drawDot() {
-      const g2 = dotCanvas.getContext("2d");
-      if (!g2) return;
-      g2.clearRect(0, 0, 32, 32);
-      const r = g2.createRadialGradient(16, 16, 0, 16, 16, 16);
-      r.addColorStop(0, pal.head[0]); r.addColorStop(.35, pal.head[1]); r.addColorStop(1, pal.head[2]);
-      g2.fillStyle = r; g2.fillRect(0, 0, 32, 32);
-      DOT.needsUpdate = true;
-    }
-    drawDot();
-
     const arcs: Arc[] = [], ripples: Ripple[] = [];
+    // e2e/switch.mjs reads the globe through window.__ssTest, which only that test defines (before the page loads); nothing here otherwise
+    const probe = (window as unknown as { __ssTest?: Record<string, unknown> }).__ssTest;
+    const events: [string, number, number][] | null = probe ? [] : null;   // [what, arc id, time]: born, land, ripple, hit
+    let nextId = 0;
 
     function spawn() {
       const kind = Math.random() < 0.5 ? "wci" : "ddos";
@@ -304,9 +321,11 @@ void main(){
       const lg = new BufferGeometry(); lg.setAttribute("position", new BufferAttribute(pts, 3)); lg.setDrawRange(0, 0);
       const line = new Line(lg, new LineBasicMaterial({ color: pal.arc[kind], transparent: true, opacity: pal.arcOpacity, blending: pal.blending, depthWrite: false }));
       const headAt = new Float32Array(3), headPos = new BufferAttribute(headAt, 3), hg = new BufferGeometry(); hg.setAttribute("position", headPos);
-      const head = new Points(hg, new PointsMaterial({ map: DOT, size: 7, transparent: true, blending: pal.blending, depthWrite: false }));
+      const head = new Points(hg, new PointsMaterial({ map: look.dot, size: 7, transparent: true, blending: pal.blending, depthWrite: false }));
       globe.add(line, head);
-      arcs.push({ line, head, headAt, headPos, pts, b, kind, t: 0, dur: 1.4 + ang * 0.6, hit: false, ev: [src, tgt, kind] });
+      const id = ++nextId;
+      arcs.push({ id, line, head, headAt, headPos, pts, b, kind, t: 0, dur: 1.4 + ang * 0.6, hit: false, ev: [src, tgt, kind] });
+      events?.push(["born", id, performance.now()]);
     }
 
     // the expanding ring where an arc lands (the prototype's ring())
@@ -314,52 +333,112 @@ void main(){
       const m = new Mesh(new RingGeometry(0.9, 1.5, 40), new MeshBasicMaterial({ color: pal.arc[kind], transparent: true, side: DoubleSide, blending: pal.blending, depthWrite: false }));
       // aimed before it joins the globe (as in the prototype), so lookAt works in the globe's own coordinates and the ring faces outwards
       const p = at.clone().multiplyScalar(R * 1.004); m.position.copy(p); m.lookAt(at.clone().multiplyScalar(R * 2));
-      globe.add(m); ripples.push({ m, t: 0 });
+      globe.add(m); ripples.push({ m, t: 0, kind });
     }
 
-    let raf = 0, last = performance.now(), running = !document.hidden, dragging = false, vel = 0, held = false;
+    let raf = 0, last = performance.now(), running = !document.hidden, dragging = false, vel = 0;
+    let sw: { from: Look; to: Look | null; pts: Pt[] | null; side: Side; newInside: boolean } | null = null;   // a theme switch is running
+    let driven = false;   // the switch draws the frames (clipGlobe); the globe's own loop waits
 
-    // a theme change: every colour and blending mode from the new tokens, arcs and ripples in flight included
-    function applyPalette() {
-      pal = readPalette();
-      coreMat.color.copy(pal.core);
-      rimMat.uniforms.uColor.value = pal.rim; rimMat.uniforms.uGain.value = pal.rimGain; rimMat.uniforms.uLight.value = pal.blending === NormalBlending ? 1 : 0;
-      blend(rimMat, pal.blending);
+    // A look onto the scene: every colour, blending mode and texture, arcs and ripples in flight included. Cheap (no parsing, no shader
+    // change), so the theme switch can put on its two looks in turn every frame.
+    function use(l: Look) {
+      const p = pal = l.pal;
+      coreMat.color.copy(p.core);
+      rimMat.uniforms.uColor.value = p.rim; rimMat.uniforms.uGain.value = p.rimGain; rimMat.uniforms.uLight.value = p.blending === NormalBlending ? 1 : 0;
+      blend(rimMat, p.blending);
       const gu = glowMat.uniforms;
-      gu.uColor.value.copy(pal.rim); gu.uGain.value = pal.rimGain; gu.uMid.value = pal.rimMid; gu.uReach.value = pal.rimReach;
+      gu.uColor.value.copy(p.rim); gu.uGain.value = p.rimGain; gu.uMid.value = p.rimMid; gu.uReach.value = p.rimReach;
       // which style shows; the shaded glow is drawn first (under the dots, as in the reference) and reaches 1.32 R
-      for (const o of flat) o.visible = !pal.shaded;
-      for (const o of outlines) o.visible = !pal.shaded && pal.outlineShow;
-      shadedCore.visible = pal.shaded;
-      for (const o of shadedDots) o.visible = pal.shaded;
-      rim.material = pal.shaded ? glowMat : rimMat; rim.scale.setScalar(pal.shaded ? 1.32 / 1.12 : 1); rim.renderOrder = pal.shaded ? -1 : 0;
-      if (pal.shaded) {
+      for (const o of flat) o.visible = !p.shaded;
+      for (const o of outlines) o.visible = !p.shaded && p.outlineShow;
+      shadedCore.visible = p.shaded;
+      for (const o of shadedDots) o.visible = p.shaded;
+      rim.material = p.shaded ? glowMat : rimMat; rim.scale.setScalar(p.shaded ? 1.32 / 1.12 : 1); rim.renderOrder = p.shaded ? -1 : 0;
+      if (p.shaded) {
         const u = shadedMat.uniforms;
-        pal.sphere.forEach((c, i) => u[`uS${i}`].value.setStyle(c));
-        u.uShade.value.setStyle(pal.shade); u.uShadeA.value = pal.shadeAlpha;
-        dotMats[0].uniforms.uColor.value.copy(pal.land); dotMats[0].uniforms.uOpacity.value = pal.landOpacity;
-        dotMats[1].uniforms.uColor.value.copy(pal.india);
+        p.sphere.forEach((c, i) => u[`uS${i}`].value.copy(c));
+        u.uShade.value.copy(p.shade); u.uShadeA.value = p.shadeAlpha;
+        dotMats[0].uniforms.uColor.value.copy(p.land); dotMats[0].uniforms.uOpacity.value = p.landOpacity;
+        dotMats[1].uniforms.uColor.value.copy(p.india);
       }
-      landMat.color.copy(pal.land); landMat.opacity = pal.landOpacity;
-      indiaDotMat.color.copy(pal.india);
-      for (const m of indiaMats) { m.color.copy(pal.outline); blend(m, pal.blending); }
-      drawDot();
-      for (const a of arcs) { a.line.material.color.copy(pal.arc[a.kind]); a.line.material.opacity = pal.arcOpacity; blend(a.line.material, pal.blending); blend(a.head.material, pal.blending); }
-      for (const r of ripples) blend(r.m.material, pal.blending);
+      landMat.color.copy(p.land); landMat.opacity = p.landOpacity;
+      indiaDotMat.color.copy(p.india);
+      for (const m of indiaMats) { m.color.copy(p.outline); blend(m, p.blending); }
+      for (const a of arcs) {
+        a.line.material.color.copy(p.arc[a.kind]); a.line.material.opacity = p.arcOpacity; blend(a.line.material, p.blending);
+        blend(a.head.material, p.blending); a.head.material.map = l.dot;
+      }
+      for (const r of ripples) { r.m.material.color.copy(p.arc[r.kind]); blend(r.m.material, p.blending); }
+    }
+    // a theme change outside the switch: the new tokens become the look
+    function retheme() {
+      const old = look;
+      look = makeLook(); use(look); old.dot.dispose();
     }
 
-    function frame(now: number) {
-      raf = 0;
-      if (!running || held) return;
+    // The switch's stencil: the page's clip polygon as a triangle fan whose triangles each invert the stencil's lowest bit, so a pixel ends at 1
+    // inside the polygon and 0 outside (even-odd, any polygon); then the scene is drawn twice, its materials testing for 0 and then for 1. With
+    // antialias the stencil is per sample, so the two sides meet on a smooth edge, as the page's clip-path does.
+    const MAX_PTS = 512, fan = new Float32Array((MAX_PTS - 2) * 9), fanAt = new BufferAttribute(fan, 3), maskGeo = new BufferGeometry();
+    maskGeo.setAttribute("position", fanAt);
+    const maskMat = new ShaderMaterial({ vertexShader: "void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }", fragmentShader: "void main(){ gl_FragColor = vec4(0.0); }",
+      side: DoubleSide, colorWrite: false, depthWrite: false, depthTest: false,
+      stencilWrite: true, stencilFunc: AlwaysStencilFunc, stencilWriteMask: 1, stencilZPass: InvertStencilOp });
+    const maskMesh = new Mesh(maskGeo, maskMat), maskScene = new Scene();
+    maskMesh.frustumCulled = false; maskScene.add(maskMesh);
+    let vw = innerWidth, vh = innerHeight;   // the canvas in CSS px (resize())
+    function cut(pts: Pt[]) {
+      const n = Math.min(pts.length, MAX_PTS), X = (i: number) => pts[i][0] / vw * 2 - 1, Y = (i: number) => 1 - pts[i][1] / vh * 2;
+      let k = 0;
+      for (let i = 1; i < n - 1; i++, k += 9) { fan[k] = X(0); fan[k + 1] = Y(0); fan[k + 3] = X(i); fan[k + 4] = Y(i); fan[k + 6] = X(i + 1); fan[k + 7] = Y(i + 1); }
+      maskGeo.setDrawRange(0, k / 3); fanAt.needsUpdate = true;
+    }
+    let masked = false;
+    function stencil(ref: 0 | 1 | null) {   // every material tests the stencil for `ref` and writes nothing to it; null: no stencil test
+      if (ref === null && !masked) return;
+      masked = ref !== null;
+      const set = (m: Material) => {
+        m.stencilWrite = masked; m.stencilWriteMask = masked ? 0 : 0xff; m.stencilFunc = masked ? EqualStencilFunc : AlwaysStencilFunc;
+        m.stencilRef = ref ?? 0; m.stencilFuncMask = masked ? 1 : 0xff;
+      };
+      scene.traverse((o) => { const m = (o as Partial<Mesh>).material; if (m) (Array.isArray(m) ? m : [m]).forEach(set); });
+      set(rimMat); set(glowMat);   // the rim wears one of the two: the other is not in the scene now
+    }
+
+    // One frame on the canvas: the current look; during a switch, the old look until the switch's first frame, then the two looks either side
+    // of its clip polygon (comet: the new one inside; black hole: the old one inside).
+    function draw() {
+      const s = sw;
+      if (!s || !s.pts || !s.to) { stencil(null); use(s ? s.from : look); renderer.render(scene, camera); return; }
+      const inner = s.newInside ? s.to : s.from, outer = s.newInside ? s.from : s.to;
+      if (s.side !== "across") { stencil(null); use(s.side === "in" ? inner : outer); renderer.render(scene, camera); return; }   // all on one side
+      cut(s.pts);
+      renderer.autoClear = false;
+      renderer.clear();
+      renderer.render(maskScene, camera);
+      use(outer); stencil(0); renderer.render(scene, camera);
+      use(inner); stencil(1); renderer.render(scene, camera);
+      renderer.autoClear = true;
+    }
+
+    // moves everything on to `now`: the spin, the arcs (1.5 x during a switch), the ripples and the outline's pulse; nothing if no time has
+    // passed (the switch's first frame can come in the same moment as the globe's last one)
+    function advance(now: number) {
+      if (now <= last) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (!dragging) { globe.rotation.y += dt * 0.035 + vel; vel *= 0.94; }
+      const pace = sw ? 1.5 : 1;
       for (let i = arcs.length - 1; i >= 0; i--) {
-        const a = arcs[i]; a.t += dt / a.dur;
+        const a = arcs[i]; a.t += dt * pace / a.dur;
         const head = Math.min(1, a.t) * (N - 1), tail = Math.max(0, a.t - 0.55) / 0.45 * (N - 1);
         a.line.geometry.setDrawRange(Math.floor(tail), Math.max(0, Math.ceil(head - tail) + 1));
         const hi = Math.min(N - 1, Math.round(head)); a.headAt.set(a.pts.subarray(hi * 3, hi * 3 + 3)); a.headPos.needsUpdate = true;
         a.head.material.opacity = a.t < 1 ? 1 : 0;
-        if (a.t >= 1 && !a.hit) { a.hit = true; ripple(a.b, a.kind); emitHit({ src: NAME[a.ev[0]], tgt: NAME[a.ev[1]], kind: a.ev[2] }); }
+        if (a.t >= 1 && !a.hit) {
+          a.hit = true; ripple(a.b, a.kind); emitHit({ src: NAME[a.ev[0]], tgt: NAME[a.ev[1]], kind: a.ev[2] });
+          events?.push(["land", a.id, now], ["ripple", a.id, now], ["hit", a.id, now]);
+        }
         if (tail >= N - 1) { globe.remove(a.line, a.head); dispose(a.line); dispose(a.head); arcs.splice(i, 1); }
       }
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -367,33 +446,58 @@ void main(){
         if (r.t >= 1) { globe.remove(r.m); dispose(r.m); ripples.splice(i, 1); }
       }
       const k = 0.5 + 0.5 * Math.sin(now / 650); indiaMats[0].opacity = .7 + .3 * k; indiaMats[1].opacity = .12 + .3 * k;
-      renderer.render(scene, camera);
+    }
+    function frame(now: number) {
+      raf = 0;
+      if (!running || driven) return;
+      advance(now); draw();
       raf = requestAnimationFrame(frame);
     }
-    function animate() {   // start the loop unless it is running, the tab is hidden or the theme switch holds the globe
-      if (!raf && running && !held) { last = performance.now(); raf = requestAnimationFrame(frame); }
+    // start the loop unless it is running, the tab is hidden or the switch draws the frames; keep: count the time since the last frame
+    function animate(keep = false) {
+      if (!raf && running && !driven) { if (!keep) last = performance.now(); raf = requestAnimationFrame(frame); }
     }
     function redraw() {    // reduced motion: one frame, on demand
-      if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderer.render(scene, camera); });
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); });
     }
     const wake = reduced ? redraw : animate;
-    repaint.current = () => { applyPalette(); redraw(); };
+    repaint.current = () => { if (!sw) { retheme(); redraw(); } };   // during a switch the switch reads the new look (retheme below)
     link = {
       circle: () => {   // the centre projected through the camera; the radius from the angle the sphere fills (the glow's uRadius, in CSS px)
         camera.updateMatrixWorld();
         const c = new Vector3().project(camera), d = camera.position.length(), f = (innerHeight / 2) / Math.tan(camera.fov * Math.PI / 360);
         return { cx: (c.x + 1) / 2 * innerWidth, cy: (1 - c.y) / 2 * innerHeight, r: f * R / Math.sqrt(d * d - R * R) };
       },
-      hold: (on) => {
-        held = on;
-        cancelAnimationFrame(raf); raf = 0;   // also drops a pending one-off redraw, which would otherwise keep animate() from restarting the loop
-        if (!on) wake();
+      begin: (newInside) => { sw = { from: look, to: null, pts: null, side: "out", newInside }; },
+      retheme: () => { if (sw && !sw.to) sw.to = look = makeLook(); },
+      clip: (now, pts, side) => {
+        if (!sw) return;
+        if (!driven) { driven = true; cancelAnimationFrame(raf); raf = 0; }
+        sw.pts = pts; sw.side = side; advance(now); draw();
       },
-      repaint: () => { applyPalette(); renderer.render(scene, camera); },
+      end: () => {
+        if (!sw) return;
+        const { from, to } = sw;
+        sw = null;
+        look = makeLook(); stencil(null); use(look);   // the tokens of the theme the page ended in
+        from.dot.dispose(); to?.dot.dispose();
+        if (driven) { driven = false; animate(true); }   // the canvas keeps the switch's last frame (all in the new theme) until then
+      },
+    };
+    if (probe) probe.globe = {
+      circle: () => link?.circle(),
+      spin: () => [last, globe.rotation.y],
+      paint: () => { if (!sw) { retheme(); draw(); } },   // the theme's tokens again, and one frame now, without moving on
+      state: () => {   // the spin, and each arc's progress and head on screen (CSS px)
+        const at = (a: Arc) => { const v = new Vector3().fromArray(a.headAt).applyMatrix4(globe.matrixWorld).project(camera); return [(v.x + 1) / 2 * vw, (1 - v.y) / 2 * vh]; };
+        return { time: last, rotX: globe.rotation.x, rotY: globe.rotation.y, switching: !!sw, driven, ripples: ripples.length, events,
+          arcs: arcs.map((a) => ({ id: a.id, t: a.t, dur: a.dur, head: at(a) })) };
+      },
     };
 
     function resize() {
       const w = innerWidth, h = innerHeight;
+      vw = w; vh = h;
       renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
@@ -408,7 +512,7 @@ void main(){
       glowMat.uniforms.uRadius.value = f * R / Math.sqrt(d2 - R * R) * buf.y / h;
       for (const m of dotMats) m.uniforms.uScale.value = buf.y / 2;
       if (reduced) redraw();
-      else if (held) renderer.render(scene, camera);   // setSize cleared the canvas and the loop is stopped
+      else if (driven) draw();   // setSize cleared the canvas and the switch (which a resize ends) may not draw again
     }
     function onVisibility() {   // pause while the tab is hidden
       running = !document.hidden;
@@ -417,7 +521,9 @@ void main(){
     }
 
     let px = 0, py = 0;
-    function onDown(e: PointerEvent) { dragging = true; px = e.clientX; py = e.clientY; canvas.setPointerCapture(e.pointerId); }
+    function onDown(e: PointerEvent) { dragging = true; px = e.clientX; py = e.clientY; if (e.target === canvas) canvas.setPointerCapture(e.pointerId); }
+    // during a theme switch the view transition lies over the page and every pointer event goes to <html>: a press there turns the globe
+    function onRootDown(e: PointerEvent) { if (sw && e.target === html) onDown(e); }
     function onMove(e: PointerEvent) {
       if (!dragging) return;
       const dx = e.clientX - px, dy = e.clientY - py; px = e.clientX; py = e.clientY;
@@ -427,35 +533,50 @@ void main(){
     }
     function onUp() { dragging = false; }
 
-    applyPalette();
+    // Every shader up front, both styles' and the stencil's: the theme switch draws the other theme's style from its first frames, and three
+    // compiles a shader on its first draw (compile() only sees what is visible, so everything is shown for it, the rim in both materials)
+    function warm() {
+      const all = [...flat, ...outlines, shadedCore, ...shadedDots], was = all.map((o) => o.visible), wore = rim.material;
+      all.forEach((o) => (o.visible = true));
+      for (const m of [rimMat, glowMat]) { rim.material = m; renderer.compile(scene, camera); }
+      renderer.compile(maskScene, camera);
+      all.forEach((o, i) => (o.visible = was[i])); rim.material = wore;
+    }
+
+    use(look);
     resize();
+    warm();
     addEventListener("resize", resize);
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("pointerdown", onDown);
-    canvas.addEventListener("pointermove", onMove);
-    canvas.addEventListener("pointerup", onUp);
-    canvas.addEventListener("pointercancel", onUp);
+    html.addEventListener("pointerdown", onRootDown);
+    addEventListener("pointermove", onMove);   // on the window: a drag that began on <html> (see onRootDown) moves over <html> too
+    addEventListener("pointerup", onUp);
+    addEventListener("pointercancel", onUp);
     let spawner = 0;
     if (!reduced) {   // reduced motion: no rotation, no arcs, no pulse
       spawn();
-      spawner = window.setInterval(() => { if (running && !held && arcs.length < 30) spawn(); }, 300);
+      spawner = window.setInterval(() => { if (running && !sw && arcs.length < 30) spawn(); }, 300);   // none during a theme switch
     }
     wake();
 
     return () => {
       repaint.current = null;
       link = null;
+      if (probe) delete probe.globe;
       clearInterval(spawner);
       cancelAnimationFrame(raf);
       removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("pointerdown", onDown);
-      canvas.removeEventListener("pointermove", onMove);
-      canvas.removeEventListener("pointerup", onUp);
-      canvas.removeEventListener("pointercancel", onUp);
+      html.removeEventListener("pointerdown", onRootDown);
+      removeEventListener("pointermove", onMove);
+      removeEventListener("pointerup", onUp);
+      removeEventListener("pointercancel", onUp);
       scene.traverse((o) => { if (o instanceof Mesh || o instanceof Points || o instanceof Line) dispose(o); });   // arcs and ripples in flight too
       rimMat.dispose(); glowMat.dispose();   // the rim sphere wears one of the two; the other is not in the scene
-      DOT.dispose();
+      maskGeo.dispose(); maskMat.dispose();
+      look.dot.dispose(); sw?.from.dot.dispose(); sw?.to?.dot.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
       canvas.remove();

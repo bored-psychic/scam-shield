@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { COMET_MS, CONE_DEG, HOLE_MS, cometShape, holeShape, toScreen, type Pt } from "./themeSwitch";
+import { COMET_MS, CONE_DEG, HOLE_MS, boxSide, clipInside, clipOutside, cometShape, holeShape, toScreen, type Pt } from "./themeSwitch";
 
 // npm test. The theme switch's geometry (lib/themeSwitch.ts, approved prototype docs/design/theme-switch.html): W1 the approved values,
-// W2 clip polygons are cut to the screen, W3 the comet's bow shock, W4 the black hole's lit area. The browser side (durations, frames, the edge
+// W2 clip polygons are cut to the screen, W3 the comet's bow shock, W4 the black hole's lit area, W5 the clip paths of the page's layers, W6 which side of the edge a box is on (the glass panes, the globe's second pass). The browser side (durations, frames, the edge
 // through the globe, smoothness, interruptions) is e2e/switch.mjs; reduced motion and the end state are e2e/theme.mjs T5.
 const W = 1280, H = 800;
 const deg = (rad: number) => rad * 180 / Math.PI;
@@ -88,5 +88,53 @@ describe("W4 the black hole", () => {
     expect(s.edgeR(100, 0, 0)).toBeCloseTo(100, 6);
     expect(s.edgeR(100, Math.PI / 6, 0)).toBeCloseTo(100 * (1 + .14 + .07 * Math.sin(5 * Math.PI / 6)), 6);
     expect(s.lit(.5)).toHaveLength(96);
+  });
+});
+
+describe("W5 the layers' clip paths", () => {
+  const tri: Pt[] = [[100, 100], [400, 100], [250, 300]];
+  const parse = (css: string): Pt[] => [...css.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+  test("inside: the polygon, offset to the layer's own box; nothing for an empty one", () => {
+    expect(clipInside(tri)).toBe("polygon(100.00px 100.00px,400.00px 100.00px,250.00px 300.00px)");
+    expect(parse(clipInside(tri, 8, 64.5))).toEqual([[92, 35.5], [392, 35.5], [242, 235.5]]);
+    expect(clipInside([])).toBe("polygon(0 0, 0 0, 0 0)");
+  });
+  test("outside: the rest of the screen, as an even-odd polygon with the polygon as its hole", () => {
+    const css = clipOutside(tri, W, H), ring = parse(css);
+    expect(css.startsWith("polygon(evenodd, ")).toBe(true);
+    expect(inside([250, 150], ring)).toBe(false);   // inside the polygon: not in the outside clip
+    for (const c of [...corners, [600, 600] as Pt, [250, 320] as Pt]) expect(inside(c, ring)).toBe(true);
+    const off = parse(clipOutside(tri, W, H, 10, 20));   // offset like every other point
+    expect(off[0]).toEqual([-30, -40]);
+    expect(off[5]).toEqual([90, 80]);
+  });
+  test("outside an empty polygon is the whole screen", () => {
+    const ring = parse(clipOutside([], W, H));
+    expect(ring).toEqual([[-20, -20], [W + 20, -20], [W + 20, H + 20], [-20, H + 20]]);
+  });
+  test("inside and outside split the screen: every point is in exactly one", () => {
+    const shock = toScreen(cometShape(.5, W, H).outline, W, H), a = parse(clipInside(shock)), b = parse(clipOutside(shock, W, H));
+    for (let y = 5; y < H; y += 37) for (let x = 5; x < W; x += 41) expect(inside([x, y], a) !== inside([x, y], b)).toBe(true);
+  });
+});
+
+describe("W6 boxSide", () => {
+  const tri: Pt[] = [[0, 0], [1000, 0], [0, 1000]];
+  test("no polygon: everything is outside it", () => {
+    expect(boxSide([], 10, 10, 50, 50)).toBe("out");
+  });
+  test("a box well inside, well outside, or with an edge through it", () => {
+    expect(boxSide(tri, 100, 100, 200, 200)).toBe("in");
+    expect(boxSide(tri, 700, 700, 800, 800)).toBe("out");
+    expect(boxSide(tri, 450, 450, 560, 560)).toBe("across");   // the hypotenuse x + y = 1000 runs through it
+    expect(boxSide([[300, 300], [320, 300], [310, 320]], 0, 0, 1000, 1000)).toBe("across");   // the whole polygon inside the box
+  });
+  test("agrees with the pixels: a box is 'in' or 'out' only when all of it is", () => {
+    const shock = toScreen(cometShape(.5, W, H).outline, W, H);
+    for (let y = 0; y < H; y += 53) for (let x = 0; x < W; x += 67) {
+      const side = boxSide(shock, x, y, x + 60, y + 40);
+      if (side === "across") continue;
+      for (const c of [[x, y], [x + 60, y], [x, y + 40], [x + 60, y + 40], [x + 30, y + 20]] as Pt[]) expect(inside(c, shock)).toBe(side === "in");
+    }
   });
 });

@@ -562,20 +562,42 @@
 }
 
 /* The theme switch (2026-10-18, lib/themeSwitch.ts; replaces the 0.3 s colour cross-fade). While it runs, <html> has .ss-switch and .ss-comet
-   (dark -> light) or .ss-hole (light -> dark). The View Transition's default cross-fade is off: the script clips one root snapshot every frame
-   (the comet: the new, light one, hidden until its first frame; the black hole: the old, light one, put on top). The effects canvas (.ss-fx) and
-   the switch have their own snapshots above the page, shown as they are: the switch on top, in its new state from the first frame. No transition
+   (dark -> light) or .ss-hole (light -> dark). The View Transition's default cross-fade is off: the script clips the snapshots every frame along
+   one polygon (the light side). The page is split into snapshot groups, bottom to top (z-index below; the order in lib/themeSwitch.ts):
+   root (only the page background: the comet clips the new, light one, hidden until its first frame; the black hole puts the old, light one on
+   top), the globe's stage (its live new view only: Globe.tsx draws both themes through a stencil, so it keeps turning), the vignette, the glass
+   panes (.ss-pane: one per glass panel over the globe, wearing its backdrop-filter, so the dark glass blurs the live globe), main, header and
+   footer, the tooltip, the effects canvas (.ss-fx), and the switch, in its new state from the first frame. The vignette, main, header, footer
+   and tooltip have both views clipped (the light one to the polygon, the dark one to the rest), each new view hidden until the first frame. No transition
    runs during the switch, so the new page is snapshotted in its final colours. Reduced motion never gets here (the switch is instant). */
 @layer components {
   :root.ss-switch::view-transition-group(*) { animation: none; }
   :root.ss-switch::view-transition-old(*), :root.ss-switch::view-transition-new(*) { animation: none; mix-blend-mode: normal; }
   :root.ss-comet::view-transition-new(root) { clip-path: polygon(0 0, 0 0, 0 0); }
   :root.ss-hole::view-transition-old(root) { z-index: 1; }
-  :root.ss-switch::view-transition-group(ss-fx) { z-index: 2; }
-  :root.ss-switch::view-transition-group(ss-btn) { z-index: 3; }
-  :root.ss-switch::view-transition-old(ss-fx), :root.ss-switch::view-transition-old(ss-btn) { display: none; }
+  :root.ss-switch .stage { view-transition-name: ss-globe; }
+  :root.ss-switch .vignette { view-transition-name: ss-vig; }
+  :root.ss-switch #root > main { view-transition-name: ss-main; }
+  :root.ss-switch #root > header { view-transition-name: ss-head; }
+  :root.ss-switch #root > footer { view-transition-name: ss-foot; }
+  :root.ss-switch .tip { view-transition-name: ss-tip; }
   :root.ss-switch .themebtn { view-transition-name: ss-btn; }
+  :root.ss-switch::view-transition-group(ss-globe) { z-index: 1; }
+  :root.ss-switch::view-transition-group(ss-vig) { z-index: 2; }
+  :root.ss-switch::view-transition-group(.ss-pane) { z-index: 3; }
+  :root.ss-switch::view-transition-group(ss-main) { z-index: 4; }
+  :root.ss-switch::view-transition-group(ss-head), :root.ss-switch::view-transition-group(ss-foot) { z-index: 5; }
+  :root.ss-switch::view-transition-group(ss-tip) { z-index: 6; }
+  :root.ss-switch::view-transition-group(ss-fx) { z-index: 7; }
+  :root.ss-switch::view-transition-group(ss-btn) { z-index: 8; }
+  :root.ss-switch::view-transition-old(ss-globe), :root.ss-switch::view-transition-old(ss-fx), :root.ss-switch::view-transition-old(ss-btn) { display: none; }
+  :root.ss-switch::view-transition-new(ss-vig), :root.ss-switch::view-transition-new(ss-main), :root.ss-switch::view-transition-new(ss-head),
+  :root.ss-switch::view-transition-new(ss-foot), :root.ss-switch::view-transition-new(ss-tip) { clip-path: polygon(0 0, 0 0, 0 0); }
   :root.ss-hole .themebtn { background-color: var(--bg); }   /* the dark switch's glass has no backdrop in its own snapshot: solid over the lit page */
   :root.ss-switch, :root.ss-switch *, :root.ss-switch *::before, :root.ss-switch *::after { transition: none !important; }
   .ss-fx { position: fixed; inset: 0; z-index: 4; width: 100%; height: 100%; pointer-events: none; view-transition-name: ss-fx; }
+  .ss-pane { position: fixed; pointer-events: none; view-transition-class: ss-pane; }
+  /* a glass panel with a pane: the pane wears its backdrop-filter. The will-change keeps what the filter gave the panel (a stacking context, the
+     containing block of fixed children, the backdrop root of glass inside it), without drawing it */
+  :root.ss-switch .ss-glassed { -webkit-backdrop-filter: none; backdrop-filter: none; will-change: backdrop-filter; }
 }
