@@ -13,7 +13,7 @@ from tricky_inputs import INPUTS
 
 # python tests/test_api.py   (from the project root; needs both models; no pytest required, but pytest collects test_api() too)
 # Runs the app in-process (TestClient inside `with`, so the lifespan loads the models once) and checks, each printed PASS / FAIL:
-#   T1 GET /api/health   T2 every tricky input over HTTP == to_report(analyse(...)) except meta.ms   T3 response validates as a Report (schema "4", ms rounded)
+#   T1 GET /api/health   T2 every tricky input over HTTP == to_report(analyse(...)) except meta.ms   T3 response validates as a Report (schema "5", ms rounded)
 #   T4 empty / whitespace-only text -> 422   T5 over 20,000 characters -> 422 (20,000 is still fine)   T6 wrong method -> 405
 #   T7 no network: sockets patched to record + refuse every connection / lookup, link-bearing inputs still answer 200 with 0 attempts
 #   T8 unknown body field -> 422
@@ -40,7 +40,7 @@ def without_ms(d):
 
 def t1(c, ref):
     r = c.get("/api/health")
-    return [] if (r.status_code, r.json()) == (200, {"status": "ok", "schema_version": "4"}) and SCHEMA_VERSION == "4" else [f"{r.status_code} {r.text}"]
+    return [] if (r.status_code, r.json()) == (200, {"status": "ok", "schema_version": "5"}) and SCHEMA_VERSION == "5" else [f"{r.status_code} {r.text}"]
 
 def t2(c, ref):
     tm, um = ref
@@ -60,7 +60,7 @@ def t3(c, ref):
         j = post(c, x["text"]).json()
         rep = Report.model_validate(j)
         ms = j["meta"]["ms"]
-        if rep.schema_version != "4" or j["schema_version"] != "4":
+        if rep.schema_version != "5" or j["schema_version"] != "5":
             bad.append(f"{x['id']}: schema_version {j['schema_version']}")
         if not isinstance(ms, float) or ms < 0 or round(ms, 1) != ms:
             bad.append(f"{x['id']}: meta.ms {ms!r} is not a non-negative number rounded to 1 decimal")

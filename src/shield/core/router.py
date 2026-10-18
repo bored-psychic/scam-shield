@@ -41,21 +41,32 @@ def apply_positives(text, r):
     message has no hard-risk signal (sender_rule.hard_risks: D22's list + any link red flag, with a positive link's own URL-model rating left
     out) and never on a link with a red flag. Such a link is set to No warning signs (its URL-model rating is overridden) and the message
     is fused again. If then every link is positive, at least one is P1, the text has no Indian mobile number and the level is still Likely
-    scam, it is capped at Suspicious (never lower: like D22's cap for registered senders). Sets r["hard_risks"] and r["positive_cap"]."""
-    r["hard_risks"], r["positive_cap"] = hard_risks(text, r), None
+    scam, it is capped at Suspicious (never lower: like D22's cap for registered senders). Sets r["hard_risks"] and r["positive_cap"], and r["lowered"]:
+    None, or {"from": the level before, "text": "Lowered from Likely scam: the link belongs to Jio (...)."} when a P1 link is what lowered the level
+    (D24). Judged by what would have happened without it: the level fell below `before` and either the P1 cap did it, or overriding only the P2 links
+    would have left it higher. P2 alone lowering a verdict, or P1 firing without a change, sets nothing."""
+    r["hard_risks"], r["positive_cap"], r["lowered"] = hard_risks(text, r), None, None
     pos = [l for l in r["links"] if l["positive"] in ("p1", "p2") and not l["flags"]]
     if not pos or r["hard_risks"]:
         return
+    before, was = r["level"], {id(l): l["risk_level"] for l in r["links"]}
     for l in pos:
         l["risk_level"], l["level"], l["positive_applied"] = 0, 0, True
         l["verdict"] = LEVELS[0]
     levels = [l["risk_level"] for l in r["links"] if l["risk_level"] is not None]
     r["url_level"] = max(levels) if levels else None
     r["level"] = fuse(r["text_level"], r["url_level"])
+    capped = False
     if (r["level"] == 2 and all(l.get("positive_applied") for l in r["links"]) and any(l["positive"] == "p1" for l in r["links"])
             and not has_indian_mobile(text)):
-        r["level"] = 1
+        r["level"], capped = 1, True
         r["positive_cap"] = next(l["checks"]["positive"]["title"] for l in r["links"] if l["positive"] == "p1")
+    p1 = next((l["checks"]["positive"] for l in pos if l["positive"] == "p1" and l["checks"]["positive"].get("lowered")), None)
+    if before is not None and r["level"] is not None and r["level"] < before and p1:
+        p2_only = [0 if l.get("positive_applied") and l["positive"] == "p2" else was[id(l)] for l in r["links"]]
+        p2_only = [x for x in p2_only if x is not None]
+        if capped or (fuse(r["text_level"], max(p2_only) if p2_only else None) or 0) > r["level"]:
+            r["lowered"] = {"from": before, "text": f"Lowered from {LEVELS[before]}: " + p1["lowered"].replace("{}", "the link", 1) + "."}
 
 
 def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=()):

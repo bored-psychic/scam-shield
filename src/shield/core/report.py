@@ -1,7 +1,8 @@
 import re
 from shield.config import model_versions
-from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Meta, Report, Sender
+from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Lowered, Meta, Report, Sender
 from shield.core.advice import advice_for
+from shield.core.risk import risk_score
 from shield.core.sender_rule import RISKY_THING
 from shield.core.verdict import PROMOTIONAL
 from shield.messages.sender import SUFFIX_NAME
@@ -184,6 +185,9 @@ def to_report(text: str, r: dict) -> Report:
     meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False),
                 models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
+    low = r.get("lowered")   # D24: only if the level shown is still the one the P1 lowering produced (a later step, e.g. the sender rule, may have moved it)
+    lowered = Lowered(from_level=_LEVEL[low["from"]], text=low["text"]) if low and r["level"] == 1 else None
     return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
                   evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children,
-                  pending=["links"] if any(c.pending for c in children) else [], meta=meta)
+                  pending=["links"] if any(c.pending for c in children) else [], risk_score=risk_score(level, r["text_score"], r.get("text_thresholds")),
+                  lowered=lowered, meta=meta)

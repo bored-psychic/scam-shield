@@ -64,6 +64,16 @@ def _updated(lists, name, today):
     return f"updated {hours} h ago" if hours < 48 else f"updated {hours // 24} days ago"
 
 
+# The registry operator as a short name for the "Lowered from..." sentence (D24): the legal name of the 15 verified .brand TLDs, kept short.
+# brand_tlds.json is rewritten by update_link_lists.py, so these names cannot live there; a TLD missing here falls back to its legal name.
+_OPERATOR_SHORT = {"jio": "Reliance", "reliance": "Reliance", "ril": "Reliance", "sbi": "State Bank of India", "hdfcbank": "HDFC Bank", "hdfc": "HDFC Bank",
+                   "airtel": "Airtel", "bharti": "Bharti", "tatamotors": "Tata Motors", "amazon": "Amazon", "google": "Google", "youtube": "Google",
+                   "microsoft": "Microsoft", "apple": "Apple", "netflix": "Netflix"}
+
+def _operator(bt):
+    return _OPERATOR_SHORT.get(bt["tld"], bt["registry_operator"])
+
+
 def _names(url, host, reg, lists, gambling, now):
     """The offline checks of one address: flags, positive, display notes and facts."""
     flags, notes, facts, positive = [], [], [], None
@@ -77,13 +87,15 @@ def _names(url, host, reg, lists, gambling, now):
     if bt:
         why = f".{bt['tld']} is a brand domain ending: under ICANN's rules only {bt['registry_operator']} (and its affiliates) can register these."
         positive = {"kind": "p1", "id": "link.brand_owned", "title": f"Belongs to {bt['brand']}: only {bt['registry_operator']} can register .{bt['tld']} addresses",
-                    "why": why, "tag": "Brand's own site"}
+                    "why": why, "tag": "Brand's own site",
+                    "lowered": f"{{}} belongs to {bt['brand'].split(' (')[0]} (only {_operator(bt)} can register .{bt['tld']} addresses)"}
         facts.append(_fact("owner", "Owner", f"{bt['brand']} (.{bt['tld']} is its own domain ending)", "reassuring", why,
                            source=f"ICANN gTLD list (Specification 13) + IANA root zone, verified {bt['verified']}"))
     elif zone:
         kind = "p1" if zone["effect"] == "p1" else "display"
         positive = {"kind": kind, "id": "link.bank_in" if kind == "p1" else "link.gov_zone", "title": zone["title"], "why": zone["why"],
-                    "tag": "Bank-only domain" if kind == "p1" else "Government domain"}
+                    "tag": "Bank-only domain" if kind == "p1" else "Government domain",
+                    "lowered": f"{{}} ends in .{zone['zone']} (only {'banks' if zone['zone'] == 'bank.in' else zone['owner']} can register these addresses)"}
         facts.append(_fact("owner", "Owner", f"Registered to {zone['owner']} (.{zone['zone']})", "reassuring", zone["why"], source=zone["sources"][0].split(" ")[0]))
     elif look:
         own = ", ".join(look["owned"])
@@ -293,7 +305,7 @@ def assess(l, lists, live=None, state="pending", now=None):
             out["notes"] += [dict(n, title=_dest_title(n["title"])) for n in d["notes"]]
             out["facts"] += [dict(f, key="dest_" + f["key"], label="Destination: " + f["label"].lower()) for f in d["facts"]]
             if d["positive"] and d["positive"]["kind"] in ("p1", "p2"):
-                out["positive"] = dict(d["positive"], title=_dest_title(d["positive"]["title"]))
+                out["positive"] = dict(d["positive"], title=_dest_title(d["positive"]["title"]), lowered=d["positive"].get("lowered") and d["positive"]["lowered"].replace("{}", "the link's destination", 1))
         else:
             why = {"no_redirect": "the shortener didn't say", "too_many_hops": "too many short links in a row"}.get(ex["status"], FAIL_WORDS.get(ex.get("why"), "no answer"))
             out["facts"].insert(0, _fact("destination", "Goes to", f"Couldn't reveal ({why})", "unknown", status="failed", sent=ex.get("sent")))

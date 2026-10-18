@@ -390,7 +390,7 @@ def l10(m):
             router.load_lists = lambda: LinkLists(root=FIXTURES, now=NOW)   # the lifespan warmed the real lists; analyse() must read the fixture
             j = cl.post("/api/analyse", json={"text": "Order at https://zqxj-newshop.com/sale", "live": True}).json()
             rep = Report.model_validate(j)
-            if rep.schema_version != "4" or child(rep).link is None or fact(child(rep), "age").status != "ok" or rep.pending:
+            if rep.schema_version != "5" or child(rep).link is None or fact(child(rep), "age").status != "ok" or rep.pending:
                 bad.append(f"live response: {j.get('schema_version')}, pending {rep.pending}")
             j = cl.post("/api/analyse", json={"text": "Order at https://zqxj-newshop.com/sale"}).json()
             if j["pending"] != ["links"] or j["children"][0]["pending"] != ["registration", "dns"]:

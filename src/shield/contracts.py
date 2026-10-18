@@ -9,7 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # level value; an unknown field under extra="forbid"), hence the bump. With no sender, a v3 Report is the v2 Report plus "sender": null.
 # v4 (2026-10-18, D23): Report.link (a link's "Website details" fact sheet: LinkInfo + Fact rows) on the child Report of each link; null on the
 # message Report. A v3 reader would reject the unknown field, hence the bump.
-SCHEMA_VERSION = "4"
+# v5 (2026-10-18, D24): Report.risk_score (the 0-100 warning-sign meter, inside the band of the final level) and Report.lowered (a P1 brand-owned
+# link lowered the verdict: from which level, and the sentence that says why). Both null on a child Report.
+SCHEMA_VERSION = "5"
 
 
 class Level(str, Enum):
@@ -114,8 +116,18 @@ class LinkInfo(_Strict):
     sent: list[str] = []           # every live call made for this link: what was sent, to which service
 
 
+class Lowered(_Strict):
+    """D24: the verdict was lowered by a P1 positive link signal (a verified .brand ending or a .bank.in address; shield.core.router.apply_positives)."""
+    from_level: Literal[Level.LIKELY_SCAM]   # P1 only ever lowers Likely scam (to Suspicious); a wider rule must widen this on purpose
+    text: str = Field(min_length=1, max_length=240)   # one calm sentence, e.g. "Lowered from Likely scam: the link belongs to Jio (only Reliance can register .jio addresses)."
+
+
+# The score's bands by level (shield.core.risk.BANDS, repeated here so the contract rejects a score that contradicts its level without importing the core)
+RISK_BANDS = {Level.NO_WARNING_SIGNS: (0, 29), Level.SUSPICIOUS: (30, 69), Level.LIKELY_SCAM: (70, 100), Level.PROMOTIONAL: (0, 29)}
+
+
 class Report(_Strict):
-    schema_version: Literal["4"] = "4"
+    schema_version: Literal["5"] = "5"
     module: Module
     level: Level
     score: float | None = None
@@ -127,7 +139,27 @@ class Report(_Strict):
     children: list["Report"] = []
     pending: list[str] = []      # ids of live checks still running (child: "registration", "dns", "sb"; message: "links")
     link: LinkInfo | None = None   # D23: on a link's child Report; None on the message Report
+    risk_score: int | None = None  # D24: 0-100 warning-sign meter inside the band of `level`; None for Can't judge and on a child Report. NOT a probability
+    lowered: Lowered | None = None   # D24: set only when a P1 link signal actually lowered the level shown (never when it fired and the level stayed)
     meta: Meta = Meta()
+
+    @model_validator(mode="after")
+    def _score_matches_level(self):
+        if self.risk_score is None:
+            return self
+        if self.level not in RISK_BANDS:
+            raise ValueError(f"a {self.level.value} Report has no risk_score")
+        lo, hi = RISK_BANDS[self.level]
+        if not lo <= self.risk_score <= hi:
+            raise ValueError(f"risk_score {self.risk_score} is outside the {lo}-{hi} band of {self.level.value}")
+        return self
+
+    @field_validator("risk_score")
+    @classmethod
+    def _score_range(cls, v):
+        if v is not None and not 0 <= v <= 100:
+            raise ValueError("risk_score is 0-100")
+        return v
 
     @field_validator("reasons")
     @classmethod
