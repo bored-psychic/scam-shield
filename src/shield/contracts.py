@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # v2 (2026-10-17): Evidence.span and Evidence.tag, for the in-message underlines and the radar labels
 # v3 (2026-10-18, D22): Report.sender (the sender the user typed, classified) and the level PROMOTIONAL. A v2 reader would reject both (an unknown
 # level value; an unknown field under extra="forbid"), hence the bump. With no sender, a v3 Report is the v2 Report plus "sender": null.
-SCHEMA_VERSION = "3"
+# v4 (2026-10-18, D23): Report.link (a link's "Website details" fact sheet: LinkInfo + Fact rows) on the child Report of each link; null on the
+# message Report. A v3 reader would reject the unknown field, hence the bump.
+SCHEMA_VERSION = "4"
 
 
 class Level(str, Enum):
@@ -87,8 +89,33 @@ class Sender(_Strict):
         return self
 
 
+class Fact(_Strict):
+    """One row of a link's "Website details" (D23). value is None while the check is pending, or for a hidden destination not revealed yet."""
+    key: str = Field(pattern=r"^[a-z_]+$")             # e.g. "age", "server", "dest_age"
+    label: str = Field(min_length=1, max_length=40)     # e.g. "Registered"
+    value: str | None = None                            # e.g. "3 days ago (15 Oct 2026)"
+    effect: Effect
+    why: str | None = None                              # why it matters, one plain line (every red flag has one)
+    status: Literal["ok", "pending", "failed", "skipped"]   # failed = "Couldn't verify (...)", never shown as safe
+    source: str | None = None                           # e.g. "Tranco list updated 3 h ago"
+    sent: str | None = None                             # what this check sent off the machine, e.g. "domain x.top -> rdap.zdnsgtld.com (registry)"
+
+
+class LinkInfo(_Strict):
+    """A link's background (D23), on its child Report. Nothing here was fetched from the link itself."""
+    url: str                       # the link as extracted (refanged)
+    host: str                      # lower case, IDN in punycode
+    shown_host: str                # the host with xn-- labels decoded (what a phone would show)
+    owner: str                     # the registered domain the checks looked up (one label + .bank.in / .gov.in for those zones)
+    shortener: bool
+    expandable: bool               # a short link whose destination the button can ask for (live checks on, not revealed yet)
+    destination: str | None = None  # the revealed destination of a short link (never requested)
+    facts: list[Fact] = []
+    sent: list[str] = []           # every live call made for this link: what was sent, to which service
+
+
 class Report(_Strict):
-    schema_version: Literal["3"] = "3"
+    schema_version: Literal["4"] = "4"
     module: Module
     level: Level
     score: float | None = None
@@ -98,7 +125,8 @@ class Report(_Strict):
     reasons: list[str] = []      # at most 3
     advice: list[str] = []
     children: list["Report"] = []
-    pending: list[str] = []      # ids of live checks still running
+    pending: list[str] = []      # ids of live checks still running (child: "registration", "dns", "sb"; message: "links")
+    link: LinkInfo | None = None   # D23: on a link's child Report; None on the message Report
     meta: Meta = Meta()
 
     @field_validator("reasons")

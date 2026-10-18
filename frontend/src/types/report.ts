@@ -1,7 +1,7 @@
 // The Report contract, schema v3: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
 // exactly; the API sends every field (pydantic model_dump), so none are optional here. Change both files together and bump the version.
-// v3 (D22): Report.sender and the level "promotional".
-export const SCHEMA_VERSION = "3";
+// v3 (D22): Report.sender and the level "promotional". v4 (D23): Report.link, a link's "Website details" (LinkInfo + Fact rows).
+export const SCHEMA_VERSION = "4";
 
 export type Level = "likely_scam" | "suspicious" | "no_warning_signs" | "cant_judge" | "promotional";
 export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_warning_signs", "cant_judge", "promotional"];
@@ -44,8 +44,33 @@ export interface Sender {
   label: string;                          // e.g. "Registered business · Promotional"
 }
 
+/** One row of a link's "Website details" (D23). value is null while pending, or for a short link's hidden destination. */
+export interface Fact {
+  key: string;             // e.g. "age", "server", "dest_age"
+  label: string;           // e.g. "Registered"
+  value: string | null;    // e.g. "3 days ago (15 Oct 2026)"; a failed check says "Couldn't verify (...)"
+  effect: Effect;
+  why: string | null;      // why it matters, one plain line (every red flag has one)
+  status: "ok" | "pending" | "failed" | "skipped";
+  source: string | null;   // e.g. "Tranco list updated 3 h ago", "Advisory provided by Google"
+  sent: string | null;     // what this check sent off the machine
+}
+
+/** A link's background (D23), on its child Report. Nothing in it was fetched from the link itself. */
+export interface LinkInfo {
+  url: string;
+  host: string;
+  shown_host: string;      // xn-- labels decoded
+  owner: string;           // the registered domain the checks looked up
+  shortener: boolean;
+  expandable: boolean;     // the "Where does this short link go?" button can be offered
+  destination: string | null;
+  facts: Fact[];
+  sent: string[];          // every live call made for this link
+}
+
 export interface Report {
-  schema_version: "3";
+  schema_version: "4";
   module: Module;
   level: Level;
   score: number | null;    // never shown as a percentage (D4)
@@ -55,6 +80,7 @@ export interface Report {
   reasons: string[];       // at most 3
   advice: string[];
   children: Report[];
-  pending: string[];       // ids of live checks still running
+  pending: string[];       // ids of live checks still running (message: "links"; link: "registration", "dns", "sb")
+  link: LinkInfo | null;   // D23: on a link's child Report; null on the message Report
   meta: Meta;
 }

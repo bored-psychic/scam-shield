@@ -83,7 +83,7 @@ Facts from the code, not promises:
 - **Link checks** (`src/shield/links/`): a gradient-boosting model reads the link's host (the part before the first `/`) and scores how much it looks like known phishing hosts. Link shorteners and free hosting are handled by rule and shown as "can't verify". Links are never opened or fetched.
 - **Gambling rule** (`src/shield/links/gambling.py`): a local lookup of 362,487 registered domains plus a name rule for Satta/Matka sites. A hit raises a link to at least *Suspicious* with its own reason and a gambling advice line. It never gives *Likely scam* on its own. A betting promotion with no link is not detected.
 - **One answer shape** (Report v2, `src/shield/contracts.py`): the verdict, up to three plain reasons, the evidence with exact positions in the message, and the advice, so the screen only draws what the checker returns. The report also records which model files made it.
-- **Local only**: the message is analysed in memory, not logged or written to disk, and the analysis makes no outbound network call (`src/shield/api/main.py`; the code under `src/shield/` contains no network library). The page says "Checked on this device · nothing was stored".
+- **Local only**: the message is analysed in memory, not logged or written to disk. The first, offline analysis makes no outbound network call; the live link checks (D23) send only a registered domain to the allowlisted services in `src/shield/core/net.py` (CLAUDE.md rule 8), and no link is ever fetched; `net.py` is the only code under `src/shield/` that imports a network library. The page says "Checked on this device · nothing was stored".
 
 ## 3. Honest limits
 

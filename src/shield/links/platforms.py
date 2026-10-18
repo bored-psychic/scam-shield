@@ -17,6 +17,19 @@ FREE_HOSTING = {"pages.dev", "workers.dev", "vercel.app", "netlify.app", "github
                 "wordpress.com", "weebly.com", "wixsite.com", "webflow.io", "framer.website", "carrd.co", "godaddysites.com", "000webhostapp.com",
                 "infinityfreeapp.com", "pythonanywhere.com"}
 CANT_VERIFY, CANT_JUDGE = "Can't verify - hidden destination", "Can't judge by domain - free hosting"
+# User-content hosts (D23): popular sites where anyone can post a page, a form, a file, a chat invite or a profile, so the site's popularity (P2)
+# and its registration facts say nothing about the page a link points to, and a blocklist entry there marks that page only. The URL model still
+# scores them (unchanged); only the D23 link checks read this list. Matched like the lists above (the host or a subdomain of it).
+USER_CONTENT = {"t.me", "telegram.me", "wa.me", "chat.whatsapp.com", "api.whatsapp.com", "docs.google.com", "drive.google.com", "forms.gle",
+                "sites.google.com", "script.google.com", "storage.googleapis.com", "firebasestorage.googleapis.com", "amazonaws.com",
+                "cloudfront.net", "dropbox.com", "dropboxusercontent.com", "onedrive.live.com", "1drv.ms", "sharepoint.com", "notion.site",
+                "linktr.ee", "instagram.com", "facebook.com", "fb.me", "youtube.com", "youtu.be", "github.com", "githubusercontent.com",
+                "gitlab.com", "medium.com", "pastebin.com", "discord.gg", "discord.com", "x.com", "twitter.com", "linkedin.com", "lnkd.in",
+                "canva.site", "my.canva.site", "typeform.com", "jotform.com", "wixstudio.com", "translate.goog", "ipfs.io"}
+
+def platform_of(host):
+    """The root of the shortener, free-hosting or user-content platform host is on (e.g. "pages.dev", "docs.google.com"), or None."""
+    return suffix_match(host, SHORTENERS) or suffix_match(host, FREE_HOSTING) or suffix_match(host, USER_CONTENT)
 
 def suffix_match(host, domains):
     return next((d for d in domains if host == d or host.endswith("." + d)), None)

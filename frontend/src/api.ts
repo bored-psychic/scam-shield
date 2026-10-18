@@ -23,37 +23,43 @@ const TIMEOUT_MS = 30_000;   // an analysis takes milliseconds; this only keeps 
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
-/** The body is only the text. The API's optional sender field (D22) is dormant: the page has no sender input since 2026-10-18 and never sends
- *  one, so Report.sender is always null; the field stays for reading the sender from a screenshot later. */
-export async function analyse(text: string): Promise<Report> {
+/** D23: live = also run the link background checks (the API sends only domain names to registries, DNS, certificate logs and, with a key,
+ *  Safe Browsing); expand = short links of this text the user asked to reveal (the shortener is asked; the destination is never opened). */
+export type LiveOptions = { live?: boolean; expand?: string[] };
+
+/** The first call's body is only the text: the offline analysis, which makes no network call. The page then asks again with live: true. The
+ *  API's optional sender field (D22) is dormant: the page has no sender input since 2026-10-18 and never sends one, so Report.sender is
+ *  always null; the field stays for reading the sender from a screenshot later. */
+export async function analyse(text: string, opts: LiveOptions = {}): Promise<Report> {
   const signal = AbortSignal.timeout(TIMEOUT_MS);
+  const body = opts.live ? { text, live: true, ...(opts.expand?.length ? { expand: opts.expand } : {}) } : { text };
   let res: Response;
   try {
     res = await fetch("/api/analyse", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(body),
       signal,
     });
   } catch {
     throw new CheckError({ kind: "unreachable" });
   }
-  const body: unknown = await res.json().catch(() => undefined);
+  const answer: unknown = await res.json().catch(() => undefined);
   if (signal.aborted) throw new CheckError({ kind: "unreachable" });
 
   if (!res.ok) {
-    const detail = isObject(body) && typeof body.detail === "string" ? body.detail : null;
+    const detail = isObject(answer) && typeof answer.detail === "string" ? answer.detail : null;
     if (res.status === 422) throw new CheckError({ kind: "rejected", detail: detail ?? "The checker couldn't read this message." });
     // No JSON detail: not the API speaking (the Vite proxy answers 500 with an empty body when the API is down).
     throw new CheckError(detail !== null ? { kind: "failed", detail } : { kind: "unreachable" });
   }
 
-  const version = isObject(body) ? body.schema_version : undefined;
-  if (!isObject(body) || version !== SCHEMA_VERSION || !LEVEL_VALUES.includes(body.level as Report["level"])
-      || !Array.isArray(body.evidence) || !Array.isArray(body.reasons) || !Array.isArray(body.children)) {
+  const version = isObject(answer) ? answer.schema_version : undefined;
+  if (!isObject(answer) || version !== SCHEMA_VERSION || !LEVEL_VALUES.includes(answer.level as Report["level"])
+      || !Array.isArray(answer.evidence) || !Array.isArray(answer.reasons) || !Array.isArray(answer.children)) {
     throw new CheckError({ kind: "schema", got: version === undefined ? "none" : String(version) });
   }
-  return body as unknown as Report;
+  return answer as unknown as Report;
 }
 
 // Screenshot input (D19). The image goes into the request body of POST /api/ocr (local Tesseract, in memory) and nowhere else; the

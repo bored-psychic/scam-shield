@@ -1,0 +1,5 @@
+{"description": "fixture in the IANA RDAP bootstrap format (test data only)", "publication": "2026-10-18T00:00:00Z", "version": "1.0",
+ "services": [[["com", "net"], ["https://rdap.fixture-registry.example/com/"]],
+              [["top", "xyz", "icu"], ["https://rdap.fixture-gtld.example/"]],
+              [["in"], ["https://rdap.fixture-in.example/rdap/"]],
+              [["jio", "sbi"], ["https://rdap.fixture-brand.example/rdap/"]]]}

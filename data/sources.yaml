@@ -196,3 +196,69 @@
     on the 2nd laptop. Needs trust_remote_code, so pin the revision above. Distilled alternative: ai4bharat/indictrans2-en-indic-dist-200M, mit,
     revision 173b94239f7c38886b2747b8d4a5db771a7e1232. Text pre/post-processing: IndicTransToolkit (VarunGumma/IndicTransToolkit, MIT), runs on the Mac only.
   verified: 2026-10-07
+
+# ---------------------------------------------------------------- D23 safe link checks (src/update_link_lists.py -> data/final/linklists/, git-ignored;
+# manifest.json there records url, licence, downloaded_utc, sha256, rows of the last download). Downloaded 2026-10-18.
+- name: linklists_tranco_top1m
+  module: links
+  access: http
+  id: https://tranco-list.eu/top-1m.csv.zip
+  licence: no licence stated for the list itself; built from Cisco Umbrella (free), Majestic (CC BY 3.0), Farsight, CrUX (CC BY-SA 4.0), Cloudflare Radar (CC BY-NC 4.0) -> non-commercial; cite Le Pochat et al., NDSS 2019
+  notes: popularity (P2 = top 10k), lookalike exemption (top 100k), homograph targets; held as hashed arrays in memory
+  verified: 2026-10-18
+
+- name: linklists_openphish
+  module: links
+  access: http
+  id: https://openphish.com/feed.txt (redirects to https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt)
+  licence: OpenPhish terms (openphish.com/terms.html) - academic / independent / personal research only, no commercial use, no redistribution without written permission
+  notes: R1; community feed refreshed every 12 h (300 URLs on 2026-10-18); never committed
+  verified: 2026-10-18
+
+- name: linklists_urlhaus_recent
+  module: links
+  access: http
+  id: https://urlhaus-api.abuse.ch/v2/files/exports/<URLHAUS_AUTH_KEY>/recent.csv
+  licence: abuse.ch fair-use terms; free Auth-Key (account) required; commercial use may need a paid plan
+  notes: R1 and the R6 IP set; URLs added in the past 30 days (33,208 on 2026-10-18); the key is read from the environment only
+  verified: 2026-10-18
+
+- name: linklists_rdap_bootstrap
+  module: links
+  access: http
+  id: https://data.iana.org/rdap/dns.json
+  licence: IANA RDAP bootstrap registry (RFC 9224), public
+  notes: TLD -> registry RDAP server; these hosts are the live RDAP allowlist of shield/core/net.py
+  verified: 2026-10-18
+
+- name: linklists_ip2asn
+  module: links
+  access: http
+  id: https://iptoasn.com/data/ip2asn-v4.tsv.gz
+  licence: Public Domain Dedication and License (PDDL) 1.0 (per two secondary sources, netdata docs and ip-location-db)
+  notes: provider + country of a resolved IP (display), the CDN exemption of R6
+  verified: 2026-10-18
+
+- name: brand_tlds_verification
+  module: links
+  access: http
+  id: https://www.icann.org/resources/registries/gtlds/v2/gtlds.json + https://data.iana.org/TLD/tlds-alpha-by-domain.txt + https://www.iana.org/domains/root/db/<tld>.html
+  licence: public registry data
+  notes: P1; result tracked in src/shield/links/brand_tlds.json (15 TLDs kept on 2026-10-18)
+  verified: 2026-10-18
+
+- name: abuse_tlds_interisle
+  module: links
+  access: manual
+  id: https://cybercrimeinfocenter.org/phishing-activity-in-tlds-may-july-2026
+  licence: (c) Interisle Consulting Group, all rights reserved; only the 20 TLD names and scores are kept, as cited facts
+  notes: display-only high-abuse TLD line; tracked in src/shield/links/abuse_tlds.json
+  verified: 2026-10-18
+
+- name: bank_in_rbi
+  module: links
+  access: manual
+  id: https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=12837 (RBI/2025-26/28, 22 Apr 2025)
+  licence: public notice
+  notes: .bank.in is an exclusive domain for banks with IDRBT as the exclusive registrar (also IDRBT, https://www.idrbt.ac.in/wp-content/uploads/2025/06/DRO_Jul_10-11_2025.pdf); P1, src/shield/links/restricted_zones.json
+  verified: 2026-10-18

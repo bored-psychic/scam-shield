@@ -1,4 +1,4 @@
-import hashlib, json
+import hashlib, json, os
 from functools import lru_cache
 from pathlib import Path
 
@@ -8,6 +8,16 @@ TEXT_MODEL_PATH, URL_MODEL_PATH = ROOT / "models" / "text_baseline.joblib", ROOT
 GAMBLING_DOMAINS_PATH = ROOT / "data" / "final" / "gambling_domains.tsv"
 GAMBLING_PLATFORM_HOSTS_PATH = ROOT / "data" / "final" / "gambling_platform_hosts.tsv"
 GAMBLING_INDIA_PATH = ROOT / "data" / "final" / "gambling_india.json"
+# Link checks (D23). Downloaded lists (git-ignored; src/update_link_lists.py) and the tracked, curated reference files beside the code.
+LINKLISTS_DIR = ROOT / "data" / "final" / "linklists"
+_LINKS_DIR = ROOT / "src" / "shield" / "links"
+BRAND_TLDS_PATH = _LINKS_DIR / "brand_tlds.json"           # verified by update_link_lists.py against ICANN gtlds.json + IANA root zone
+BRANDS_INDIA_PATH = _LINKS_DIR / "brands_india.json"       # brand -> name tokens, registered domains it owns, its brand TLDs
+RESTRICTED_ZONES_PATH = _LINKS_DIR / "restricted_zones.json"   # .bank.in (P1), .gov.in / .nic.in (display only)
+ABUSE_TLDS_PATH = _LINKS_DIR / "abuse_tlds.json"           # cited high-abuse TLD names (display only)
+# Live link checks (D23, D2: on by default). SHIELD_LIVE_CHECKS=0 turns every network check off ("not checked"); the offline checks still run.
+# The Safe Browsing key is read from the environment at call time (shield.links.live), never stored here.
+LIVE_CHECKS = os.environ.get("SHIELD_LIVE_CHECKS", "1") != "0"
 
 # Safety-advice cap (decision S1 once enabled; reports/otp_advisory.md): a message whose only reason for Suspicious is the text head, and which contains
 # standard "never share your OTP" advice and none of the signs of a scam wrapped around it (router.safety_advice_cap), is shown as No warning signs.

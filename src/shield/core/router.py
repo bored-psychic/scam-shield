@@ -9,7 +9,10 @@ from shield.messages.tactics import tactic_tags
 from shield.links.lexical import url_notes
 from shield.links.gambling import GAMBLING_VERDICT, load_gambling
 from shield.links.platforms import assess_link
-from shield.core.sender_rule import apply_sender
+from shield.links import live as live_checks
+from shield.links.lists import load_lists
+from shield.links.reputation import assess as assess_background
+from shield.core.sender_rule import apply_sender, hard_risks
 from shield.messages.sender import parse_sender
 
 MAX_TEXT_CHARS, MAX_URLS = 20000, 10
@@ -33,10 +36,34 @@ def safety_advice_cap(text, r):
         ("gambling hit", any(l["gambling"] for l in r["links"]))) if hit]
     return phrases, blockers
 
-def analyse(text, text_model, url_model, safety_cap=None, sender=None):
+def apply_positives(text, r):
+    """D23 positive signals (P1 a verified .brand TLD or .bank.in address, P2 a Tranco top-10k site that is no platform): only when the
+    message has no hard-risk signal (sender_rule.hard_risks: D22's list + any link red flag, with a positive link's own URL-model rating left
+    out) and never on a link with a red flag. Such a link is set to No warning signs (its URL-model rating is overridden) and the message
+    is fused again. If then every link is positive, at least one is P1, the text has no Indian mobile number and the level is still Likely
+    scam, it is capped at Suspicious (never lower: like D22's cap for registered senders). Sets r["hard_risks"] and r["positive_cap"]."""
+    r["hard_risks"], r["positive_cap"] = hard_risks(text, r), None
+    pos = [l for l in r["links"] if l["positive"] in ("p1", "p2") and not l["flags"]]
+    if not pos or r["hard_risks"]:
+        return
+    for l in pos:
+        l["risk_level"], l["level"], l["positive_applied"] = 0, 0, True
+        l["verdict"] = LEVELS[0]
+    levels = [l["risk_level"] for l in r["links"] if l["risk_level"] is not None]
+    r["url_level"] = max(levels) if levels else None
+    r["level"] = fuse(r["text_level"], r["url_level"])
+    if (r["level"] == 2 and all(l.get("positive_applied") for l in r["links"]) and any(l["positive"] == "p1" for l in r["links"])
+            and not has_indian_mobile(text)):
+        r["level"] = 1
+        r["positive_cap"] = next(l["checks"]["positive"]["title"] for l in r["links"] if l["positive"] == "p1")
+
+
+def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=()):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
-    (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender)."""
+    (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender).
+    live: run the network link checks (D23: shield.links.live, only registered domains leave the machine, <= 4 s); False = the offline
+    analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
@@ -73,13 +100,27 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None):
         l["gambling"] = None if l["kind"] == "shortener" else lookup.match(l["url"])
         if l["gambling"] and (l["level"] or 0) < 1:
             l["level"], l["verdict"] = 1, GAMBLING_VERDICT
-    levels = [l["base_level"] for l in r["links"] if l["base_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
+    # background checks (D23): lists, names, and (live=True) registry / DNS / certificate / Safe Browsing / the expand button. A red flag floors
+    # the link's phishing-side level (risk_level), which, unlike a gambling hit, counts as the URL side of the fusion.
+    lists = load_lists()
+    state = "off" if not config.LIVE_CHECKS else "done" if live else "pending"
+    results = live_checks.run([l["url"] for l in r["links"]], lists, expand_urls=set(expand)) if state == "done" and r["links"] else {}
+    for l in r["links"]:
+        c = l["checks"] = assess_background(l, lists, results.get(l["url"]), state)
+        l["flags"] = [f["code"] for f in c["flags"]] if c else []
+        l["positive"] = c["positive"]["kind"] if c and c["positive"] else None
+        floor = c["floor"] if c else None
+        l["risk_level"] = l["base_level"] if floor is None else max(l["base_level"] or 0, floor)
+        if floor is not None and (l["level"] or 0) < floor:
+            l["level"], l["verdict"] = floor, f"{LEVELS[floor]} - {c['flags'][0]['tag'].lower()}"
+    levels = [l["risk_level"] for l in r["links"] if l["risk_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
     r["url_level"] = max(levels) if levels else None
     r["level"] = fuse(r["text_level"], r["url_level"])
     if (cred or pin_recv) and (r["level"] is None or r["level"] < 1):   # hard rules (OTP / PIN / CVV request, UPI PIN to receive money): at least Suspicious, whatever the scores say
         r["level"], r["escalated"] = 1, True
     if any(l["gambling"] for l in r["links"]) and (r["level"] is None or r["level"] < 1):   # gambling floor: Suspicious, never Likely scam on its own
         r["level"] = 1
+    apply_positives(text, r)   # D23 P1 / P2: only without a hard-risk signal, so after every floor above
     # safety-advice cap: last, so every hard rule and floor above has already had its say (the conditions refuse a message any of them fired on)
     if config.SAFETY_ADVICE_CAP if safety_cap is None else safety_cap:
         phrases, blockers = safety_advice_cap(text, r)

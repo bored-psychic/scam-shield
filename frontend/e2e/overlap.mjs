@@ -1,0 +1,164 @@
+// Layout check of the result screen with the D23 "Website details" (no overlap, no horizontal scroll, nothing sticking out of its panel).
+//
+//   cd frontend && npm run build && node e2e/overlap.mjs [--shots DIR]
+//
+// Serves the built dist/ with Vite's preview server on 127.0.0.1:4173 and drives the INSTALLED Google Chrome through playwright-core (no
+// browser download). /api/analyse is answered inside the page from the real Reports in src/lib/__fixtures__/reports.json (offline: the network
+// rows pending), then a live answer made from the same Report with long values filled in, and an expanded answer for the short-link button.
+// So it needs no backend, makes no network request, and opens no link. Viewports: 360 / 390 / 430 px phones (several heights) and 1280 / 1440
+// desktop. States checked per case: pending, after the live answer with every "Website details" sheet open, and after the short-link button.
+// Exit code 1 on any failure. Earlier sessions ran the same checks from a scratch directory; this is the committed version (D23).
+import { readFileSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright-core";
+import { preview } from "vite";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const FIXTURES = JSON.parse(readFileSync(join(HERE, "..", "src", "lib", "__fixtures__", "reports.json"), "utf8"));
+const shotsAt = process.argv.indexOf("--shots");
+const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
+const VIEWPORTS = [[360, 640], [360, 800], [390, 600], [390, 844], [430, 932], [1280, 800], [1440, 900]];
+const CASES = ["jio-no-sender", "kyc-promotional", "shortener-keywords"];
+const PORT = 4173;
+
+const fx = (label) => {
+  const f = FIXTURES.find((x) => x.label === label);
+  if (!f) throw new Error(`fixture ${label} missing: rerun frontend/scripts/dump_fixture.py`);
+  return f;
+};
+const clone = (x) => JSON.parse(JSON.stringify(x));
+
+// Long but realistic values, so a narrow screen has to wrap them.
+const LIVE_VALUES = {
+  age: ["3 days ago (15 Oct 2026)", "caution", "Scam sites are usually days or weeks old; real banks' and shops' sites are years old."],
+  server: ["FIXTURE-VERY-LONG-HOSTING-PROVIDER-NAME-INTERNATIONAL-PRIVATE-LIMITED (AS4294967294) · United Arab Emirates", "neutral", null],
+  safe_browsing: ["Not listed", "neutral", null],
+};
+function liveOf(report, raised) {
+  const r = clone(report);
+  r.pending = [];
+  if (raised) r.level = "likely_scam";
+  for (const c of r.children) {
+    c.pending = [];
+    if (!c.link) continue;
+    c.link.facts = c.link.facts.flatMap((f) => {
+      if (f.status !== "pending") return [f];
+      const [value, effect, why] = LIVE_VALUES[f.key] ?? ["Couldn't verify (timed out)", "unknown", null];
+      const row = { ...f, status: "ok", value, effect, why, sent: `domain ${c.link.owner} → rdap.example-registry-with-a-long-name.example (registry)` };
+      return f.key === "age" ? [row, { ...row, key: "registrar", label: "Registrar", value: "An Extremely Long Registrar Name Of Some Sort, LLC (IANA 9999)", effect: "neutral", why: null }] : [row];
+    });
+    if (!c.link.shortener) c.link.sent = [`domain ${c.link.owner} → rdap.example-registry-with-a-long-name.example (registry)`, `domain ${c.link.owner} → cloudflare-dns.com (DNS)`];
+  }
+  return r;
+}
+function expandedOf(report) {
+  const r = liveOf(report, true);
+  for (const c of r.children) {
+    if (!c.link?.shortener) continue;
+    const dest = "https://sbi-kyc-update-secure-login-verification-centre.top/account/verify?session=abcdef1234567890abcdef";
+    c.link.expandable = false;
+    c.link.destination = dest;
+    c.link.facts = c.link.facts.map((f) => (f.key === "destination" ? { ...f, status: "ok", value: dest, effect: "neutral", why: null } : f));
+    c.link.facts.push({ key: "dest_owner", label: "Destination: owner", value: "Not SBI ('sbi' in sbi-kyc-update-secure-login-verification-centre.top)",
+                        effect: "caution", why: "SBI's own sites are sbi.co.in, onlinesbi.com. Scammers put a brand's name in their own web address.",
+                        status: "ok", source: null, sent: null });
+    c.link.sent = ["short link bit.ly/abc → bit.ly"];
+  }
+  return r;
+}
+
+// Everything measured in the page: problems as strings.
+function measure() {
+  const out = [];
+  const near = (a, b) => a <= b + 1;
+  if (!near(document.documentElement.scrollWidth, innerWidth)) out.push(`horizontal scroll: page ${document.documentElement.scrollWidth} > ${innerWidth}`);
+  const panels = [...document.querySelectorAll(".bento > .box, .bento > .bcol > .box")];
+  if (!panels.length) out.push("no result panels");
+  const rects = panels.map((p) => [p.className.split(" ").slice(0, 2).join("."), p.getBoundingClientRect()]);
+  for (let i = 0; i < rects.length; i++)
+    for (let j = i + 1; j < rects.length; j++) {
+      const [na, a] = rects[i], [nb, b] = rects[j];
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w > 1 && h > 1) out.push(`panels overlap: ${na} / ${nb} (${Math.round(w)}x${Math.round(h)} px)`);
+    }
+  for (const box of document.querySelectorAll(".box.link")) {
+    const b = box.getBoundingClientRect();
+    for (const el of box.querySelectorAll(".url, .checks div, summary, dt, dd, .fval, .frow small, .expand button, .expand .note, .note")) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;   // inside a closed sheet
+      if (r.left < b.left - 1 || r.right > b.right + 1) out.push(`${el.tagName.toLowerCase()}.${el.className || ""} sticks out of the link panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(b.left)}..${Math.round(b.right)})`);
+      if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) out.push(`${el.tagName.toLowerCase()} text overflows (${el.scrollWidth} > ${el.clientWidth}): ${el.textContent.slice(0, 40)}`);
+    }
+    const rows = [...box.querySelectorAll(".frow")].map((r) => r.getBoundingClientRect()).filter((r) => r.height);
+    for (let i = 1; i < rows.length; i++) if (rows[i].top < rows[i - 1].bottom - 1) out.push("Website details rows overlap");
+    for (const row of box.querySelectorAll(".frow")) {
+      const dt = row.querySelector("dt")?.getBoundingClientRect(), dd = row.querySelector("dd")?.getBoundingClientRect();
+      if (dt && dd && dt.height && dd.height) {
+        const w = Math.min(dt.right, dd.right) - Math.max(dt.left, dd.left), h = Math.min(dt.bottom, dd.bottom) - Math.max(dt.top, dd.top);
+        if (w > 1 && h > 1) out.push(`label and value overlap in a row: ${row.querySelector("dt").textContent}`);
+      }
+    }
+  }
+  return out;
+}
+
+async function runCase(browser, [w, h], label) {
+  const f = fx(label);
+  const raised = label === "jio-no-sender";
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const problems = [];
+  let release;
+  const liveGate = new Promise((res) => { release = res; });
+  await page.route("**/api/analyse", async (route) => {
+    const body = JSON.parse(route.request().postData() || "{}");
+    if (body.expand) return route.fulfill({ json: expandedOf(f.report) });
+    if (body.live) { await liveGate; return route.fulfill({ json: liveOf(f.report, raised) }); }
+    return route.fulfill({ json: f.report });
+  });
+  await page.route((url) => !url.href.startsWith(`http://127.0.0.1:${PORT}/`), (route) => { problems.push(`request outside the page: ${route.request().url()}`); route.abort(); });
+  await page.goto(`http://127.0.0.1:${PORT}/`);
+  await page.fill("#msg", f.text);
+  await page.click("button.go");
+  await page.waitForSelector(".result .box.link");
+  const tag = `${w}x${h} ${label}`;
+  const check = async (state) => {
+    for (const p of await page.evaluate(measure)) problems.push(`${state}: ${p}`);
+    if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: join(SHOTS, `${label}_${w}x${h}_${state}.png`), fullPage: true }); }
+  };
+  if (!(await page.locator(".frow.pending").count()) && label !== "shortener-keywords") problems.push("pending: no pending row was shown");
+  await check("pending");
+  release();
+  await page.waitForFunction(() => !document.querySelector(".frow.pending"));
+  if (raised && !(await page.locator(".vraised").count())) problems.push("live: the 'Raised after the website checks' note is missing");
+  await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
+  await check("live");
+  const btn = page.locator("button", { hasText: "Where does this short link go?" });
+  if (await btn.count()) {
+    await btn.first().click();
+    await page.waitForFunction(() => [...document.querySelectorAll("dd")].some((d) => d.textContent.includes("verification-centre.top")));
+    await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
+    await check("expanded");
+  } else if (label === "shortener-keywords") problems.push("the short-link button is missing");
+  await ctx.close();
+  return [tag, problems];
+}
+
+const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0.1", port: PORT, strictPort: true }, logLevel: "silent" });
+const browser = await chromium.launch({ channel: "chrome", headless: true });
+let failed = 0;
+try {
+  for (const vp of VIEWPORTS)
+    for (const label of CASES) {
+      const [tag, problems] = await runCase(browser, vp, label);
+      console.log(`${problems.length ? "FAIL" : "ok  "} ${tag}`);
+      for (const p of problems.slice(0, 8)) console.log(`      ${p}`);
+      failed += problems.length ? 1 : 0;
+    }
+} finally {
+  await browser.close();
+  await new Promise((res) => server.httpServer.close(res));
+}
+console.log(`\n${VIEWPORTS.length * CASES.length - failed}/${VIEWPORTS.length * CASES.length} viewport x case runs without a layout problem`);
+process.exit(failed ? 1 : 0);

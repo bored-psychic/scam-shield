@@ -11,7 +11,15 @@ import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
 import { SENDER_TIP, showSenderTip } from "../lib/sender";
 
-type Props = { report: Report; text: string; onAgain: () => void };   // text: exactly what was sent, which the spans index
+type Props = {
+  report: Report;
+  text: string;            // exactly what was sent, which the spans index
+  onAgain: () => void;
+  raised?: boolean;        // D23: the live link checks raised the verdict after it was first shown
+  onExpand?: (url: string) => void;   // D23: reveal a short link's destination (asks the shortener only)
+  expanding?: string | null;
+  expandFailed?: string | null;
+};
 
 const PULSE_MS = 2400, PULSE_STILL_MS = 1500;   // two 1.2 s pulses; with reduced motion a static highlight instead
 
@@ -26,7 +34,7 @@ function inView(el: HTMLElement) {
    on phones one column in the order verdict, message, why, links, what to do. The two arrangements are two different DOM orders, not a
    CSS reordering, so the tab order always follows what is on screen. Everything shown comes from the Report; the one line under the
    verdict is fixed per level (lib/levels.ts). No score, threshold or timing is shown (D4). */
-export default function Result({ report, text, onAgain }: Props) {
+export default function Result({ report, text, onAgain, raised = false, onExpand, expanding = null, expandFailed = null }: Props) {
   const reduced = useReducedMotion();
   const twoColumns = useMedia("(min-width: 901px)");   // the same breakpoint as the stylesheet's
   const root = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null);
@@ -69,10 +77,11 @@ export default function Result({ report, text, onAgain }: Props) {
   }, [pulse, segs, reduced, showTip]);
 
   const hasLinks = report.children.length > 0;
-  const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading} />;
+  const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading}
+                                note={raised ? "Raised after the website checks." : null} />;
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
-  const links = hasLinks && <LinkPanel report={report} />;
+  const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;
   const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null} />;
   return (
     <section className="result" ref={root}>

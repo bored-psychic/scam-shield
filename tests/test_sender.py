@@ -101,11 +101,12 @@ def d1():
     return bad
 
 def d2():
-    """Jio fixture + a personal mobile number -> the level without a sender (Likely scam), plus the mobile reason; the number is not echoed."""
+    """Jio fixture + a personal mobile number -> the level without a sender, plus the mobile reason; the number is not echoed. The level is Suspicious
+    since D23 (was Likely scam): t.jio is on Jio's own .brand TLD and nothing in the message is a hard-risk signal, so P1 caps it."""
     _, base = run(JIO)
     _, rep = run(JIO, MOBILE)
     bad = []
-    expect(bad, rep.level == base.level == Level.LIKELY_SCAM, f"level {rep.level.value}, without a sender {base.level.value}")
+    expect(bad, rep.level == base.level == Level.SUSPICIOUS, f"level {rep.level.value}, without a sender {base.level.value}")
     expect(bad, MOBILE_TITLE in titles(rep) and rep.reasons == base.reasons, f"reasons {rep.reasons} (three warnings: the mobile reason is evidence, not a reason)")
     expect(bad, [e.effect for e in sender_ev(rep)] == [Effect.CAUTION], f"sender evidence {sender_ev(rep)}")
     dumped = rep.model_dump_json()
@@ -220,10 +221,15 @@ def d13():
     return bad
 
 
-# one input per signal whose ONLY hard-risk signal is that one (checked), and the risky thing the misuse reason must name
+# one input per signal whose ONLY hard-risk signal is that one (checked), and the risky thing the misuse reason must name.
+# D23: demo d06's link (indiapost-redelivery.top) now also has a brand lookalike flag (link_red_flag), so phishing_link uses a link the URL model rates
+# at its scam level with no D23 red flag, and link_red_flag a lookalike the model only rates Suspicious.
+PHISH_ONLY = "Your parcel is waiting at the depot. Track it here: http://parcel-redelivery-fee.top/pay"
+RED_FLAG_ONLY = "Your parcel is waiting at the depot. Track it here: http://paytm-refund.in/claim"
 SINGLE_RISK = [("otp_request", TRICKY["otp-forward"], OTP_THING),
                ("pin_to_receive", TRICKY["pin-receive-cashback"], "it asks for your UPI PIN to receive money"),
-               ("phishing_link", DEMO["d06"], "its link looks like a phishing link"),
+               ("phishing_link", PHISH_ONLY, "its link looks like a phishing link"),
+               ("link_red_flag", RED_FLAG_ONLY, "its link has a red flag (see the link panel)"),
                ("lookalike_link", TRICKY["free-hosting-brand"], "its link is a lookalike site on free hosting"),
                ("gambling", DEMO["d10"], "it links to a gambling or betting site"),
                ("payment_demand", DEMO["d08"], "it asks for a payment or fee")]

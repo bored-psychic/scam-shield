@@ -1,4 +1,4 @@
-import type { Effect, Report } from "../types/report";
+import type { Effect, LinkInfo, Report } from "../types/report";
 
 // How the link panel writes a link: the host cut into its labels, with the part that names the site's owner (the registrable domain)
 // set apart, so "sbi.example-kyc.top" reads as a site of example-kyc.top. Display only: the link's verdict comes from the API, and no
@@ -42,12 +42,14 @@ export interface LinkBlock {
   parts: LinkParts | null;     // null: disguised, or written in a way the URL parser rejects (then the quote is shown as is)
   effect: Effect;              // the most severe of its evidence: tints the owner part
   checks: { title: string; effect: Effect }[];   // every piece of the child's evidence, in its order
+  info: LinkInfo | null;       // D23: the "Website details" (null for a link with no readable host)
 }
 
 export function linkBlocks(report: Report): LinkBlock[] {
   return report.children.map((c) => {
     const quote = c.evidence.find((e) => e.quote !== null)?.quote ?? null;
     const effect = c.evidence.reduce<Effect>((m, e) => (SEVERITY[e.effect] > SEVERITY[m] ? e.effect : m), "reassuring");
-    return { quote, parts: quote === null ? null : linkParts(quote), effect, checks: c.evidence.map((e) => ({ title: e.title, effect: e.effect })) };
+    return { quote, parts: quote === null ? null : linkParts(quote), effect, checks: c.evidence.map((e) => ({ title: e.title, effect: e.effect })),
+             info: c.link };
   });
 }

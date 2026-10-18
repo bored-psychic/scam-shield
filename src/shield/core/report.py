@@ -1,6 +1,6 @@
 import re
 from shield.config import model_versions
-from shield.contracts import Evidence, Effect, Level, Meta, Report, Sender
+from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Meta, Report, Sender
 from shield.core.advice import advice_for
 from shield.core.sender_rule import RISKY_THING
 from shield.core.verdict import PROMOTIONAL
@@ -21,6 +21,8 @@ _TAGS = {"rule.otp_request": "OTP request", "rule.pin_to_receive": "PIN to recei
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
          "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice", "sender.registered": "Registered sender",
          "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number"}
+# D23 link checks bring their own tags (shield.links.reputation); this one replaces the model's link rating when a positive check overrides it
+_URL_TITLE_OVERRIDDEN = "The address pattern looked unusual to the model, but who owns the site is known"
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
                 0: "The wording does not resemble known scam messages"}
 # The text head said Suspicious but the safety-advice cap (router.safety_advice_cap) lowered the verdict: the score stays visible, as neutral, with a title
@@ -40,6 +42,7 @@ _REGISTERED_TITLE = {"P": "Sent from a registered business ID (promotional)", "S
                      None: "Sent from a registered business ID (type unknown)"}
 _MOBILE_TITLE = "Sent from a personal mobile number; businesses use registered IDs like JM-JIOCPN-P"
 _RISK_NAMES = {"otp_request": "an OTP / PIN / CVV / password request", "pin_to_receive": "a UPI PIN asked for to receive money", "phishing_link": "a link the URL model rates as phishing",
+               "link_red_flag": "a link red flag (a scam list, look-alike letters or name, a raw IP, a shared scam server, or a brand-new website)",
                "lookalike_link": "a lookalike link on free hosting", "gambling": "a gambling or betting link", "legal_threat": "an arrest or legal threat",
                "secrecy": "a demand for secrecy", "cutoff_threat": "a threat to block or cut off a service", "earning_promise": "a promise of guaranteed or easy earnings",
                "payment_demand": "a payment or fee demand"}
@@ -61,27 +64,41 @@ def _in_text(text, phrase):
     m = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, re.I) or re.search(re.escape(phrase), text, re.I)
     return (m.group(0), (m.start(), m.end())) if m else (None, None)
 
-def _link_report(l, text):
-    # the evidence about the link itself follows its normal assessment (base_level); a gambling hit only floors the link's level at Suspicious (router.analyse)
-    kind, level = l["kind"], l["base_level"]
-    def ev(id_, effect, title, detail=None):
-        at = text.find(l["url"])   # a refanged link (hxxp, [.]) is not in the text as such: no quote, no span
-        return Evidence(id=id_, module="links", effect=effect, title=title, tag=_TAGS[id_], detail=(l["note"] or "") if detail is None else detail,
-                        quote=l["url"] if at >= 0 else None, span=(at, at + len(l["url"])) if at >= 0 else None)
+def _link_report(l, text, flagged, hard_free):
+    """The child Report of one link. The first piece of evidence follows the link's normal assessment (base_level); a gambling hit floors the
+    link at Suspicious (router.analyse). D23: each red flag of its background checks is its own evidence, ahead of the model's rating; a
+    positive check that was applied (router.apply_positives) is reassuring evidence and turns the model's rating into a neutral note; a
+    display-only note (abuse TLD) is caution beside a warning verdict and neutral otherwise; the fact sheet is Report.link."""
+    kind, level, c = l["kind"], l["base_level"], l.get("checks")
+    at = text.find(l["url"])   # a refanged link (hxxp, [.]) is not in the text as such: no quote, no span
+    quote, span = (l["url"], (at, at + len(l["url"]))) if at >= 0 else (None, None)
+    def ev(id_, effect, title, detail=None, tag=None):
+        return Evidence(id=id_, module="links", effect=effect, title=title, tag=tag or _TAGS[id_], detail=(l["note"] or "") if detail is None else detail,
+                        quote=quote, span=span)
     if kind == "shortener":
         e = ev("link.shortener", Effect.UNKNOWN, "Shortened link: its real destination is hidden")
     elif kind == "free" and level is None:
         e = ev("link.free_hosting", Effect.UNKNOWN, "Free hosting: the domain says nothing about this site")
     elif kind == "free" and level == 1:
         e = ev("link.free_hosting_keyword", Effect.CAUTION, "Free-hosted site with a brand or scam word in its name")
+    elif kind == "model" and level is not None and l.get("positive_applied"):
+        e = ev("model.url", Effect.NEUTRAL, _URL_TITLE_OVERRIDDEN if level else _URL_TITLES[0])
     elif kind == "model" and level is not None:
         e = ev("model.url", _BY_LEVEL[level], _URL_TITLES[level])
     elif kind == "model":   # a link with no parseable host: the URL model dropped it
         e = ev("link.unscored", Effect.UNKNOWN, "The link could not be read, so it was not checked")
     else:
         raise ValueError(f"unexpected link in analyse() output: kind={kind!r}, level={level!r}")
-    evidence = [e] + ([ev("link.gambling", Effect.CAUTION, "Gambling or betting site", l["gambling"]["detail"])] if l["gambling"] else [])
-    return Report(module="links", level=_level(l["level"]), score=l["score"], evidence=evidence)
+    flags = [ev(f["id"], Effect(f["effect"]), f["title"], f["why"], f["tag"]) for f in (c["flags"] if c else [])]
+    evidence = flags + [e] + ([ev("link.gambling", Effect.CAUTION, "Gambling or betting site", l["gambling"]["detail"])] if l["gambling"] else [])
+    if c:
+        evidence += [ev(n["id"], Effect.CAUTION if flagged else Effect.NEUTRAL, n["title"], n["why"], n["tag"]) for n in c["notes"]]
+        p = c["positive"]
+        if p and (l.get("positive_applied") or (p["kind"] == "display" and hard_free and not c["flags"])):
+            evidence.append(ev(p["id"], Effect.REASSURING, p["title"], p["why"], p["tag"]))
+    info = None if not c else LinkInfo(url=l["url"], host=c["host"], shown_host=c["shown_host"], owner=c["reg"], shortener=c["shortener"],
+                                       expandable=c["expandable"], destination=c["destination"], facts=[Fact(**f) for f in c["facts"]], sent=c["sent"])
+    return Report(module="links", level=_level(l["level"]), score=l["score"], evidence=evidence, pending=list(c["pending"]) if c else [], link=info)
 
 def _sender_block(sid):
     """Report.sender for a parsed sender (kind "none" -> None). Only a business header is echoed."""
@@ -143,7 +160,7 @@ def to_report(text: str, r: dict) -> Report:
     sender_ev = _sender_evidence(s, flagged) if s else None
     if sender_ev:
         ev.append(sender_ev)
-    children = [_link_report(l, text) for l in r["links"]]
+    children = [_link_report(l, text, flagged, not r.get("hard_risks")) for l in r["links"]]
 
     # reasons: only warnings, rule hits first, then the links, then the tactic tags, then the text model
     child_ev = [e for c in children for e in c.evidence]
@@ -156,6 +173,10 @@ def to_report(text: str, r: dict) -> Report:
     # otherwise it takes a free place after the warnings. With three warnings already there it is not a reason; the frontend shows it under the sender
     # chip, right below the verdict word, so it is always on screen. This keeps the wording model's "very similar to known scam messages" (always the
     # last warning) where it was.
+    # D23 P1 cap (router.apply_positives): the brand line takes a free place like the sender reason, never pushing a warning out; with three
+    # warnings already there it is still on the link panel, as the link's reassuring evidence.
+    if r.get("positive_cap") and len(reasons) < 3 and not promo:
+        reasons = reasons + [r["positive_cap"]]
     if sender_ev and promo:
         reasons = [sender_ev.title] + [x for x in reasons if x != sender_ev.title][:2]
     elif sender_ev and len(reasons) < 3:
@@ -164,4 +185,5 @@ def to_report(text: str, r: dict) -> Report:
                 models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
     return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
-                  evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children, meta=meta)
+                  evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children,
+                  pending=["links"] if any(c.pending for c in children) else [], meta=meta)

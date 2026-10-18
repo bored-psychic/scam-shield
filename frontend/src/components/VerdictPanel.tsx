@@ -9,10 +9,11 @@ type Props = {
   pointable: boolean[];
   onPoint: (e: Evidence) => void;
   headingRef: Ref<HTMLHeadingElement>;
+  note?: string | null;   // D23: "Raised after the website checks." when the live link checks raised the verdict
 };
 
 // The verdict: icon, word and colour (D4: always all three), the fixed one-line summary for the level, and the radar.
-export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef }: Props) {
+export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef, note = null }: Props) {
   const lv = LEVELS[level];
   return (
     <div className="box verdict g-verdict">
@@ -25,6 +26,7 @@ export default function VerdictPanel({ level, blips, pointable, onPoint, heading
         <div>
           <h2 ref={headingRef} tabIndex={-1} className="vword" style={{ color: lv.color }}>{lv.word}</h2>
           <div className="vline">{LEVEL_SUMMARY[level]}</div>
+          {note && <div className="vraised" role="status">{note}</div>}
         </div>
       </div>
       <Radar level={level} blips={blips} pointable={pointable} onPoint={onPoint} />

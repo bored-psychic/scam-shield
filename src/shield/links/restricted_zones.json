@@ -1,0 +1,18 @@
+{
+ "about": "Second-level zones under .in whose registrations are restricted (decision D23, user answer 5, 2026-10-18). p1 = treated like a brand-owned TLD (P1: reassuring, may lower the level within P1's limits); display = a reassuring line in Website details only, never a level change (hacked government sites do host scam pages). All of them are exempt from the brand lookalike check (their names are vetted at registration). The bundled public suffix list (tldextract) predates bank.in, so these zones also define the registered domain here: one label + the zone.",
+ "zones": [
+  {"zone": "bank.in", "effect": "p1", "owner": "an Indian bank",
+   "title": "A .bank.in address: only Indian banks can register these (RBI rule)",
+   "why": "The RBI made .bank.in a domain for banks only, with IDRBT as its only registrar, so a scammer cannot register one.",
+   "sources": ["https://www.rbi.org.in/Scripts/NotificationUser.aspx?Id=12837 (RBI/2025-26/28, 22 Apr 2025: 'exclusive Internet Domain, .bank.in for banks', IDRBT 'to serve as the exclusive registrar')",
+               "https://www.idrbt.ac.in/wp-content/uploads/2025/06/DRO_Jul_10-11_2025.pdf (IDRBT: 'IDRBT is the exclusive Domain Registrar of .bank.in ... Banks need to apply to IDRBT')"]},
+  {"zone": "gov.in", "effect": "display", "owner": "an Indian government body",
+   "title": "A .gov.in address: registered to an Indian government body",
+   "why": "Only government bodies can register .gov.in, but hacked government sites have hosted scam pages, so this is not proof.",
+   "sources": ["https://registry.gov.in/registration_guidelines.php (GOV.IN registry, NIC: eligible registrants are government offices, ministries, states and local self-governments)", "https://www.registry.gov.in/pdfdocs/Gov.In_Guidelines_old.pdf (NIC named the authorised registrar for .GOV.IN)"]},
+  {"zone": "nic.in", "effect": "display", "owner": "an Indian government body (NIC)",
+   "title": "A .nic.in address: run by India's National Informatics Centre",
+   "why": "Only NIC hosts .nic.in sites for government, but hacked government sites have hosted scam pages, so this is not proof.",
+   "sources": ["nic.in is the National Informatics Centre's own zone (not independently re-checked on 2026-10-18; display only)"]}
+ ]
+}

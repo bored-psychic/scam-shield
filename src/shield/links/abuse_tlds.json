@@ -1,0 +1,8 @@
+{
+ "about": "High-abuse TLDs (decision D23, signal 2): display-only, never changes a level (the URL model already reads the TLD). Only the TLD names and their published scores are kept, as cited facts. Commercial use: re-check the source's terms.",
+ "source": "Interisle Consulting Group, Cybercrime Information Center, 'Phishing Activity in TLDs, May 2026 - July 2026', https://cybercrimeinfocenter.org/phishing-activity-in-tlds-may-july-2026 (retrieved 2026-10-18). Score = phishing domains per 10,000 domains in the zone; TLDs with >= 30,000 domains and >= 25 phishing domains. (c) Interisle Consulting Group, all rights reserved.",
+ "period": "2026-05-01/2026-07-31",
+ "tlds": {"icu": 835.2, "cfd": 813.8, "garden": 774.1, "help": 571.5, "cam": 481.1, "mom": 472.3, "boats": 458.2, "vu": 383.9, "xin": 361.5,
+          "cyou": 301.6, "lat": 290.8, "sbs": 279.9, "live": 278.0, "autos": 262.3, "ink": 256.9, "pro": 245.6, "homes": 238.6, "hair": 233.6,
+          "finance": 224.5, "win": 223.0}
+}

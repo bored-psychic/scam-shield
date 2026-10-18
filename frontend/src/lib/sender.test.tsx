@@ -45,11 +45,11 @@ describe("S1 the Promotional level (reachable only through the API)", () => {
   test("the Jio promo with a P header is Promotional: the P reason first, no blips, its own advice", () => {
     const r = fx("jio-promotional").report;
     expect(r.level).toBe("promotional");
-    expect(r.schema_version).toBe("3");
+    expect(r.schema_version).toBe("4");
     expect(r.reasons[0]).toBe("Sent from a registered business ID (promotional)");
     expect(blips(r)).toEqual([]);
     expect(r.advice.join(" ")).toMatch(/expected/);
-    expect(fx("jio-no-sender").report.level).toBe("likely_scam");   // the same text without a sender
+    expect(fx("jio-no-sender").report.level).toBe("suspicious");   // the same text without a sender (Likely scam before D23: t.jio is Jio's own)
   });
   test("the verdict panel shows the word, the blue icon and the radar caption, and no sender chip", () => {
     const html = renderToStaticMarkup(<VerdictPanel level="promotional" blips={[]} pointable={[]} onPoint={() => {}} headingRef={null} />);

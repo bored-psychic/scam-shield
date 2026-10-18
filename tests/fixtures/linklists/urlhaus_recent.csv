@@ -1,0 +1,6 @@
+################################################################
+# fixture in the abuse.ch URLhaus export format (test data only)
+################################################################
+# id,dateadded,url,url_status,last_online,threat,tags,urlhaus_link,reporter
+"1","2026-10-18 00:00:00","http://198.51.100.77:8080/bin.sh","online","2026-10-18 00:00:00","malware_download","elf","https://urlhaus.abuse.ch/url/1/","fixture"
+"2","2026-10-18 00:00:00","http://zqxj-malware-host.xyz/payload.apk","online","2026-10-18 00:00:00","malware_download","apk","https://urlhaus.abuse.ch/url/2/","fixture"

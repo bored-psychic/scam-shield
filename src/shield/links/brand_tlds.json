@@ -1,0 +1,131 @@
+{
+ "verified_utc": "2026-10-18T02:06:56+00:00",
+ "sources": [
+  "https://www.icann.org/resources/registries/gtlds/v2/gtlds.json",
+  "https://data.iana.org/TLD/tlds-alpha-by-domain.txt",
+  "https://www.iana.org/domains/root/db/<tld>.html"
+ ],
+ "rule": "specification13 true, not terminated / removed, registryOperator and IANA manager contain the expected owner, delegated",
+ "tlds": [
+  {
+   "tld": "jio",
+   "brand": "Jio",
+   "registry_operator": "Reliance Industries Limited",
+   "iana_manager": "Reliance Industries Limited",
+   "specification13": true,
+   "delegation_date": "2016-11-15"
+  },
+  {
+   "tld": "reliance",
+   "brand": "Reliance",
+   "registry_operator": "Reliance Industries Limited",
+   "iana_manager": "Reliance Industries Limited",
+   "specification13": true,
+   "delegation_date": "2016-11-15"
+  },
+  {
+   "tld": "ril",
+   "brand": "Reliance",
+   "registry_operator": "Reliance Industries Limited",
+   "iana_manager": "Reliance Industries Limited",
+   "specification13": true,
+   "delegation_date": "2016-11-15"
+  },
+  {
+   "tld": "sbi",
+   "brand": "SBI (State Bank of India)",
+   "registry_operator": "STATE BANK OF INDIA",
+   "iana_manager": "STATE BANK OF INDIA",
+   "specification13": true,
+   "delegation_date": "2016-04-16"
+  },
+  {
+   "tld": "hdfcbank",
+   "brand": "HDFC Bank",
+   "registry_operator": "HDFC BANK LIMITED",
+   "iana_manager": "HDFC Bank Limited",
+   "specification13": true,
+   "delegation_date": "2016-02-11"
+  },
+  {
+   "tld": "hdfc",
+   "brand": "HDFC Bank",
+   "registry_operator": "HDFC BANK LIMITED",
+   "iana_manager": "HOUSING DEVELOPMENT FINANCE CORPORATION LIMITED",
+   "specification13": true,
+   "delegation_date": "2016-08-16"
+  },
+  {
+   "tld": "airtel",
+   "brand": "Airtel",
+   "registry_operator": "Bharti Airtel Limited",
+   "iana_manager": "Bharti Airtel Limited",
+   "specification13": true,
+   "delegation_date": "2015-07-08"
+  },
+  {
+   "tld": "bharti",
+   "brand": "Bharti",
+   "registry_operator": "Bharti Enterprises (Holding) Private Limited",
+   "iana_manager": "Bharti Enterprises (Holding) Private Limited",
+   "specification13": true,
+   "delegation_date": "2015-06-14"
+  },
+  {
+   "tld": "tatamotors",
+   "brand": "Tata Motors",
+   "registry_operator": "Tata Motors Ltd",
+   "iana_manager": "Tata Motors Ltd",
+   "specification13": true,
+   "delegation_date": "2015-07-24"
+  },
+  {
+   "tld": "amazon",
+   "brand": "Amazon",
+   "registry_operator": "Amazon Registry Services, Inc.",
+   "iana_manager": "Amazon Registry Services, Inc.",
+   "specification13": true,
+   "delegation_date": "2020-06-02"
+  },
+  {
+   "tld": "google",
+   "brand": "Google",
+   "registry_operator": "Charleston Road Registry Inc.",
+   "iana_manager": "Charleston Road Registry Inc.",
+   "specification13": true,
+   "delegation_date": "2014-09-15"
+  },
+  {
+   "tld": "youtube",
+   "brand": "YouTube (Google)",
+   "registry_operator": "Charleston Road Registry Inc.",
+   "iana_manager": "Charleston Road Registry Inc.",
+   "specification13": true,
+   "delegation_date": "2014-08-29"
+  },
+  {
+   "tld": "microsoft",
+   "brand": "Microsoft",
+   "registry_operator": "Microsoft Corporation",
+   "iana_manager": "Microsoft Corporation",
+   "specification13": true,
+   "delegation_date": "2015-06-10"
+  },
+  {
+   "tld": "apple",
+   "brand": "Apple",
+   "registry_operator": "Apple Inc.",
+   "iana_manager": "Apple Inc.",
+   "specification13": true,
+   "delegation_date": "2015-11-03"
+  },
+  {
+   "tld": "netflix",
+   "brand": "Netflix",
+   "registry_operator": "Netflix, Inc.",
+   "iana_manager": "Netflix, Inc.",
+   "specification13": true,
+   "delegation_date": "2016-05-28"
+  }
+ ]
+}

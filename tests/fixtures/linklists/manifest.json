@@ -1,0 +1,42 @@
+{
+ "tranco": {
+  "file": "tranco_top1m.csv",
+  "url": "fixture",
+  "licence": "test fixture",
+  "downloaded_utc": "2026-10-18T00:00:00+00:00",
+  "sha256": "b39502dc35acf39be96aa13c65ab20544eddfcfe02b0920d1482ae2513a8cc9b",
+  "rows": 0
+ },
+ "openphish": {
+  "file": "openphish.txt",
+  "url": "fixture",
+  "licence": "test fixture",
+  "downloaded_utc": "2026-10-18T00:00:00+00:00",
+  "sha256": "c5a17798efbfb20cffcfe4008996d7730232f965ef139aafa82adaaa52f75410",
+  "rows": 0
+ },
+ "urlhaus": {
+  "file": "urlhaus_recent.csv",
+  "url": "fixture",
+  "licence": "test fixture",
+  "downloaded_utc": "2026-10-18T00:00:00+00:00",
+  "sha256": "1b326c7eea7ef3f7a50947424cb3d98e4ab86251f390a58d2b436559f8585b4c",
+  "rows": 0
+ },
+ "rdap_bootstrap": {
+  "file": "rdap_dns.json",
+  "url": "fixture",
+  "licence": "test fixture",
+  "downloaded_utc": "2026-10-18T00:00:00+00:00",
+  "sha256": "183eebb74dc5f628b3aef3eb06a771e1fdfdc66a1530615d22eccb7578c9c1c1",
+  "rows": 0
+ },
+ "ip2asn": {
+  "file": "ip2asn-v4.tsv.gz",
+  "url": "fixture",
+  "licence": "test fixture",
+  "downloaded_utc": "2026-10-18T00:00:00+00:00",
+  "sha256": "b1632683f1e128ab9a001c69c24cde1e9733f87382777bb6d1a2d87894a94fad",
+  "rows": 0
+ }
+}

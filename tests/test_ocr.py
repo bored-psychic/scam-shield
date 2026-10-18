@@ -27,7 +27,8 @@ from test_demo import LOCKED as DEMO_LEVELS
 #   O7 no network: sockets patched to record and refuse every connection / lookup while read_image runs
 #   O8 API end to end: POST /api/ocr (d02 image) -> text with "OTP"; POST that text to /api/analyse -> suspicious or likely_scam; nothing is logged
 #   O10 repair_links: the spaced-colon and space-after-a-dot repairs, the old pattern, and the cases that must stay unchanged (D19b)
-#   O13 the real Jio screenshot tests/fixtures/real/jio_kiwi_dark.jpg: link with host t.jio + a / path, "Dear User" / "Claim now" / "JioCoupons" lines, verdict Likely scam
+#   O13 the real Jio screenshot tests/fixtures/real/jio_kiwi_dark.jpg: link with host t.jio + a / path, "Dear User" / "Claim now" / "JioCoupons" lines, verdict
+#       Suspicious (Likely scam before D23: the t.jio link is now recognised as Jio's own, P1) with the link.brand_owned evidence, as for the typed text
 #       (as for the typed text), the Link panel lists the link; and with the colour step switched off the link is lost (the fixture still exercises the fix). O11-O12 are unused.
 #   O14 soft-wrapped lines on the REAL screenshot: the bubble's wraps are joined with a space, the typed breaks (and the two blank lines) stay, exactly
 #       JIO_JOINED once the two known misreads are mapped back (T&C* -> 740", JIOCPN -> TIOCPN). Prints the text before (every wrap a line) and after.
@@ -298,8 +299,11 @@ def o13(c):
     rep, ref = to_report(text, analyse(text, c.app.state.text_model, c.app.state.url_model)), to_report(JIO_TEXT, analyse(JIO_TEXT, c.app.state.text_model, c.app.state.url_model))
     panel = [e.quote for ch in rep.children if ch.module == "links" for e in ch.evidence if e.id == "model.url"]
     note("O13", f"verdict {rep.level.value} (typed text: {ref.level.value}); Link panel: {panel}")
-    if rep.level.value != "likely_scam" or rep.level != ref.level:
-        bad.append(f"verdict {rep.level.value}, wanted likely_scam (the typed text gets {ref.level.value})")
+    # D23: t.jio is on Jio's own .brand TLD and the message has no hard-risk signal, so P1 caps Likely scam at Suspicious (it was Likely scam)
+    if rep.level.value != "suspicious" or rep.level != ref.level:
+        bad.append(f"verdict {rep.level.value}, wanted suspicious (the typed text gets {ref.level.value})")
+    if not any(e.id == "link.brand_owned" for ch in rep.children for e in ch.evidence):
+        bad.append("the t.jio link is not recognised as Jio's own (no link.brand_owned evidence)")
     if not jio_links("\n".join(panel)):
         bad.append(f"the Link panel does not list the t.jio link: {panel}")
     # The fixture must still show what the step is for: without the dark-mode colour step this screenshot loses the link.
@@ -693,7 +697,7 @@ CHECKS = [("O1", "10 demo scam texts as light chat bubbles: CER <= 0.08, key phr
           ("O8", "API end to end: /api/ocr -> /api/analyse, nothing logged", o8),
           ("O9", "coloured underlined links survive dark mode; the step changes nothing on grey or saturated-bubble images", o9),
           ("O10", "narrow link repairs: spaced colon, space after a dot; the old pattern and everything that must stay unchanged", o10),
-          ("O13", "the REAL dark-mode Jio screenshot (tests/fixtures/real): link t.jio/..., three anchor lines, verdict Likely scam, Link panel lists it", o13),
+          ("O13", "the REAL dark-mode Jio screenshot (tests/fixtures/real): link t.jio/..., three anchor lines, verdict Suspicious (D23 P1), Jio-owned, Link panel lists it", o13),
           ("O14", "the REAL screenshot: bubble wraps joined, typed breaks and blank lines kept, exactly the message", o14),
           ("O15", "join_wrapped_lines on hand-built boxes: every rule alone (ends, brackets, blanks, links, lists, margins, columns, ratio, next word, noise)", o15),
           ("O16", "synthetic renders: blank line kept, short lists / colon+link / long line+link not joined, 14 demo screenshots keep their verdict", o16)]
