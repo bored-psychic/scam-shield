@@ -6,6 +6,7 @@ Approved by the user on 2026-10-17. Decisions D9, V1 and G2 in `docs/decisions/R
 |---|---|
 | `prototype-globe.html` | The approved look. Open it in a browser. Home screen, checking state and result screen, with three example messages. |
 | `meter-options.html` | The 12 meter designs that were compared. **8b "Labelled blips" (radar) was chosen.** |
+| `theme-switch.html` | The theme-switch animation, approved 2026-10-18: the comet (dark -> light, 2.4 s, 34 degree light cone) and the black hole (light -> dark, 2.6 s). Its Tuner panel is for design only. Built into the app as `frontend/src/lib/themeSwitch.ts`. |
 
 **This is a design prototype, not the app.** Verdicts in it are written by hand for the three examples, and the globe attacks are simulated. The real frontend must reproduce this look, but:
 

@@ -1,9 +1,10 @@
 import type { Theme } from "../lib/theme";
 
-type Props = { theme: Theme; onToggleTheme: () => void };
+type Props = { theme: Theme; onToggleTheme: (button: HTMLElement) => void };
 
 // Logo, the "Checked on this device" pill (as in the prototype) and the sun / moon theme button (2026-10-18). The button shows the theme it
 // switches TO (a sun in the dark theme, a moon in the light one) and says so in its label; the icon turns in when it changes, unless motion is reduced.
+// The switch's animation starts from the button (lib/themeSwitch.ts: the black hole opens beside it).
 export default function Header({ theme, onToggleTheme }: Props) {
   const next = theme === "dark" ? "light" : "dark";
   return (
@@ -17,7 +18,7 @@ export default function Header({ theme, onToggleTheme }: Props) {
       </div>
       <div className="hright">
         <div className="local" title="Messages are checked on this device. Nothing you paste is stored or sent."><i></i><span>Checked on this device</span></div>
-        <button type="button" className="themebtn" onClick={onToggleTheme} aria-label={`Switch to the ${next} theme`} title={`Switch to the ${next} theme`}>
+        <button type="button" className="themebtn" onClick={(e) => onToggleTheme(e.currentTarget)} aria-label={`Switch to the ${next} theme`} title={`Switch to the ${next} theme`}>
           {next === "light" ? (
             <svg key="sun" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
               <circle cx="12" cy="12" r="4.2" />

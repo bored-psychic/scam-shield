@@ -10,7 +10,9 @@
 //      style in index.html run before anything else is painted)
 //   T4 localStorage blocked (its getter throws): the page loads in the system theme, the button still switches, nothing throws, a reload
 //      follows the system again
-//   T5 reduced motion: switching adds no cross-fade class; with motion it does, briefly
+//   T5 reduced motion: the switch is instant (the new theme in the same task as the click, no animation, no effects canvas); with motion it
+//      animates (lib/themeSwitch.ts: a View Transition with the effects canvas) and ends in the other theme with nothing left. Either way the
+//      button's label and the stored choice change at once. Durations, frames and smoothness: e2e/switch.mjs.
 //   T6 the globe follows the theme: its canvas pixels change when the theme does
 // Exit code 1 on any failure.
 import { dirname, join } from "node:path";
@@ -105,15 +107,32 @@ try {
     await ctx.close();
   }
 
-  // T5: the cross-fade class
+  // T5: instant with reduced motion, animated without
   for (const motion of ["reduce", "no-preference"]) {
     const ctx = await context(browser, { colorScheme: "dark", reducedMotion: motion });
     const page = await ctx.newPage();
-    await page.goto(URL); await page.waitForSelector(".themebtn");
-    const had = await page.evaluate(() => { document.querySelector(".themebtn").click(); return document.documentElement.classList.contains("theming"); });
-    await page.waitForTimeout(500);
-    const after = await page.evaluate(() => document.documentElement.classList.contains("theming"));
-    check(`T5 ${motion === "reduce" ? "reduced motion: no cross-fade" : "motion: a cross-fade, then removed"}`, (motion === "reduce" ? !had : had) && !after, `had ${had}, after ${after}`);
+    const errors = []; page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    await page.goto(URL); await page.waitForSelector(".themebtn"); await page.waitForTimeout(300);
+    const look = () => ({ theme: document.documentElement.dataset.theme, label: document.querySelector(".themebtn").getAttribute("aria-label"),
+      stored: localStorage.getItem("scam-shield-theme"), switching: document.documentElement.classList.contains("ss-switch"), fx: !!document.querySelector(".ss-fx"),
+      vt: !!document.activeViewTransition || document.getAnimations().some((a) => a.effect?.pseudoElement) });
+    const now = await page.evaluate(async (look) => {   // the click, then what it changed before the next frame (React commits in a microtask)
+      const read = new Function(`return (${look})()`);
+      document.querySelector(".themebtn").click();
+      const sync = read(); await new Promise((r) => setTimeout(r, 0));
+      return { sync, task: read() };
+    }, look.toString());
+    await page.waitForTimeout(1200);
+    const mid = await page.evaluate(look);
+    await page.waitForTimeout(2000);
+    const end = await page.evaluate(look);
+    const done = end.theme === "light" && end.label === "Switch to the dark theme" && end.stored === "light" && !end.switching && !end.fx && !end.vt;
+    if (motion === "reduce")
+      check("T5 reduced motion: instant switch, no animation", now.sync.theme === "light" && now.sync.stored === "light" && !now.sync.switching
+        && now.task.label === "Switch to the dark theme" && !mid.switching && !mid.fx && !mid.vt && done && !errors.length, JSON.stringify({ now, mid, end, errors }));
+    else
+      check("T5 motion: animates, label and choice change at once, ends light with nothing left", now.sync.switching && now.sync.stored === "light"
+        && now.task.label === "Switch to the dark theme" && mid.switching && mid.fx && mid.vt && mid.theme === "light" && done && !errors.length, JSON.stringify({ now, mid, end, errors }));
     await ctx.close();
   }
 

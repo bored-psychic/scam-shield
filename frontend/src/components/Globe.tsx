@@ -157,6 +157,18 @@ function blend(m: Material, b: Blending) {
 
 type Props = { dim?: boolean; onHit?: (hit: Hit) => void; theme?: Theme };
 
+// The theme switch (lib/themeSwitch.ts) talks to the mounted globe through these three; with no globe (no WebGL) they return null / do nothing.
+// The switch animates snapshots of the page (View Transitions), so the globe holds still while it runs, as the prototype's globe does
+// (docs/design/theme-switch.html): the old and the new snapshot then show it at the same angle, and it changes along exactly the same edge as the page.
+export type GlobeCircle = { cx: number; cy: number; r: number };   // CSS px from the top left of the screen
+let link: { circle: () => GlobeCircle; hold: (on: boolean) => void; repaint: () => void } | null = null;
+/** The globe's circle on screen (centre and radius), from its camera. */
+export const globeCircle = (): GlobeCircle | null => link?.circle() ?? null;
+/** Stops (true) or restarts (false) the spin, the arcs and new arcs. */
+export const holdGlobe = (on: boolean) => link?.hold(on);
+/** Re-reads the theme's tokens and draws one frame now (the switch calls it right after the theme changes, before the new page is snapshotted). */
+export const repaintGlobe = () => link?.repaint();
+
 export default function Globe({ dim = false, onHit, theme }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const repaint = useRef<(() => void) | null>(null);   // re-reads the palette; set while the scene exists
@@ -305,7 +317,7 @@ void main(){
       globe.add(m); ripples.push({ m, t: 0 });
     }
 
-    let raf = 0, last = performance.now(), running = !document.hidden, dragging = false, vel = 0;
+    let raf = 0, last = performance.now(), running = !document.hidden, dragging = false, vel = 0, held = false;
 
     // a theme change: every colour and blending mode from the new tokens, arcs and ripples in flight included
     function applyPalette() {
@@ -338,7 +350,7 @@ void main(){
 
     function frame(now: number) {
       raf = 0;
-      if (!running) return;
+      if (!running || held) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       if (!dragging) { globe.rotation.y += dt * 0.035 + vel; vel *= 0.94; }
       for (let i = arcs.length - 1; i >= 0; i--) {
@@ -358,14 +370,27 @@ void main(){
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
     }
-    function animate() {   // start the loop unless it is running or the tab is hidden
-      if (!raf && running) { last = performance.now(); raf = requestAnimationFrame(frame); }
+    function animate() {   // start the loop unless it is running, the tab is hidden or the theme switch holds the globe
+      if (!raf && running && !held) { last = performance.now(); raf = requestAnimationFrame(frame); }
     }
     function redraw() {    // reduced motion: one frame, on demand
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; renderer.render(scene, camera); });
     }
     const wake = reduced ? redraw : animate;
     repaint.current = () => { applyPalette(); redraw(); };
+    link = {
+      circle: () => {   // the centre projected through the camera; the radius from the angle the sphere fills (the glow's uRadius, in CSS px)
+        camera.updateMatrixWorld();
+        const c = new Vector3().project(camera), d = camera.position.length(), f = (innerHeight / 2) / Math.tan(camera.fov * Math.PI / 360);
+        return { cx: (c.x + 1) / 2 * innerWidth, cy: (1 - c.y) / 2 * innerHeight, r: f * R / Math.sqrt(d * d - R * R) };
+      },
+      hold: (on) => {
+        held = on;
+        cancelAnimationFrame(raf); raf = 0;   // also drops a pending one-off redraw, which would otherwise keep animate() from restarting the loop
+        if (!on) wake();
+      },
+      repaint: () => { applyPalette(); renderer.render(scene, camera); },
+    };
 
     function resize() {
       const w = innerWidth, h = innerHeight;
@@ -383,6 +408,7 @@ void main(){
       glowMat.uniforms.uRadius.value = f * R / Math.sqrt(d2 - R * R) * buf.y / h;
       for (const m of dotMats) m.uniforms.uScale.value = buf.y / 2;
       if (reduced) redraw();
+      else if (held) renderer.render(scene, camera);   // setSize cleared the canvas and the loop is stopped
     }
     function onVisibility() {   // pause while the tab is hidden
       running = !document.hidden;
@@ -412,12 +438,13 @@ void main(){
     let spawner = 0;
     if (!reduced) {   // reduced motion: no rotation, no arcs, no pulse
       spawn();
-      spawner = window.setInterval(() => { if (running && arcs.length < 30) spawn(); }, 300);
+      spawner = window.setInterval(() => { if (running && !held && arcs.length < 30) spawn(); }, 300);
     }
     wake();
 
     return () => {
       repaint.current = null;
+      link = null;
       clearInterval(spawner);
       cancelAnimationFrame(raf);
       removeEventListener("resize", resize);

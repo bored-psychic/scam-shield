@@ -50,11 +50,14 @@ Noto Sans Devanagari / Kannada (`src/fonts/indic.css`). All are npm `@fontsource
 Two themes, dark (the default design) and light, from one set of colour tokens per theme in `src/styles.css`; nothing else names a colour
 (the globe reads its colours from the tokens). The sun / moon button in the header switches them (`src/lib/theme.ts`); the first visit
 follows the system setting, the choice is kept in `localStorage`, and an inline script in `index.html` sets the theme before the first paint.
+Switching plays the approved animation (`docs/design/theme-switch.html`, built in `src/lib/themeSwitch.ts` on View Transitions): a comet
+into the light theme (2.4 s), a black hole back to the dark one (2.6 s); with reduced motion, or in a browser without View Transitions, the switch is instant.
 
 Checks on the built site (`npm run build` first):
 
     node e2e/fonts.mjs      # no font CDN, no third-party request, font KB per screen (--shots DIR --label NAME saves screenshots)
     node e2e/theme.mjs      # toggle, reload, system setting, no flash, blocked storage, reduced motion, the globe repaints
+    node e2e/switch.mjs     # the switch animation: durations, frame times, the edge through the globe, the cone, interruptions, end state
     node e2e/axe.mjs        # axe-core colour contrast, both themes
     node e2e/contrast.mjs   # WCAG AA on the real rendered backgrounds (glass over the globe), both themes
     node e2e/overlap.mjs    # layout of the result screen, phones and desktop, both themes

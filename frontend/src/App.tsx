@@ -83,7 +83,7 @@ export default function App() {
             <>
               <section className="hero">
                 <h1>Got a message that feels <em>off</em>?</h1>
-                <p className="sub">Paste it here. We read it for the tricks scammers use and tell you why, in a few seconds.</p>
+                <p className="sub"><em>Paste it here.</em> We read it for the tricks scammers use and tell you why, in a few seconds.</p>
               </section>
               <PasteBox value={text} onChange={setText} onSubmit={check} inputRef={input} autoFocus={focusBox} />
               <Examples onPick={pick} />
