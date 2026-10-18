@@ -159,6 +159,16 @@ python src/baseline.py
 
 Add a `.gitignore` containing `.venv/` and `data/`.
 
+### Start everything
+
+```bash
+./run.sh                 # frees ports 8000 / 5173, refreshes link lists older than 24 h (120 s limit, never blocks), starts API + frontend
+./run.sh --skip-update   # no list refresh
+./run.sh --force-update  # refresh now
+```
+
+It prints the local URL, the phone URL (same Wi-Fi) and the list ages; Ctrl+C stops both. The URLhaus refresh needs `URLHAUS_AUTH_KEY` in the environment (never printed); without it that list is kept as it is. Downloads happen only in `src/update_link_lists.py`.
+
 ### Screenshot input (OCR)
 
 Checking a screenshot needs [Tesseract](https://github.com/tesseract-ocr/tesseract) (open source, runs on your machine; the image is read in memory, never stored and never sent anywhere):

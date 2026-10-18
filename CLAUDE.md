@@ -12,6 +12,8 @@ Hybrid ML detector for India-specific scams: a text head (fine-tuned multilingua
 - **Kaggle (T4 x2, free tier):** the main fine-tuning GPU (MuRIL, mDeBERTa-v3-base). `notebooks/kaggle_finetune.ipynb` clones the private repo with the `GH_TOKEN` Kaggle secret (read-only, never printed or left in `.git/config`) and runs `src/finetune.py`. Data comes from the **private** Kaggle dataset `scam-shield-data`, mounted at `/kaggle/input/datasets/<user>/<slug>/` (the notebook finds the folder by globbing `split_map.csv`; `final/`: `split_map.csv`, `messages.csv`, `messages_adv_test.csv`, + `messages_aug.csv` for `--aug`). T4 is compute capability 7.5, so `--precision auto` picks fp16 with `torch.amp.GradScaler` (bf16 needs >= 8.0). Never edit code there; download the zipped run (no `epoch_*`) and copy it back to the Mac, where all evaluation runs.
 - **2nd laptop (RTX 5050, 8GB VRAM, Windows):** set up and usable by hand for fine-tuning (`--precision auto` picks bf16), but no longer the main route; the SSH route is parked. Only `git pull` on it, never edit there. Same outputs as Kaggle, copied back to the Mac.
 
+Start everything with `./run.sh` (frees ports 8000 / 5173, refreshes stale link lists without blocking, runs API + frontend; `--skip-update` / `--force-update`).
+
 ## Hard rules
 
 1. **Never train, tune, or look at the final test set** (real messages from real people, collected later). It is evaluated once, at the end.
