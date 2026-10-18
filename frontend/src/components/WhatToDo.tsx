@@ -1,15 +1,20 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Level } from "../types/report";
-import { NoBreakIds } from "./SenderField";
 
 const HELPLINE = "1930";   // the national cyber-fraud helpline
 const PORTAL = "https://cybercrime.gov.in";
 
 type Props = { advice: string[]; level: Level; tip: string | null };
 
+/** text with every sender ID in it (JM-JIOCPN-P) kept on one line: a browser would otherwise break it at a hyphen. */
+function NoBreakIds({ text }: { text: string }) {
+  const parts = text.split(/(\b[A-Z]{2}-[A-Z0-9]{6}(?:-[PSTG])?\b)/);
+  return <>{parts.map((p, i) => (i % 2 ? <span key={i} className="nobr">{p}</span> : p))}</>;
+}
+
 /* What to do now: Report.advice as steps to tick off (in memory only, gone with the result), as the backend wrote them. On a warning
    verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected.
-   tip: the "check who sent it" line (lib/sender.ts, D22), shown as a note rather than a step, when the sender was left blank. */
+   tip: the "check who sent it" line (lib/sender.ts, D22), shown as a note rather than a step. */
 export default function WhatToDo({ advice, level, tip }: Props) {
   const uid = useId();
   const [done, setDone] = useState<boolean[]>(() => advice.map(() => false));

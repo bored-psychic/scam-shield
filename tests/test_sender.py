@@ -144,7 +144,7 @@ def d5():
 
 def d6():
     """Jio fixture + the bare header JIOCPN -> Suspicious (capped from Likely scam) + the positive evidence; not Promotional (that needs suffix P).
-    The Jio text has three warnings, so the positive reason is evidence shown under the sender chip, and the three reasons are the ones without a sender."""
+    The Jio text has three warnings, so the positive reason is evidence only (the page showed it under the sender chip, removed 2026-10-18), and the three reasons are the ones without a sender."""
     _, base = run(JIO)
     _, rep = run(JIO, "JIOCPN")
     bad = []

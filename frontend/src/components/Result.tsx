@@ -9,7 +9,7 @@ import LinkPanel from "./LinkPanel";
 import WhatToDo from "./WhatToDo";
 import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
-import { SENDER_TIP, senderNote, showSenderTip } from "../lib/sender";
+import { SENDER_TIP, showSenderTip } from "../lib/sender";
 
 type Props = { report: Report; text: string; onAgain: () => void };   // text: exactly what was sent, which the spans index
 
@@ -69,8 +69,7 @@ export default function Result({ report, text, onAgain }: Props) {
   }, [pulse, segs, reduced, showTip]);
 
   const hasLinks = report.children.length > 0;
-  const verdict = <VerdictPanel level={report.level} sender={report.sender} senderNote={senderNote(report)} blips={blips} pointable={pointable(blips)}
-    onPoint={point} headingRef={heading} />;
+  const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading} />;
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
   const links = hasLinks && <LinkPanel report={report} />;

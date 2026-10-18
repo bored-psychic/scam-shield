@@ -5,27 +5,32 @@ import type { Report } from "../types/report";
 import { LEVEL_VALUES } from "../types/report";
 import { LEVEL_HEX, LEVEL_SUMMARY, LEVELS } from "./levels";
 import { blips } from "./evidence";
-import { SENDER_HELP_OUTRO, SENDER_HINT, SENDER_MAX, SENDER_PLACEHOLDER, SENDER_TIP, SUFFIX_HELP, senderNote, showSenderTip } from "./sender";
-import SenderField from "../components/SenderField";
-import SenderChip from "../components/SenderChip";
+import { SENDER_TIP, showSenderTip } from "./sender";
+import App from "../App";
+import Result from "../components/Result";
 import VerdictPanel from "../components/VerdictPanel";
 import WhatToDo from "../components/WhatToDo";
 import raw from "./__fixtures__/reports.json";
 
-// npm test. The sender input (D22): the field, the chip, the Promotional level and the "check who sent it" tip. Components are rendered to HTML
-// with react-dom/server (no browser needed); the Reports are real ones from frontend/scripts/dump_fixture.py.
+// npm test. The sender (D22) on the page. The sender input, its hint, the TRAI explainer and the sender chip were removed on 2026-10-18 (product
+// decision); the API keeps its optional sender field, dormant. What the page still has: the Promotional level (reachable only through the API) and
+// the "check who sent it" tip. Components are rendered to HTML with react-dom/server (no browser needed); the Reports are real ones from
+// frontend/scripts/dump_fixture.py (the ones with a sender block were made by calling the API with a sender, which the page never does).
 type Fixture = { label: string; text: string; report: Report };
 const FIXTURES = raw as unknown as Fixture[];
 const fx = (label: string) => {
   const f = FIXTURES.find((x) => x.label === label);
   if (!f) throw new Error(`fixture ${label} missing: rerun frontend/scripts/dump_fixture.py`);
-  return f.report;
+  return f;
 };
 
+vi.mock("../components/Tip", () => ({ default: () => null }));   // the tooltip portals into document.body, which a server render has not got
 afterEach(() => vi.unstubAllGlobals());
 const textOf = (html: string) => html.replace(/<[^>]+>/g, "");
+// every class name and text the removed sender UI used (SenderField: .sender .srow .sinfo .shint .spop; SenderChip: .sblock .schip .snote)
+const SENDER_UI = /class="(?:[^"]* )?(?:sender|srow|sinfo|shint|spop|sblock|schip|snote)(?: [^"]*)?"|Sender <span>|\(optional\)|What a sender ID tells you/;
 
-describe("S1 the Promotional level", () => {
+describe("S1 the Promotional level (reachable only through the API)", () => {
   test("is a level, with its own word, colour, icon and summary", () => {
     expect(LEVEL_VALUES).toContain("promotional");
     expect(LEVELS.promotional.word).toBe("Promotional");
@@ -38,122 +43,95 @@ describe("S1 the Promotional level", () => {
     }
   });
   test("the Jio promo with a P header is Promotional: the P reason first, no blips, its own advice", () => {
-    const r = fx("jio-promotional");
+    const r = fx("jio-promotional").report;
     expect(r.level).toBe("promotional");
     expect(r.schema_version).toBe("3");
     expect(r.reasons[0]).toBe("Sent from a registered business ID (promotional)");
     expect(blips(r)).toEqual([]);
     expect(r.advice.join(" ")).toMatch(/expected/);
-    expect(fx("jio-no-sender").level).toBe("likely_scam");   // the same text without a sender
+    expect(fx("jio-no-sender").report.level).toBe("likely_scam");   // the same text without a sender
   });
-  test("the verdict panel shows the word, the blue icon and the chip", () => {
-    const html = renderToStaticMarkup(<VerdictPanel level="promotional" sender={fx("jio-promotional").sender} blips={[]} pointable={[]} onPoint={() => {}} headingRef={null} />);
+  test("the verdict panel shows the word, the blue icon and the radar caption, and no sender chip", () => {
+    const html = renderToStaticMarkup(<VerdictPanel level="promotional" blips={[]} pointable={[]} onPoint={() => {}} headingRef={null} />);
     expect(html).toContain(">Promotional</h2>");
     expect(html).toContain("background:var(--blue)");
-    expect(html).toContain("Registered business · Promotional");
     expect(html).toContain("Scanned · registered promotional sender");
+    expect(html).not.toMatch(SENDER_UI);
   });
 });
 
-describe("S2 the sender chip", () => {
-  const chip = (label: string) => renderToStaticMarkup(<SenderChip sender={fx(label).sender!} />);
-  test.each([
-    ["jio-promotional", "Registered business · Promotional", "JIOCPN"],
-    ["jio-bare", "Registered business · type unknown", "JIOCPN"],
-    ["bank-transactional", "Registered business · Transactional", "HDFCBK"],
-  ])("%s: label and header", (label, text, header) => {
-    expect(chip(label)).toContain(text);
-    expect(chip(label)).toContain(`<code>${header}</code>`);
+describe("S2 no sender UI on the result screen, even for a Report that has a sender block", () => {
+  const withSender = FIXTURES.filter((f) => f.report.sender !== null);
+  test("the fixtures still cover every sender kind", () => {
+    expect(new Set(withSender.map((f) => f.report.sender!.kind))).toEqual(new Set(["dlt", "dlt_bare", "mobile", "other"]));
   });
-  test("a mobile number: kind only, no number, no header", () => {
-    const s = fx("jio-mobile").sender!;
-    expect(s).toEqual({ kind: "mobile", suffix: null, header: null, label: "Personal mobile number" });
-    expect(chip("jio-mobile")).toContain("Personal mobile number");
-    expect(chip("jio-mobile")).not.toMatch(/\d{5}|<code>/);
-  });
-  test("anything else: Not recognised, no change to the level", () => {
-    expect(fx("jio-other").sender!.label).toBe("Not recognised");
-    expect(fx("jio-other").level).toBe(fx("jio-no-sender").level);
-  });
-  test("the sender evidence never pushes a warning out: with three warnings it is a note under the chip, else one of the reasons", () => {
-    // three warnings (the Jio text): the reasons are exactly the no-sender ones, the wording model's included; the sender line is the chip's note
-    for (const label of ["jio-bare", "jio-mobile", "kyc-promotional"]) {
-      const r = fx(label), note = senderNote(r);
-      if (label.startsWith("jio")) expect(r.reasons, label).toEqual(fx("jio-no-sender").reasons);
-      expect(r.reasons, label).toHaveLength(3);
-      expect(r.reasons.some((x) => x === note?.title), label).toBe(false);
-      expect(note?.id, label).toMatch(/^sender\./);
-      const html = renderToStaticMarkup(<SenderChip sender={r.sender!} note={note} />);
-      expect(textOf(html), label).toContain(note!.title);
-    }
-    expect(fx("jio-bare").reasons).toContain("The wording is very similar to known scam messages");
-    // a free place (the bank alert has no warning) or Promotional: the sender line is a reason, so no note
-    expect(senderNote(fx("bank-transactional"))).toBeNull();
-    expect(senderNote(fx("jio-promotional"))).toBeNull();
-    expect(senderNote(fx("jio-no-sender"))).toBeNull();
-  });
-  test("no sender: no chip", () => {
-    const html = renderToStaticMarkup(<VerdictPanel level="likely_scam" sender={null} blips={[]} pointable={[]} onPoint={() => {}} headingRef={null} />);
-    expect(html).not.toContain("schip");
+  test.each(withSender.map((f) => [f.label, f] as const))("%s", (_, f) => {
+    const html = renderToStaticMarkup(<Result report={f.report} text={f.text} onAgain={() => {}} />);
+    expect(html).toContain(`>${LEVELS[f.report.level].word}</h2>`);   // the verdict is drawn
+    expect(html).not.toMatch(SENDER_UI);
+    expect(textOf(html)).not.toContain(f.report.sender!.label);       // "Registered business · Promotional", "Personal mobile number", "Not recognised"
+    expect(html).not.toMatch(/<code>[A-Z0-9]{6}<\/code>/);
   });
 });
 
-describe("S3 the sender field", () => {
-  const html = renderToStaticMarkup(<SenderField value="" onChange={() => {}} />);
-  test("label, placeholder, length cap, no auto-capitals, hint wired to the input", () => {
-    expect(html).toMatch(/>Sender <span>\(optional\)<\/span><\/label>/);
-    expect(html).toContain(`placeholder="${SENDER_PLACEHOLDER}"`);
-    expect(SENDER_PLACEHOLDER).toBe("e.g. JM-JIOCPN-P or +91 98…");
-    expect(html).toContain(`maxLength="${SENDER_MAX}"`);
-    expect(html).toContain('autoCapitalize="off"');
-    const hintId = /aria-describedby="([^"]+)"/.exec(html)![1];
-    const hint = new RegExp(`id="${hintId}" class="shint">(.*?)</p>`).exec(html)![1];
-    expect(textOf(hint)).toBe(SENDER_HINT);
-    expect(hint).toContain('<span class="nobr">JM-JIOCPN-P</span>');   // the ID is never broken at a hyphen
-    expect(SENDER_HINT).toBe("If your phone shows the full sender ID (like JM-JIOCPN-P), enter that: the last letter tells us the message type.");
+describe("S3 no sender UI on the home screen", () => {
+  const html = renderToStaticMarkup(<App />);
+  test("the home screen has the message box and no sender field, hint or explainer", () => {
+    expect(html).toContain("<textarea");
+    expect(html).not.toMatch(SENDER_UI);
+    expect(html).not.toMatch(/<input[^>]*type="text"/);
+    expect(textOf(html)).not.toMatch(/JM-JIOCPN-P|sender/i);
   });
-  test("the info button starts closed; the explainer covers P, S, T, G and ordinary numbers", () => {
-    expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('class="spop"');
-    expect(SUFFIX_HELP.map(([k]) => k)).toEqual(["P", "S", "T", "G"]);
-    expect(SENDER_HELP_OUTRO).toMatch(/ordinary 10-digit mobile numbers/);
+  test("the sender components are gone", () => {
+    const files = Object.keys(import.meta.glob("../components/*.tsx"));
+    expect(files.length).toBeGreaterThan(10);
+    expect(files.filter((f) => /Sender/.test(f))).toEqual([]);
   });
 });
 
 describe("S4 the 'check who sent it' tip", () => {
+  test("its wording: no mention of typing or entering a sender", () => {
+    expect(SENDER_TIP).toBe("Check who sent it: real businesses send from IDs like JM-JIOCPN-P; scams usually come from ordinary phone numbers.");
+    expect(SENDER_TIP).not.toMatch(/\b(enter|type|typed|field|box|optional)\b/i);
+  });
   test.each(FIXTURES.map((f) => [f.label, f.report] as const))("%s", (_, r) => {
     const want = r.sender === null && (r.level === "suspicious" || r.level === "likely_scam") && r.children.length > 0;
     expect(showSenderTip(r)).toBe(want);
   });
-  test("shown for the Jio text without a sender; not once a sender is given, nor on a quiet verdict or a message without a link", () => {
-    expect(showSenderTip(fx("jio-no-sender"))).toBe(true);
-    expect(showSenderTip(fx("kyc-promotional"))).toBe(false);
-    expect(showSenderTip(fx("jio-promotional"))).toBe(false);
-    expect(showSenderTip(fx("bank-example"))).toBe(false);
+  test("shown for the Jio text without a sender; not when a Report has a sender, nor on a quiet verdict or a message without a link", () => {
+    expect(showSenderTip(fx("jio-no-sender").report)).toBe(true);
+    expect(showSenderTip(fx("kyc-promotional").report)).toBe(false);
+    expect(showSenderTip(fx("jio-promotional").report)).toBe(false);
+    expect(showSenderTip(fx("bank-example").report)).toBe(false);
     expect(FIXTURES.some((f) => f.report.sender === null && f.report.level === "likely_scam" && f.report.children.length === 0 && !showSenderTip(f.report))).toBe(true);
   });
-  test("WhatToDo prints the tip only when given", () => {
-    const r = fx("jio-no-sender");
-    expect(textOf(renderToStaticMarkup(<WhatToDo advice={r.advice} level={r.level} tip={SENDER_TIP} />))).toContain(SENDER_TIP);
+  test("WhatToDo prints the tip only when given, with the sender ID kept on one line", () => {
+    const r = fx("jio-no-sender").report;
+    const html = renderToStaticMarkup(<WhatToDo advice={r.advice} level={r.level} tip={SENDER_TIP} />);
+    expect(textOf(html)).toContain(SENDER_TIP);
+    expect(html).toContain('<span class="nobr">JM-JIOCPN-P</span>');
     expect(renderToStaticMarkup(<WhatToDo advice={r.advice} level={r.level} tip={null} />)).not.toContain("sendertip");
+  });
+  test("the result screen for the Jio text without a sender shows it", () => {
+    const f = fx("jio-no-sender");
+    expect(textOf(renderToStaticMarkup(<Result report={f.report} text={f.text} onAgain={() => {}} />))).toContain(SENDER_TIP);
   });
 });
 
-describe("S5 api.analyse() and the sender", () => {
+describe("S5 api.analyse() never sends a sender", () => {
   const answer = (body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }));
   const sentBody = (f: ReturnType<typeof answer>) => JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
-  test("sends the sender when it is not blank, and leaves it out when it is", async () => {
-    for (const [sender, want] of [["JM-JIOCPN-P", { text: "hi", sender: "JM-JIOCPN-P" }], ["", { text: "hi" }], ["   ", { text: "hi" }]] as const) {
-      const f = answer(fx("jio-promotional"));
-      vi.stubGlobal("fetch", f);
-      await analyse("hi", sender);
-      expect(sentBody(f)).toEqual(want);
-    }
+  test("the request body is exactly { text }", async () => {
+    expect(analyse.length).toBe(1);
+    const f = answer(fx("jio-no-sender").report);
+    vi.stubGlobal("fetch", f);
+    await analyse("hi");
+    expect(sentBody(f)).toEqual({ text: "hi" });
   });
-  test("reads a v3 Promotional Report; refuses a v2 answer as a schema mismatch", async () => {
-    vi.stubGlobal("fetch", answer(fx("jio-promotional")));
-    expect((await analyse("hi", "JM-JIOCPN-P")).level).toBe("promotional");
-    vi.stubGlobal("fetch", answer({ ...fx("jio-no-sender"), schema_version: "2" }));
+  test("still reads a v3 Promotional Report (an API answer the page could get if a sender were sent); refuses a v2 answer", async () => {
+    vi.stubGlobal("fetch", answer(fx("jio-promotional").report));
+    expect((await analyse("hi")).level).toBe("promotional");
+    vi.stubGlobal("fetch", answer({ ...fx("jio-no-sender").report, schema_version: "2" }));
     const e = await analyse("hi").then(() => null, (x: unknown) => x);
     expect(e).toBeInstanceOf(CheckError);
     expect((e as CheckError).failure).toEqual({ kind: "schema", got: "2" });

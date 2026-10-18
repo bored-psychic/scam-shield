@@ -35,7 +35,8 @@ export interface Meta {
   models: Record<string, string>;
 }
 
-/** What the sender the user typed was classified as (D22). A mobile number is never echoed: only a business header is. */
+/** What the sender given to the API was classified as (D22). A mobile number is never echoed: only a business header is. The page has no sender
+ *  input since 2026-10-18 and never sends one, so it always gets null; the block stays in the contract for screenshot sender extraction later. */
 export interface Sender {
   kind: "dlt" | "dlt_bare" | "mobile" | "other";
   suffix: "P" | "S" | "T" | "G" | null;   // dlt only
