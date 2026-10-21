@@ -1,0 +1,21 @@
+{
+  "measured_utc": "2026-10-21 15:18 UTC",
+  "machine": "arm64 26.6.2",
+  "n_messages": 200,
+  "baseline_cpu": {
+    "median_ms": 1.86,
+    "p95_ms": 3.4,
+    "n": 200
+  },
+  "torch_threads": 4,
+  "encoder_cpu": {
+    "median_ms": 58.82,
+    "p95_ms": 68.29,
+    "n": 200
+  },
+  "encoder_mps": {
+    "median_ms": 28.59,
+    "p95_ms": 60.73,
+    "n": 200
+  }
+}

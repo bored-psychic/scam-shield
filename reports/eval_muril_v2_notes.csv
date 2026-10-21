@@ -1,0 +1,21 @@
+text_hash,why
+848c637fcd8fc84abfb2ea015659ad29,"Company boilerplate fills the first 128 tokens; the fraud label (EMSCAD, judged on metadata) isn't visible in the opening text, and the baseline misses it too."
+0db4950df9064554a34f13e0fc0e64e5,"Same as #1: a polished company profile up front, nothing scam-like in the part the model reads."
+efa0dbbbb1724e643a967457397511ff,Staffing-firm profile reads like the many genuine recruiter posts in train; the 128-token cut shows only the profile.
+8d7802a25608bb5f3bd3565eeb8287df,Insurance-brokerage recruiting ('helped thousands of clients') looks like genuine sales job posts; any fraud cue is past the cut.
+26f85e00c787f9734db3b1abe05bdae1,"13 posts from one company (Novation), never in train (company grouping); its profile text is long and corporate, so all 13 score ~0."
+8fb3d48281d8600751dfecf61633e8a8,"Short, polite hiring line; train job language is mostly benign ('social media' 2% scam in train) and crypto pay is a weak cue (14%); the baseline misses it too."
+0953ad4fdb4de670c9a47dbd6ef041f0,"Work-from-home / mortgage-protection recruiting; MLM-style posts are common among the benign job posts, and the pitch is past the cut."
+e10de9ce1ae80249b118ee2922cbd77a,"Personal-story opening ('Dear Friend', family reunion) with the sales pitch later; the email is cut at 128 tokens."
+a535e5cf491417878d6c0f3b055b0e66,Tiny dating-spam line with its link replaced; no money / account / urgency words for the model to use.
+2f785d59f7dd0efb33f157a5f556a425,"Trading-chatroom promo reads like a newsletter; the baseline catches it (0.76) on n-grams like 'profit', MuRIL doesn't."
+587589d5b6079e4d7eaace19170153c4,"A benign UPI collect-request alert (template family synth_upi_0_7_1, test only, 50 false alarms across languages); the only 'collect request' rows in train are 7 scams, so the words (Rs, PIN, debit) look like scam vocabulary. The label is arguable: it is a warning, not a request."
+c48f053c828281186c0f4726e47b8c70,"Account-registration email ('reconfirmation', screen name, 'free') looks like account-verification phishing; the baseline flags it too."
+f2ac5dc3c8a9710542aeb70de947e967,"Mojibake (mis-decoded Japanese); in phishing_email train, long runs of non-ASCII text are 73% scam, so encoding junk is a spam shortcut."
+b2fad3251728cc27ea17218d47776b39,Virtual admin assistant / work-from-home is the classic fake-job pattern; this one is labelled genuine. The baseline flags it too.
+476fc193b8649a365aa0cb1958152f3d,"VAM SYSTEMS: its 9 train posts (no company profile, so not grouped by company) are all fraud, its 18 test posts with a profile are benign; the model learnt the company boilerplate as scam (BUGS.md company-grouping gap)."
+de65bf2584134a95951c8d13f3857a26,"A Polish personal email in an English corpus: out of distribution, so the model has no benign reference for it (guess)."
+845f49d0a4cd68fd1818b3cebe3676d3,"Service-approval SMS ('pleased to inform', 'application ... processed successfully') reads like loan / prize-approval scams."
+411eff2229aa231f005240a7d0b4526e,"Forum help request full of security words (IP address, access, without my consent) that phishing emails use."
+146545e396175bcccfd2c758583f2af6,Enron shorthand about 'receivable / payable balances needing attention': payment-urgency words with no context.
+9f1412029da29bdccc1204cfb85923c0,A genuine 2001 register.com renewal notice; domain-renewal notices are a classic phishing template (61% scam in train for these words).

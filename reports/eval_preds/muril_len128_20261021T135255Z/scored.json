@@ -1,0 +1,29 @@
+{
+  "model": "google/muril-base-cased fine-tuned (muril_len128_20261021T135255Z)",
+  "threshold_suspicious": 0.03705264717340648,
+  "threshold_likely": 0.4049972984194862,
+  "test_scored_utc": "2026-10-21 15:18 UTC",
+  "device": "mps fp32 (arm64)",
+  "git_head": "06f402e",
+  "data_sha256": {
+    "split_map.csv": "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c",
+    "messages.csv": "1390562409576bd3bb369bce27d9d6709b856c2809f89f0c3f40d112a1588700",
+    "messages_adv_test.csv": "bf80b7ab1a82dcdf3c2f386b8699c2855384b6af0a13e8c440f8e02853b0dd1c"
+  },
+  "val_reproduction": {
+    "max_abs_diff": 0.007694271788482643,
+    "mean_abs_diff": 1.4030365630673742e-05,
+    "flips_at_likely": 0,
+    "f1_at_likely_mac": 0.9514223194748359
+  },
+  "versions": {
+    "torch": "2.14.1",
+    "transformers": "5.19.0"
+  },
+  "note": "val 'score' = the bundle's predictions_val.csv (the scores the cut-offs were chosen on); 'score_mac' = this Mac's re-score",
+  "prediction_sha256": {
+    "predictions_val.csv": "1e9f48e9ca701edfb41ec897c2edf7e92f76302b86d3847e86988fa13eff8071",
+    "predictions_test.csv": "6e961b02bac2b754c7c2052090244bd95cb4cc1324348b732651e03ef92aba16",
+    "predictions_adv_test.csv": "022ed30936edc0ff48c86ea143e01d7c0af260f09e7427c941373eb841e7e48b"
+  }
+}

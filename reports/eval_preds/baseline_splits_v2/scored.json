@@ -1,0 +1,19 @@
+{
+  "model": "char TF-IDF (2-4, char_wb) + LR, class_weight balanced (baseline.py settings), refit on splits-v2 train",
+  "threshold_suspicious": 0.4562109509593492,
+  "threshold_likely": 0.6611930319748274,
+  "test_scored_utc": "2026-10-21 15:13 UTC",
+  "device": "cpu",
+  "git_head": "06f402e",
+  "data_sha256": {
+    "split_map.csv": "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c",
+    "messages.csv": "1390562409576bd3bb369bce27d9d6709b856c2809f89f0c3f40d112a1588700",
+    "messages_adv_test.csv": "bf80b7ab1a82dcdf3c2f386b8699c2855384b6af0a13e8c440f8e02853b0dd1c"
+  },
+  "model_file": "models/eval/text_baseline_splits_v2.joblib",
+  "prediction_sha256": {
+    "predictions_val.csv": "1c1dbeeb938412ac9fcd6d68297908f32cc711e8bf0e2d52918ba08f13f2c0e4",
+    "predictions_test.csv": "e1f76ba54cc963e8ae414aac04c749023863ed2b12d0640775d79adbe320594d",
+    "predictions_adv_test.csv": "6accd93f0124e19b981c8a3f3a5243e578c1e0031915b475fe8cab5c864e1431"
+  }
+}
