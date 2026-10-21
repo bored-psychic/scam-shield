@@ -1,4 +1,4 @@
-import hashlib, json, os
+import hashlib, importlib.util, json, os
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,9 +24,38 @@ LIVE_CHECKS = os.environ.get("SHIELD_LIVE_CHECKS", "1") != "0"
 # The default for the app and the API; analyse(..., safety_cap=True / False) overrides it per call (the tests run both).
 SAFETY_ADVICE_CAP = False
 
-# What kind of model sits behind each path above, for Report.meta.models. If load_text_model() is switched to another head (MuRIL),
-# change TEXT_MODEL_PATH and this kind together.
+# What kind of model sits behind each path, for Report.meta.models.
 TEXT_MODEL_KIND, URL_MODEL_KIND = "tfidf-lr", "hgb-host"   # TF-IDF char n-grams + logistic regression; host-only HistGradientBoosting
+MURIL_KIND = "muril"
+
+# The text head (D27). SHIELD_TEXT_HEAD=muril (default) loads the fine-tuned MuRIL bundle below; SHIELD_TEXT_HEAD=baseline loads the TF-IDF
+# baseline (TEXT_MODEL_PATH). The bundle's weights are git-ignored (950 MB), so on a fresh clone, or without torch / transformers installed, the
+# app falls back to the baseline and says so once at startup (text_head_choice()). The bundle's shield_meta.json carries the val-fitted
+# temperature, cut-offs and meter ends (src/calibrate_text_head.py, reports/calibration_muril_v2.md).
+TEXT_HEAD = os.environ.get("SHIELD_TEXT_HEAD") or "muril"   # unset or empty = the default
+MURIL_DIR = ROOT / "models" / "finetune" / "muril_len128_20261021T135255Z"   # splits-v2, max_len 128, no aug (reports/eval_muril_v2.md)
+# Where MuRIL runs: auto = the Mac GPU (MPS) if available, else CPU; or cpu / mps.
+TEXT_DEVICE = os.environ.get("SHIELD_TEXT_DEVICE") or "auto"
+
+
+@lru_cache(maxsize=1)
+def text_head_choice() -> tuple[str, Path, str | None]:
+    """(kind, weights file, fallback reason): which text head this process loads, decided once. The reason is None when the setting is honoured,
+    otherwise the line load_text_model() prints. Only a MISSING bundle or missing packages fall back; a bundle that is there but fails its checks
+    stops the app (load_text_model)."""
+    if TEXT_HEAD not in ("muril", "baseline"):
+        raise SystemExit(f"SHIELD_TEXT_HEAD={TEXT_HEAD!r}: use muril or baseline")
+    if TEXT_HEAD == "baseline":
+        return TEXT_MODEL_KIND, TEXT_MODEL_PATH, None
+    weights = MURIL_DIR / "model" / "model.safetensors"
+    missing = [m for m in ("torch", "transformers") if importlib.util.find_spec(m) is None]
+    if missing:
+        reason = f"{' and '.join(missing)} not installed"
+    elif not weights.exists():
+        reason = f"MuRIL bundle not found at {MURIL_DIR.relative_to(ROOT)}"
+    else:
+        return MURIL_KIND, weights, None
+    return TEXT_MODEL_KIND, TEXT_MODEL_PATH, f"text head: {reason}; using the TF-IDF baseline ({TEXT_MODEL_PATH.relative_to(ROOT)})"
 
 
 def _sha8(path: Path) -> str:
@@ -40,8 +69,9 @@ def _sha8(path: Path) -> str:
 @lru_cache(maxsize=1)
 def model_versions() -> dict[str, str]:
     """Which models produced a Report: {"text": "<kind> <first 8 hex of the file's SHA-256>", "url": same, "gambling_lookup": "<snapshot date>"}.
-    Read from the files the loaders load (TEXT_MODEL_PATH, URL_MODEL_PATH, GAMBLING_INDIA_PATH). Computed once per process, never per request
-    (the API warms it at startup); callers must copy the dict. A missing file raises FileNotFoundError, as its loader would."""
+    Read from the files the loaders load (text_head_choice()'s weights file, URL_MODEL_PATH, GAMBLING_INDIA_PATH). Computed once per process, never
+    per request (the API warms it at startup); callers must copy the dict. A missing file raises FileNotFoundError, as its loader would."""
     with open(GAMBLING_INDIA_PATH, encoding="utf-8") as f:
         snapshot = json.load(f)["snapshot"]
-    return {"text": f"{TEXT_MODEL_KIND} {_sha8(TEXT_MODEL_PATH)}", "url": f"{URL_MODEL_KIND} {_sha8(URL_MODEL_PATH)}", "gambling_lookup": snapshot}
+    kind, path, _ = text_head_choice()
+    return {"text": f"{kind} {_sha8(path)}", "url": f"{URL_MODEL_KIND} {_sha8(URL_MODEL_PATH)}", "gambling_lookup": snapshot}

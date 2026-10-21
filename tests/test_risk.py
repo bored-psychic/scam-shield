@@ -2,6 +2,7 @@ import json, os, sys
 HERE = os.path.dirname(os.path.abspath(globals().get("__file__", "tests/test_risk.py")))   # exec()-ed from the project root there is no __file__
 sys.path[:0] = [os.path.join(HERE, "..", "src"), HERE]
 from demo_check import load_demo
+from shield import config
 from shield.contracts import Level, Report
 from shield.core.report import to_report
 from shield.core.risk import BANDS, curve, risk_score
@@ -13,7 +14,8 @@ import test_contracts as tc
 
 # python tests/test_risk.py   (from the project root; needs both models). Decision D24 (docs/decisions/README.md): the 0-100 risk score and the
 # "Lowered from ..." note. Neither changes a level, a threshold, a model or a split.
-#   K1  the curve passes through (0,0), (Suspicious cut-off,30), (Likely cut-off,70), (1,100), with the model's real cut-offs
+#   K1  the curve passes through (0,0), (Suspicious cut-off,30), (Likely cut-off,70), (1,100), with the model's real cut-offs; for a head with meter ends
+#       (MuRIL, D27) through (p0,0), (Suspicious,30), (Likely,70), (p100,100) on the logit scale, flat beyond the ends. The cut-offs are locked per head
 #   K2  for every level, risk_score() over p = 0 .. 1 (step 0.001) stays in the level's band and never decreases as p grows
 #   K3  all 363 contract inputs + the 14 demo messages: the score lies in its level's band; None exactly for Can't judge
 #   K4  on those real Reports, within one level the score never decreases as the text model's score increases
@@ -48,25 +50,29 @@ def all_reports():
             _ALL.append((f"demo:{d['id']}", d["text"], *run(d["text"])))
     return _ALL
 
+CUT_OFFS = {config.TEXT_MODEL_KIND: ((0.423, 0.656), "the D24 text"), config.MURIL_KIND: ((0.103, 0.436), "D27 (reports/calibration_muril_v2.md)")}
+
 def k1():
-    lo, hi = models()[0].thresholds
-    pts = [(0, 0), (lo, 30), (hi, 70), (1, 100)]
-    bad = [f"curve({p}) = {curve(p, lo, hi)}, wanted {w}" for p, w in pts if abs(curve(p, lo, hi) - w) > 1e-9]
-    return bad + ([] if (round(lo, 3), round(hi, 3)) == (0.423, 0.656) else [f"cut-offs are {lo:.3f} / {hi:.3f}, the D24 text says 0.423 / 0.656"])
+    tm = models()[0]
+    (lo, hi), ends = tm.thresholds, tm.meter_ends
+    pts = [(0, 0), (lo, 30), (hi, 70), (1, 100)] if ends is None else [(0, 0), (ends[0] / 2, 0), (ends[0], 0), (lo, 30), (hi, 70), (ends[1], 100), (1, 100)]
+    bad = [f"curve({p}) = {curve(p, lo, hi, ends)}, wanted {w}" for p, w in pts if abs(curve(p, lo, hi, ends) - w) > 1e-9]
+    want, where = CUT_OFFS[config.text_head_choice()[0]]
+    return bad + ([] if (round(lo, 3), round(hi, 3)) == want else [f"cut-offs are {lo:.3f} / {hi:.3f}, {where} says {want[0]} / {want[1]}"])
 
 def k2():
-    lo, hi = models()[0].thresholds
+    (lo, hi), ends = models()[0].thresholds, models()[0].meter_ends
     bad = []
     for level, (a, b) in BANDS.items():
         prev = -1
         for i in range(1001):
-            s = risk_score(level, i / 1000, (lo, hi))
+            s = risk_score(level, i / 1000, (lo, hi), ends)
             if not a <= s <= b:
                 bad.append(f"{level.value} p={i / 1000}: {s} outside {a}-{b}")
             if s < prev:
                 bad.append(f"{level.value} p={i / 1000}: {s} < {prev}")
             prev = s
-        if risk_score(level, None, (lo, hi)) != a:
+        if risk_score(level, None, (lo, hi), ends) != a:
             bad.append(f"{level.value}: no text score should give the band floor {a}")
     return bad[:20]
 

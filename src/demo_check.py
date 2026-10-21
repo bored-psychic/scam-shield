@@ -85,12 +85,19 @@ def main():
         what = "a scam left unflagged or under-called" if r["kind"] == "scam" else "a genuine message flagged"
         L += [f"- **{r['id']}** ({r['type']}): {what}. Verdict {r['verdict']}, text score {rep.meta.text_score}, link verdicts: "
               f"{', '.join(c.level.value for c in rep.children) or 'no links'}."]
-    L += ["", "## Reading notes", "", "Written by hand on 2026-10-17 against the table above (commit 076c502; the d03 notes updated for rule R2 the same day); not generated and not checked by the test, so re-read them if the table changes.", "",
+    by_id = {r["id"]: r["report"] for r in rows}
+    lo, hi = by_id["d09"].meta.text_thresholds
+    L += ["", "## Reading notes", "", f"Written by hand on 2026-10-17, rewritten on 2026-10-21 when MuRIL became the text head (D27); scores and cut-offs are filled in from this run "
+          f"(text head `{models['text']}`). Not checked by the test, so re-read them if the table changes. The table with the TF-IDF head (the 2026-10-17 lock) "
+          "against MuRIL is in the D27 section of `docs/decisions/README.md`; `SHIELD_TEXT_HEAD=baseline python src/demo_check.py` reproduces the old table.", "",
           "- A verdict of Likely scam can come from the text model alone (d03, d04, d07, d08: for d04, d07 and d08 there is no rule hit and no link verdict behind them, only wording cues and the text score; d03's rule guarantees only Suspicious), so a pass here is not a per-rule result.",
-          "- d03 (\"enter your UPI PIN to receive the refund\"): the OTP / PIN / CVV rule does not fire ('enter' is not one of its verbs), but the PIN-to-receive rule (R2) does: receiving money never needs a PIN, so it adds its own red flag and guarantees at least Suspicious. The level did not change: Likely scam is still the text model's (score 0.916).",
+          f"- d03 (\"enter your UPI PIN to receive the refund\"): the OTP / PIN / CVV rule does not fire ('enter' is not one of its verbs), but the PIN-to-receive rule (R2) does: receiving money never needs a PIN, so it adds its own red flag and guarantees at least Suspicious. The level did not change: Likely scam is still the text model's (score {by_id['d03'].meta.text_score}).",
           "- d10: the gambling lookup and the URL model both flag the link as Suspicious; the overall Likely scam comes from the text model's score. A gambling hit alone never gives Likely scam.",
-          "- d09 is Suspicious, not Likely scam: the text score is 0.651, just under the Likely-scam cut-off 0.656 and above the Suspicious one 0.423; the OTP rule would also guarantee at least Suspicious.",
-          "- g01 and g02 are genuine OTP warnings and pass with the safety-advice cap OFF; other genuine warnings can be flagged (reports/otp_advisory.md)."]
+          f"- d09 is Suspicious, not Likely scam: the text score is {by_id['d09'].meta.text_score}, under the Likely-scam cut-off {hi} and above the Suspicious one {lo}; the OTP rule would also guarantee at least Suspicious.",
+          "- g01 and g02 are genuine OTP warnings and pass with the safety-advice cap OFF; other genuine warnings can be flagged (reports/otp_advisory.md, measured on the TF-IDF head).",
+          f"- g03 (a genuine Amazon delivery message) is a **known miss with MuRIL** (score {by_id['g03'].meta.text_score}, Suspicious from {lo}; the TF-IDF head gave 0.282 against 0.423). "
+          "Accepted on 2026-10-21 under a policy fixed on val before the demo was re-run: MuRIL may not flag more val benign messages at Suspicious-or-above than the old model "
+          "(MuRIL 1.56%, TF-IDF 4.06%, reports/calibration_muril_v2.md), so no cut-off was moved for one illustrative message. Locked in tests/test_demo.py."]
     L += ["", "## Per entry", ""]
     for r in rows:
         rep = r["report"]

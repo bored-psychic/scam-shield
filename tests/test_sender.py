@@ -2,6 +2,7 @@ import json, os, sys
 HERE = os.path.dirname(os.path.abspath(globals().get("__file__", "tests/test_sender.py")))   # exec()-ed from the project root there is no __file__
 sys.path[:0] = [os.path.join(HERE, "..", "src"), HERE]
 from demo_check import load_demo
+from shield import config
 from shield.contracts import Effect, Level, LEVEL_RANK
 from shield.core.advice import ADVICE
 from shield.core.report import to_report
@@ -186,7 +187,9 @@ def d9():
 def d10():
     """the cap never lowers below Suspicious and never raises: a Suspicious message stays Suspicious, a no-warning one stays no-warning."""
     bad = []
-    for text, want in ((TRICKY["otp-enter-to-confirm"], Level.SUSPICIOUS), (DEMO["g04"], Level.NO_WARNING_SIGNS)):
+    # the Suspicious example has to be Suspicious from the text head alone, so it depends on the head (D27): MuRIL scores the OTP-login text Likely scam
+    suspicious = {config.TEXT_MODEL_KIND: TRICKY["otp-enter-to-confirm"], config.MURIL_KIND: DEMO["g03"]}[config.text_head_choice()[0]]
+    for text, want in ((suspicious, Level.SUSPICIOUS), (DEMO["g04"], Level.NO_WARNING_SIGNS)):
         r0, base = run(text)
         _, rep = run(text, "VM-HDFCBK-T")
         expect(bad, not hard_risks(text, r0), f"{text[:30]!r}: has hard-risk signals, so it no longer tests the cap")

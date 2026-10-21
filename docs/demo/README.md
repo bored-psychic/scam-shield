@@ -4,7 +4,7 @@ This is for whoever shows the app (the project team) and for a reviewer who want
 
 **Every message in the demo set is made up.** The 14 messages in [`demo_set.json`](demo_set.json) were written for the demo. The numbers, phone numbers, names and links are fictional, and none of it is real data. Whether the app handles them correctly says little about how it will do on real messages, so read the limits in section 3 before drawing any conclusion.
 
-What was checked: on 2026-10-17 all 14 behave as expected (10 scams flagged, 4 genuine messages left alone), recorded in [`reports/demo_check.md`](../../reports/demo_check.md) and locked by `python tests/test_demo.py`. A change that moves any verdict makes that test fail on purpose.
+What was checked: on 2026-10-17 all 14 behaved as expected with the TF-IDF text head. Since 2026-10-21 the text head is MuRIL (decision D27): 13 of 14 behave as expected (10 scams flagged, 3 of 4 genuine messages left alone; g03 is flagged *Suspicious*, a known miss), recorded in [`reports/demo_check.md`](../../reports/demo_check.md) and locked by `python tests/test_demo.py`. A change that moves any verdict makes that test fail on purpose.
 
 ## 0. Before you start
 
@@ -54,23 +54,23 @@ Order: d01, d02, g01, d03, d10, then one honest limit. About one minute each. Sa
 > Hello sir, I sent ₹5,000 to your number by mistake. Please return it. I have sent a collect request, just enter your UPI PIN to receive the refund.
 
 - **Verdict:** *Likely scam*; radar *PIN to receive*, *Payment ask* and *Scam wording*; "enter your UPI PIN to receive" (danger colour) and "₹5,000" underlined.
-- **Say this honestly:** caught by the PIN-to-receive rule. Receiving money on UPI never needs a PIN (a PIN is only entered to pay), so asking for one "to receive the refund" is a fixed red flag: at least *Suspicious*, whatever the wording model thinks. The rule did not change the level here: the *Likely scam* is still the wording model's (score 0.916), and the rule alone only guarantees *Suspicious*. Details in `reports/demo_check.md`, "Reading notes".
+- **Say this honestly:** caught by the PIN-to-receive rule. Receiving money on UPI never needs a PIN (a PIN is only entered to pay), so asking for one "to receive the refund" is a fixed red flag: at least *Suspicious*, whatever the wording model thinks. The rule did not change the level here: the *Likely scam* is still the wording model's (score 0.988), and the rule alone only guarantees *Suspicious*. Details in `reports/demo_check.md`, "Reading notes".
 
 **Step 5 (d10, a betting promotion).**
 > Get a 500% welcome bonus, play now: https://www.bet365.com/
 
 - **Verdict:** *Likely scam*, with category "gambling". The first line under "What to do now" is the gambling advice.
 - **Link panel:** two cautions, "looks somewhat like phishing links" and "Gambling or betting site" (the domain is on two public gambling lists).
-- **Say this honestly:** the gambling rule alone only ever reaches *Suspicious*. The *Likely scam* here comes from the wording model (score 0.927). The app says "betting site", not "this operator is a fraud": a licensed operator is on the list too.
+- **Say this honestly:** the gambling rule alone only ever reaches *Suspicious*. The *Likely scam* here comes from the wording model (score 0.988). The app says "betting site", not "this operator is a fraud": a licensed operator is on the list too.
 
-**Step 6 (the honest limit).** The demo set has **no miss** (14 of 14), so there is no failing entry to show. Show this documented one instead; I re-ran it on 2026-10-17 and it is *Suspicious* (score 0.440), although it is a genuine warning:
-> Never share your OTP, PIN or CVV with anyone, including bank staff.
+**Step 6 (the honest limit, g03).** The demo set has one miss with the MuRIL wording model: a genuine delivery message comes out *Suspicious*.
+> Your Amazon order has been delivered. Rate your delivery experience in the Amazon app.
 
-Explain: the wording model cannot see "never". A sentence with the negation removed scores about 0.02 to 0.07 lower than the warning (`reports/otp_advisory.md`, section 1), so a genuine safety warning can look suspicious. A fix exists but is switched off (see section 3). The demo's own g02 ("Your OTP is 482913. Do not share it with anyone. -SBI") comes out clean, so this depends on the wording.
+Explain: the wording model scores it 0.162, just above its *Suspicious* cut-off 0.103, with "Authority claim" (Amazon) on the radar. Nothing was tuned to make it pass: the cut-off was fixed on validation data before the demo was re-run, under the rule that the new model may not flag more normal messages than the old one did (it flags 1.6% of validation's genuine messages, the old one 4.1%; `reports/calibration_muril_v2.md`). The old model left g03 alone but flagged genuine OTP warnings such as "Never share your OTP, PIN or CVV with anyone, including bank staff." (*Suspicious*, 0.440); MuRIL reads the "never" and leaves that one alone.
 
 Optional extras if there is time:
 - **d07** (stock tips with a `bit.ly` link): the link panel says "Can't verify - hidden destination". The app does not follow shortened links.
-- **d09** (Hinglish: "Aapka bank account aaj band ho jayega. Abhi apna OTP bata do verify karne ke liye."): *Suspicious*, not *Likely scam*. The wording score is 0.651, just under the 0.656 *Likely scam* cut-off (and well above the 0.423 *Suspicious* one); the OTP rule would also guarantee at least *Suspicious*.
+- **d09** (Hinglish: "Aapka bank account aaj band ho jayega. Abhi apna OTP bata do verify karne ke liye."): *Suspicious*, not *Likely scam*. The wording score is 0.373, under the 0.436 *Likely scam* cut-off (and above the 0.103 *Suspicious* one); the OTP rule would also guarantee at least *Suspicious*.
 
 ## 2. What it can do
 
@@ -92,7 +92,7 @@ Facts from the code, not promises:
 3. **Genuine OTP warnings can be flagged *Suspicious*.** 5 of 8 genuine "never share your OTP" style notices in `tests/tricky_inputs.py` come out *Suspicious* (`reports/otp_advisory.md`, section 1), because the wording model cannot read negation. A cap that would lower these exists but is **off**: on the validation split it fired on 0 of 5,267 messages, so it cannot yet be shown to help (`reports/otp_advisory.md`). Step 6 above is one of the 5.
 4. **Hindi and Kannada have no real data.** All 394 Hindi and all 394 Kannada rows are templated synthetic messages, and neither language has a validation row (`reports/sanity.md`, sections 2 and 3). Their scores measure template matching, not real understanding. Real Hinglish *scams* are absent too: the real Hinglish data is benign conversations. A translated Hindi/Kannada set exists but is waiting for a native-speaker check and is not in the data yet. The demo has one Hinglish message (d09) and none in Devanagari or Kannada script.
 5. **Real-world accuracy has not been measured.** There is no test set of real messages from real people yet; it will be collected later and evaluated once at the end. Every number above comes from public datasets and templated or synthetic messages.
-6. **Demo misses** (`reports/demo_check.md`): **none**, 14 of 14 behave as expected. That is not a performance claim: the set was hand-written, so it is easy by construction. What the same report notes: d03's PIN request is caught by the PIN-to-receive rule (step 4), though its *Likely scam* is still the wording model's; d10's *Likely scam* is the wording model's, not the gambling rule's (step 5); d09 is *Suspicious*, 0.005 under the *Likely scam* cut-off; and the *Likely scam* on d03, d04, d07 and d08 rests on the wording model alone (d03's rule only guarantees *Suspicious*; d04, d07 and d08 have no rule or link verdict behind them).
+6. **Demo misses** (`reports/demo_check.md`): **one**, 13 of 14 behave as expected with MuRIL: g03, a genuine delivery message, is *Suspicious* (step 6; with the TF-IDF head, `SHIELD_TEXT_HEAD=baseline`, 14 of 14). That is not a performance claim: the set was hand-written, so it is easy by construction. What the same report notes: d03's PIN request is caught by the PIN-to-receive rule (step 4), though its *Likely scam* is still the wording model's; d10's *Likely scam* is the wording model's, not the gambling rule's (step 5); d09 is *Suspicious*, under the *Likely scam* cut-off; and the *Likely scam* on d03, d04, d07 and d08 rests on the wording model alone (d03's rule only guarantees *Suspicious*; d04, d07 and d08 have no rule or link verdict behind them).
 
 ## 4. What we'd like from a reviewer
 

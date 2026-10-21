@@ -162,7 +162,8 @@ def check_models(reps):
     bad = []
     first = reps[0].meta.models
     snapshot = json.load(open(config.GAMBLING_INDIA_PATH))["snapshot"]
-    want = {"text": f"{config.TEXT_MODEL_KIND} {sha8(config.TEXT_MODEL_PATH)}", "url": f"{config.URL_MODEL_KIND} {sha8(config.URL_MODEL_PATH)}", "gambling_lookup": snapshot}
+    kind, text_file, _ = config.text_head_choice()   # the head this process loaded (D27: MuRIL, or the TF-IDF baseline)
+    want = {"text": f"{kind} {sha8(text_file)}", "url": f"{config.URL_MODEL_KIND} {sha8(config.URL_MODEL_PATH)}", "gambling_lookup": snapshot}
     if first != want:
         bad.append(f"meta.models {first}, wanted {want} (hashes recomputed here from the model files)")
     if set(first) != {"text", "url", "gambling_lookup"} or not all(re.fullmatch(r"\S+ [0-9a-f]{8}", first[k]) for k in ("text", "url")):

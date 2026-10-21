@@ -189,5 +189,5 @@ def to_report(text: str, r: dict) -> Report:
     lowered = Lowered(from_level=_LEVEL[low["from"]], text=low["text"]) if low and r["level"] == 1 else None
     return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
                   evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children,
-                  pending=["links"] if any(c.pending for c in children) else [], risk_score=risk_score(level, r["text_score"], r.get("text_thresholds")),
+                  pending=["links"] if any(c.pending for c in children) else [], risk_score=risk_score(level, r["text_score"], r.get("text_thresholds"), r.get("text_meter_ends")),
                   lowered=lowered, meta=meta)

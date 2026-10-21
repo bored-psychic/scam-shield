@@ -2,6 +2,7 @@ import hashlib, json, os, sys
 HERE = os.path.dirname(os.path.abspath(globals().get("__file__", "tests/test_demo.py")))   # exec()-ed from the project root there is no __file__: tests/ relative to the cwd
 sys.path[:0] = [os.path.join(HERE, "..", "src"), HERE]
 from demo_check import evaluate, load_demo
+from shield import config
 from shield.links.lexical import load_url_model
 from shield.messages.text_head import load_text_model
 
@@ -15,9 +16,14 @@ from shield.messages.text_head import load_text_model
 #      and that title is its first reason. No other demo entry carries that evidence. (Its LEVEL did not change: the wording model already said Likely scam.)
 # This is a regression lock on 14 hand-written messages, not an accuracy test: they are illustrative and never count as real data (CLAUDE.md rule 4).
 DEMO_SHA256 = "e6f85c7d2dc8a60ee64a33c96663eb6ae631005cbb60847d38645ae7d9f34549"
-LOCKED = {"d01": "likely_scam", "d02": "likely_scam", "d03": "likely_scam", "d04": "likely_scam", "d05": "likely_scam",
-          "d06": "likely_scam", "d07": "likely_scam", "d08": "likely_scam", "d09": "suspicious", "d10": "likely_scam",
-          "g01": "no_warning_signs", "g02": "no_warning_signs", "g03": "no_warning_signs", "g04": "no_warning_signs"}
+# One lock per text head (D27): the levels the app gives with that head loaded (config.text_head_choice()). TF-IDF: the 2026-10-17 lock, 14 of 14.
+# MuRIL (2026-10-21): the same except g03, the genuine Amazon delivery message, which MuRIL flags Suspicious (score 0.162, cut-off 0.103): a KNOWN MISS,
+# accepted under the val flag policy of reports/calibration_muril_v2.md (MuRIL flags 1.56% of val benign messages at Suspicious-or-above, the baseline 4.06%).
+LOCKS = {config.TEXT_MODEL_KIND: {"d01": "likely_scam", "d02": "likely_scam", "d03": "likely_scam", "d04": "likely_scam", "d05": "likely_scam",
+                                  "d06": "likely_scam", "d07": "likely_scam", "d08": "likely_scam", "d09": "suspicious", "d10": "likely_scam",
+                                  "g01": "no_warning_signs", "g02": "no_warning_signs", "g03": "no_warning_signs", "g04": "no_warning_signs"}}
+LOCKS[config.MURIL_KIND] = {**LOCKS[config.TEXT_MODEL_KIND], "g03": "suspicious"}
+LOCKED = LOCKS[config.text_head_choice()[0]]
 
 RULE_EVIDENCE = {"d03": ("PIN to receive", "enter your UPI PIN to receive", "Asks for your UPI PIN to receive money (receiving money never needs a PIN)")}
 

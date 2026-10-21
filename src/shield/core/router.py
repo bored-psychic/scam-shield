@@ -69,12 +69,14 @@ def apply_positives(text, r):
             r["lowered"] = {"from": before, "text": f"Lowered from {LEVELS[before]}: " + p1["lowered"].replace("{}", "the link", 1) + "."}
 
 
-def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=()):
+def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
     (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender).
     live: run the network link checks (D23: shield.links.live, only registered domains leave the machine, <= 4 s); False = the offline
-    analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal."""
+    analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal.
+    explain: fill r["grams"] with the text head's strongest pieces of text (only the Gradio app shows them; the Report does not carry them, and
+    for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
@@ -84,9 +86,10 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
     if prose_words >= MIN_PROSE_WORDS:
         prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
         r["text_thresholds"] = tuple(r3(t) for t in text_model.thresholds)
+        r["text_meter_ends"] = getattr(text_model, "meter_ends", None)   # risk.curve: None = the D24 linear curve (baseline)
         r["text_score"] = r3(text_model.score(prepared))
         r["text_level"] = level_of(r["text_score"], *r["text_thresholds"])
-        r["grams"] = text_model.explain(prepared, k=14)
+        r["grams"] = text_model.explain(prepared, k=14) if explain else []
         r["truncated"] = len(prepared) >= MAX_CHARS
     # one entry per link, in input order: shorteners and free hosting are assessed by rule, the rest go to the URL model
     r["links"] = [{"url": u, "host": parse_url(u)[0], "score": None, "level": None, "verdict": "", "note": "", "kind": "model",

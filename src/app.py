@@ -24,7 +24,7 @@ from shield.links.platforms import CANT_VERIFY, CANT_JUDGE
 # What the numbers are NOT. Both scores are uncalibrated model outputs; the three levels come from thresholds chosen on the
 # validation split (never test). Combining the two heads is a placeholder rule (fuse()) until the fusion model exists.
 # Tactic tags are hand-written regexes: they explain the message, they do not feed the score.
-GRAM_COLS = ["n-gram (_ = word edge)", "pushes toward", "contribution"]
+GRAM_COLS = ["piece of text (TF-IDF: n-gram, _ = word edge; MuRIL: word)", "pushes toward", "contribution"]
 URL_COLS = ["url", "host", "score", "verdict"]
 FEAT_COLS = ["feature", "value", "typical benign", "effect on score", "what it measures"]
 COLORS = ["#1a7f37", "#9a6700", "#c62828"]
@@ -128,7 +128,7 @@ def note_md(r):
     return "\n\n".join(parts)
 
 def run(text, text_model, url_model):
-    r = analyse(text, text_model, url_model)
+    r = analyse(text, text_model, url_model, explain=True)
     no_feats = pd.DataFrame(columns=FEAT_COLS)
     if r["level"] is None and not r["links"]:
         msg = "<p>Nothing to score: no readable text or link found.</p>" if (text or "").strip() else banner_html(r, text_model, url_model)
@@ -148,7 +148,7 @@ def build_ui(text_model, url_model):
         flag = gr.HTML()
         gr.Markdown("### Tactic tags\nHand-written word lists (authority, urgency, payment, isolation). They explain the message but do not change the score.")
         tags = gr.HTML()
-        gr.Markdown(f"### Top contributing n-grams\nHow much each piece of text moved the score of the **{text_model.name}**.")
+        gr.Markdown(f"### Top contributing pieces of text\nHow much each piece of text moved the score of the **{text_model.name}** (MuRIL: how much the score drops when that word is removed).")
         grams = gr.Dataframe(headers=GRAM_COLS, interactive=False, wrap=True)
         gr.Markdown("### Links found\nShortened links can't be verified (the destination is hidden and never fetched). Free-hosting links (pages.dev, vercel.app, github.io ...) get no model verdict.")
         urls = gr.Dataframe(headers=URL_COLS, interactive=False, wrap=True)
