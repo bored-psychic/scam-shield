@@ -2,7 +2,8 @@
 data/
 __pycache__/
 *.pyc
-models/
+models/*
+!models/calibration/
 .venv-translate/
 .venv-finetune/
 .DS_Store

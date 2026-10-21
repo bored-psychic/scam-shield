@@ -13,6 +13,11 @@ from shield.core.verdict import r3
 
 # Calibrates the app's MuRIL text head (decision D27) from its CACHED predictions; nothing is re-scored and no model is loaded.
 #   .venv/bin/python src/calibrate_text_head.py            # -> the "calibration" block in the bundle's shield_meta.json + reports/calibration_muril_v2.md
+#                                                          #    + the tracked backup models/calibration/<run>.json
+#   .venv/bin/python src/calibrate_text_head.py --export   # write that backup from the bundle's current block (no fit)
+#   .venv/bin/python src/calibrate_text_head.py --apply models/calibration/<run>.json [--run <fresh copy of the bundle>]
+#                                                          # put the saved block into a fresh copy's shield_meta.json, no refit; refuses if the
+#                                                          # weights' SHA-256 or the split map differ from the ones the block was fitted for
 #
 # Every choice is made on VAL (5,267 rows, the bundle's predictions_val.csv, column `score`: the T4 scores the cut-offs were chosen on):
 #   1. temperature T: one parameter, calibrated score = sigmoid(logit(score) / T), T minimises val log-loss. The head is a 2-class softmax, so
@@ -28,6 +33,7 @@ from shield.core.verdict import r3
 ROOT = Path(__file__).resolve().parent.parent
 RUN = ROOT / "models/finetune/muril_len128_20261021T135255Z"
 REPORT = ROOT / "reports/calibration_muril_v2.md"
+BACKUP_DIR = ROOT / "models/calibration"   # tracked (.gitignore re-includes it): models/ itself is not
 BASELINE = ROOT / "models/text_baseline.joblib"
 BINS = np.linspace(0, 1, 11)
 
@@ -83,13 +89,46 @@ def flag_stats(y, s, lo):
     return float((s[y == 0] >= lo).mean()), int((s[y == 0] >= lo).sum()), float((s[y == 1] >= lo).mean())
 
 
+def export_backup(run, meta):
+    """Save the bundle's calibration block, with the SHA-256 of the weights it was fitted for, as a small tracked file."""
+    out = BACKUP_DIR / f"{run.name}.json"
+    BACKUP_DIR.mkdir(exist_ok=True)
+    data = {"run": run.name, "model_safetensors_sha256": sha256(run / "model/model.safetensors"), "split_map_sha256": meta["split_map_sha256"],
+            "calibration": meta["calibration"]}
+    out.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return out
+
+
+def apply_backup(run, backup):
+    """Re-apply a saved calibration block to a fresh copy of the bundle. Nothing is fitted or re-scored."""
+    data = json.loads(backup.read_text(encoding="utf-8"))
+    meta_path = run / "shield_meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    w = sha256(run / "model/model.safetensors")
+    assert w == data["model_safetensors_sha256"], f"{run}: the weights are not the ones this calibration was fitted for ({w} != {data['model_safetensors_sha256']})"
+    assert meta["split_map_sha256"] == data["split_map_sha256"], "the bundle was trained on a different split map"
+    meta["calibration"] = data["calibration"]
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    c = data["calibration"]
+    print(f"applied {backup.relative_to(ROOT) if backup.is_relative_to(ROOT) else backup} to {run}: weights sha256 {w[:12]} match; "
+          f"T {c['temperature']:.4f}, cut-offs {c['threshold_suspicious']:.4f} / {c['threshold_likely']:.4f}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--run", type=Path, default=RUN)
     ap.add_argument("--report", type=Path, default=REPORT)
+    ap.add_argument("--export", action="store_true", help="write models/calibration/<run>.json from the bundle's current block; no fit")
+    ap.add_argument("--apply", type=Path, help="re-apply a saved calibration file to --run; no fit")
     a = ap.parse_args()
     meta_path = a.run / "shield_meta.json"
+    if a.apply:
+        return apply_backup(a.run, a.apply)
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if a.export:
+        assert "calibration" in meta, "the bundle has no calibration block to export"
+        print("wrote", export_backup(a.run, meta).relative_to(ROOT))
+        return
     assert meta["split_map_sha256"] == SPLIT_MAP_SHA256 == sha256(ROOT / "data/final/split_map.csv"), "not splits-v2"
     assert not meta["settings"]["aug"] and not meta["settings"]["smoke"] and meta["settings"]["limit"] is None
 
@@ -147,6 +186,7 @@ def main():
         "suspicious_policy": policy, "meter_p0": p0, "meter_p100": p100, "meter_ends_rule": "1st / 99th percentile of the calibrated val scores",
         "val_rows": int(len(y)), "fitted_utc": when, "report": str(a.report.relative_to(ROOT))}
     meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    export_backup(a.run, meta)
 
     rv0, e0 = reliability(y, raw)
     rv1, e1 = reliability(y, cal)

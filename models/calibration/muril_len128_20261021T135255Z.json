@@ -1,0 +1,20 @@
+{
+  "run": "muril_len128_20261021T135255Z",
+  "model_safetensors_sha256": "fc3bdaf17cbb11483daa33745d1a01b766aed1c7a5ddc3f81b54f321201c8cf9",
+  "split_map_sha256": "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c",
+  "calibration": {
+    "fit_on": "val",
+    "method": "temperature scaling, score = sigmoid(logit(softmax P(scam)) / T), T minimises val log-loss",
+    "temperature": 1.5065782143289785,
+    "threshold_suspicious": 0.1031542739774774,
+    "threshold_likely": 0.43649304384109705,
+    "thresholds_rule": "finetune.thresholds on the calibrated val scores; suspicious capped so val benign flags <= the app baseline's",
+    "suspicious_policy": "not needed: MuRIL already flags fewer val benign messages than the baseline; the rule's cut-off is kept",
+    "meter_p0": 0.014033356635448368,
+    "meter_p100": 0.9884675621234488,
+    "meter_ends_rule": "1st / 99th percentile of the calibrated val scores",
+    "val_rows": 5267,
+    "fitted_utc": "2026-10-21 17:04 UTC",
+    "report": "reports/calibration_muril_v2.md"
+  }
+}
