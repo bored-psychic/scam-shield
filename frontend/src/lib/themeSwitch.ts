@@ -40,6 +40,7 @@ type Kind = "comet" | "hole";
 type Draw = (t: number, now: number, g: GlobeCircle | null) => Pt[];   // draws one frame of the effects round the globe g and returns the clip polygon (screen px)
 
 const D2R = Math.PI / 180;
+const FX_RATIO = 1;   // the effects canvas's pixel ratio
 const ease = (x: number) => (x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const cl = (x: number) => Math.max(0, Math.min(1, x));
 
@@ -311,16 +312,28 @@ function addPanes(panes: Pane[]): HTMLElement[] {
 type View = { pseudo: string; frame: (pts: Pt[]) => Keyframe };
 // A layer's reach: its box and INK px round it (shadows and glows drawn outside it: its snapshot holds them), on the screen (+20 px).
 const INK = 48;
+// A view on the light (inside) or dark (outside) side of the polygon, within `box`: clipped only while the edge crosses the part of the box on
+// the screen (`seen`); while all of that is on one side, that side's view is unclipped and the other one hidden (2026-10-21: each clip is a
+// mask the compositor redraws every frame, and from 75 % of the comet on the light side covers the whole screen; at deviceScaleFactor 2 the
+// masks of a fully lit screen made the comet's last third its slowest part).
+function sideView(pseudo: string, inside: boolean, box: Box, seen: Box, dx = 0, dy = 0): View {
+  return { pseudo, frame: (pts) => {
+    const side = boxSide(pts, ...seen);
+    if (side === "across") return { clipPath: inside ? clipInside(pts, box, dx, dy) : clipOutside(pts, box, dx, dy), opacity: "1" };
+    return { clipPath: "none", opacity: (side === "in") === inside ? "1" : "0" };
+  } };
+}
 function views(kind: Kind, panes: Pane[], W: number, H: number, vigCanvas: boolean): View[] {
   const light = kind === "comet" ? "new" : "old", dark = kind === "comet" ? "old" : "new", screen: Box = [-20, -20, W + 20, H + 20];
-  const out: View[] = [{ pseudo: `::view-transition-${light}(root)`, frame: (pts) => ({ clipPath: clipInside(pts, screen) }) }];
+  const onScreen = ([x0, y0, x1, y1]: Box): Box => [Math.max(0, x0), Math.max(0, y0), Math.min(W, x1), Math.min(H, y1)];
+  const out: View[] = [sideView(`::view-transition-${light}(root)`, true, screen, [0, 0, W, H])];   // the dark root under it stays as it is
   for (const [name, sel] of LAYERS) {
     if (name === "ss-vig" && vigCanvas) continue;   // drawn on its own canvas instead (paintVignette)
     const r = document.querySelector(sel)?.getBoundingClientRect();
     if (!r) continue;
     const box: Box = [Math.max(-20, r.left - INK), Math.max(-20, r.top - INK), Math.min(W + 20, r.right + INK), Math.min(H + 20, r.bottom + INK)];
-    out.push({ pseudo: `::view-transition-${light}(${name})`, frame: (pts) => ({ clipPath: clipInside(pts, box, r.left, r.top) }) },
-             { pseudo: `::view-transition-${dark}(${name})`, frame: (pts) => ({ clipPath: clipOutside(pts, box, r.left, r.top) }) });
+    out.push(sideView(`::view-transition-${light}(${name})`, true, box, onScreen(box), r.left, r.top),
+             sideView(`::view-transition-${dark}(${name})`, false, box, onScreen(box), r.left, r.top));
   }
   // a pane wears its panel's glass on the dark side: unclipped while all of it is dark, hidden while all of it is light, clipped only while the
   // edge crosses it (each clip is a mask the compositor draws every frame)
@@ -446,7 +459,9 @@ export function playSwitch(to: Theme, apply: () => void, button: HTMLElement | n
 function start(run: Run, kind: Kind, button: HTMLElement | null) {
   const c = run.canvas, f = c?.getContext("2d");
   if (run.over || !c || !f) { run.skip(); return; }
-  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2), root = document.documentElement;
+  // the effects canvas at FX_RATIO (2026-10-21): a full-screen canvas at deviceScaleFactor 2 is 4 x the pixels to clear, draw and composite
+  // every frame, and its glows and streaks are soft and moving
+  const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, FX_RATIO), root = document.documentElement;
   c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); f.setTransform(dpr, 0, 0, dpr, 0, 0);
   const ink = inks(), T = kind === "comet" ? COMET_MS : HOLE_MS;
   const draw = kind === "comet" ? comet(f, W, H, ink) : hole(f, W, H, ink, button?.getBoundingClientRect() ?? null);

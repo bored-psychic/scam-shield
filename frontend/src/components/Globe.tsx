@@ -169,6 +169,7 @@ type Props = { dim?: boolean; onHit?: (hit: Hit) => void; theme?: Theme };
 // page's clip polygon, the old theme's look on one side and the new theme's on the other. So it keeps turning (and can be dragged) and still
 // changes along exactly the page's edge. The switch draws those frames itself (clipGlobe), so the globe and the page use the same polygon in
 // the same frame. No arc starts during a switch; the ones in flight hurry (1.5 x) and land as usual.
+const SWITCH_RATIO = 1;   // the globe's pixel ratio while the theme switch draws it
 export type GlobeCircle = { cx: number; cy: number; r: number };   // CSS px from the top left of the screen
 let link: { circle: () => GlobeCircle; begin: (newInside: boolean) => void; retheme: () => void; clip: (now: number, pts: Pt[], side: Side) => void; end: () => void } | null = null;
 /** The globe's circle on screen (centre and radius), from its camera. */
@@ -472,7 +473,7 @@ void main(){
       retheme: () => { if (sw && !sw.to) sw.to = look = makeLook(); },
       clip: (now, pts, side) => {
         if (!sw) return;
-        if (!driven) { driven = true; cancelAnimationFrame(raf); raf = 0; }
+        if (!driven) { driven = true; cancelAnimationFrame(raf); raf = 0; ratio = SWITCH_RATIO; resize(); }
         sw.pts = pts; sw.side = side; advance(now); draw();
       },
       end: () => {
@@ -480,6 +481,7 @@ void main(){
         const { from, to } = sw;
         sw = null;
         look = makeLook(); stencil(null); use(look);   // the tokens of the theme the page ended in
+        if (ratio !== 1.75) { ratio = 1.75; resize(); }   // full resolution again (drawn at once while still driven: setSize clears the canvas)
         from.dot.dispose(); to?.dot.dispose();
         if (driven) { driven = false; animate(true); }   // the canvas keeps the switch's last frame (all in the new theme) until then
       },
@@ -495,10 +497,13 @@ void main(){
       },
     };
 
+    // During a switch the globe is drawn at SWITCH_RATIO (2026-10-21): at deviceScaleFactor 2 the compositor's cost of every full-screen
+    // layer decides the frame time, and in 2.4 s of motion the coarser globe does not show. Full resolution again at the end.
+    let ratio = 1.75;
     function resize() {
       const w = innerWidth, h = innerHeight;
       vw = w; vh = h;
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, ratio));
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       const z = w < 640 ? 440 : 300, lift = w < 640 ? 95 : 62;   // look above the globe: it rises from the bottom of the screen

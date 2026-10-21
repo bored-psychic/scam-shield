@@ -30,7 +30,7 @@
 //      between the 0 / 25 / 50 / 75 % frames (some still fly from 25 to 50 %), at 1.5 x its normal speed (+-10 %), and lands once (one ripple,
 //      one hit, one new line in the footer feed) when 1.5 x predicts.
 //   S12 arcs start again within 1 s after a switch ends, after a hidden tab ended one, and after an instant switch (no View Transitions).
-//   S14-S16 (2026-10-21, a headed Chrome; --frames-only runs just these): see the comment above frameSweep().
+//   S14-S16 (2026-10-21, a headed Chrome; --frames-only runs S14-S16, --perf-only S16 alone): see the comments above frameSweep() and headedPerf().
 //   S13 layering and glass, in the S3 frames: the hero text, the paste box and the example chips are never covered by the globe, and look as
 //      on the still page of their side of the edge (the dark side: the box's glass blurs the live globe as outside the switch). Tolerance:
 //      <= 1 % of their pixels more than 4/255 off, none more than 16/255 (raster noise of a snapshot), more than 4 px from the edge; on the
@@ -110,7 +110,13 @@ async function until(page, fn, ms = 8000) {
 }
 const ended = (page) => until(page, () => window.__sw.ends.length > 0 && !document.documentElement.classList.contains("ss-switch"));
 const begun = (page) => until(page, () => document.getAnimations().some((a) => a.effect?.pseudoElement));
-const rootClip = (page) => page.evaluate(() => document.getAnimations().find((a) => a.effect?.pseudoElement?.endsWith("(root)")).effect.getKeyframes()[0].clipPath);
+// the frame's clip polygon, from the root's light view; unclipped (2026-10-21) while the whole screen is on one side of it: opaque = all
+// light (the screen, +20 px), hidden = all dark (no polygon)
+const rootClip = (page) => page.evaluate(() => {
+  const k = document.getAnimations().find((a) => a.effect?.pseudoElement?.endsWith("(root)")).effect.getKeyframes()[0], W = innerWidth + 20, H = innerHeight + 20;
+  if (k.clipPath !== "none") return k.clipPath;
+  return k.opacity === "0" ? "polygon(0 0, 0 0, 0 0)" : `polygon(-20px -20px, ${W}px -20px, ${W}px ${H}px, -20px ${H}px)`;
+});
 const NOFX = ":root::view-transition-group(ss-fx) { visibility: hidden; }";
 const png = async (page) => (await page.screenshot()).toString("base64");
 
@@ -418,12 +424,16 @@ function sideOf(load, { shots, stillFrom, stillTo, polys, bgFrom, bgTo, lightFro
   })();
 }
 // S16 smoothness in the headed window at 1710x1073 @2x (the screen of the bug): rAF frame times through two comets and two black holes, real
-// time. Reported, not gated: on the M2 Air the switch runs ~31 fps there (~25 fps before the 2026-10-21 fix; idle 16.6 ms).
+// time, overall and per 10 % of the animation (a frame counts in the bucket of the progress at its end). Reported, not gated.
+// --perf-only runs S16 alone; --perf-runs N switches N times each way.
+const stats = (xs) => { const d = [...xs].sort((a, b) => a - b);
+  return { frames: d.length, avg: d.reduce((a, b) => a + b, 0) / (d.length || 1), p95: d[Math.min(d.length - 1, Math.floor(d.length * .95))] ?? 0, max: d.at(-1) ?? 0 }; };
+const PERF_ONLY = process.argv.includes("--perf-only"), PERF_RUNS = +(arg("--perf-runs") ?? 2);
 async function headedPerf(browser, w, h, dpr) {
   const [ctx, page] = await open(browser, { w, h, theme: "dark", dpr });
   await page.waitForTimeout(800);
   const out = [];
-  for (let run = 0; run < 4; run++) {
+  for (let run = 0; run < 2 * PERF_RUNS; run++) {
     const kind = run % 2 ? "hole" : "comet";
     await page.evaluate(() => { const r = window.__sw, id = (r.id = (r.id || 0) + 1); r.frames = []; r.starts.length = 0; r.ends.length = 0;
       (function loop() { if (r.id !== id) return; r.frames.push(performance.now()); requestAnimationFrame(loop); })(); });
@@ -431,11 +441,12 @@ async function headedPerf(browser, w, h, dpr) {
     await ended(page);
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => { const s = window.__sw; s.id++; return { start: s.starts[0], end: s.ends[0], frames: s.frames }; });
-    const dts = [];
-    for (let i = 1; i < r.frames.length; i++) if (r.frames[i - 1] >= r.start && r.frames[i] <= r.end) dts.push(r.frames[i] - r.frames[i - 1]);
-    dts.sort((a, b) => a - b);
-    const avg = dts.reduce((a, b) => a + b, 0) / dts.length, p95 = dts[Math.min(dts.length - 1, Math.floor(dts.length * .95))];
-    out.push({ kind, run: (run >> 1) + 1, frames: dts.length, avg, p95, max: dts.at(-1) });
+    const dts = [], buckets = Array.from({ length: 10 }, () => []);
+    for (let i = 1; i < r.frames.length; i++) if (r.frames[i - 1] >= r.start && r.frames[i] <= r.end) {
+      const dt = r.frames[i] - r.frames[i - 1];
+      dts.push(dt); buckets[Math.min(9, Math.floor((r.frames[i] - r.start) / T[kind] * 10))].push(dt);
+    }
+    out.push({ kind, run: (run >> 1) + 1, ...stats(dts), buckets: buckets.map(stats) });
   }
   await ctx.close();
   return out;
@@ -517,7 +528,7 @@ try {
   const headed = await chromium.launch({ channel: "chrome", headless: false });
   const sweeps = [];
   try {
-    for (let run = 1; run <= FRAME_RUNS; run++) for (const [w, h, dpr] of FRAME_SIZES) for (const kind of ["comet", "hole"]) {
+    if (!PERF_ONLY) for (let run = 1; run <= FRAME_RUNS; run++) for (const [w, h, dpr] of FRAME_SIZES) for (const kind of ["comet", "hole"]) {
       const fr = await frameSweep(headed, w, h, dpr, kind), bad = fr.filter((q) => !q.ok), label = `${kind} ${w}x${h} @${dpr}x${FRAME_RUNS > 1 ? ` run ${run}` : ""}`;
       sweeps.push({ kind, w, h, dpr, run, frames: fr, vignette: fr.vignette });
       for (const [side, q] of Object.entries(fr.vignette))
@@ -530,12 +541,13 @@ try {
       const label = `S16 ${p.kind} 1710x1073 @2x headed run ${p.run}: ${p.frames} frames, avg ${p.avg.toFixed(2)} ms (${(1000 / p.avg).toFixed(1)} fps), p95 ${p.p95.toFixed(2)} ms, max ${p.max.toFixed(1)} ms`;
       sweeps.push({ perf: p });
       console.log(label);
+      console.log(`      per 10 %: ${p.buckets.map((b, i) => `${i * 10}-${i * 10 + 10}% ${b.avg.toFixed(1)}/${b.p95.toFixed(1)}`).join(", ")} (avg/p95 ms)`);
     }
   } finally {
     await headed.close();
     if (FRAMES_JSON) writeFileSync(FRAMES_JSON, JSON.stringify(sweeps, null, 1));
   }
-  if (!FRAMES_ONLY) {
+  if (!FRAMES_ONLY && !PERF_ONLY) {
     // S1 + S2 + S7 + S9 (real time): both animations, both sizes, two runs each (comet, black hole, comet, black hole)
     for (const [w, h, dpr] of [...SIZES, [1280, 800, 2]]) {
       const [ctx, page] = await open(browser, { w, h, theme: "dark", dpr });
