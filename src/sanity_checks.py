@@ -133,7 +133,9 @@ out.append("\nSource-only accuracy per source on test (the 'a model that only kn
 # ---- 5. leave-one-source-out ----
 vt = pd.concat([va, te])
 sizes = df.groupby("source")["label"].agg(n="size", scam="sum", classes="nunique")
-major = sizes[(sizes["n"] >= MIN_SOURCE_ROWS) & (sizes["classes"] == 2)].sort_values("n", ascending=False).index.tolist()
+# a source with no val/test rows (translated_indic: train-only augmentation, D20 / D26) cannot be held out and stays in training
+evaluable = sizes.index.isin(vt["source"].unique())
+major = sizes[(sizes["n"] >= MIN_SOURCE_ROWS) & (sizes["classes"] == 2) & evaluable].sort_values("n", ascending=False).index.tolist()
 rows = []
 for s in major:
     log(f"LOSO: holding out {s}")
@@ -165,7 +167,7 @@ out.append(f"\n## 5. Leave-one-source-out\n\nMajor sources = at least {MIN_SOURC
            "0.5 cut-off moved; PR-AUC should be read against `scam rate`, which is what a random ranking scores. "
            "The last column scores all of the source's rows (train split too) for a steadier number on small sources; cross-source "
            "near-duplicates are not excluded there, so treat it as optimistic. Sources with one class (`cmu_hinglish_dog`, "
-           "`hinglish_conversations`, `web_scams`) have no F1 and stay in training.\n\n" + md(loso, index=False))
+           "`hinglish_conversations`, `web_scams`) have no F1 and stay in training; so does `translated_indic`, which has no val/test rows.\n\n" + md(loso, index=False))
 
 if args.only_loso:
     new = out[-1]

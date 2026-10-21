@@ -1,6 +1,6 @@
 # Hindi machine translations judged wrong in the native-speaker spot-check (reports/spotcheck_hi.md, export hi_friend_v1.txt).
-# NOT APPLIED to any data. It is an input for the splits-v2 rebuild (build_text.py): leave these Hindi translations out of the TRAINING set.
-# Created 2026-10-18 (decision D20). Nothing in data/, split_map.csv or models/ was touched.
+# APPLIED 2026-10-21 at the splits-v2 rebuild (build_text.py reads this file and leaves these Hindi translations out; every text_hash is checked).
+# Created 2026-10-18 (decision D20); the rows below the hi39 line were added 2026-10-21 from reports/translation_suspects.md, reviewed by the user.
 #
 # Row key in the data files: (parent_id, language) in data/external/indic/translated/translated_final_2026-10-07.csv; text_hash is the
 # hash of the translation as stored there. The sheet id (hiNN) is only the row id of reports/spotcheck_hi.csv.
@@ -14,3 +14,14 @@ hi29 | p00339 | hindi | 9ac7772331a3b934c48dc88f762d7d09 | benign | no split yet
 hi34 | p00652 | hindi | 39609b7768b114d05331c01ddaba4ffa | scam   | train        | the ask "pay Rs 999 for verification and training kit" was re-attached to the hiring clause, so the Hindi no longer asks for payment: meaning AND label lost
 hi35 | p00605 | hindi | 56bf617c7a81adc4de480aafef3f022e | benign | no split yet | sender tag "-CAMS" fused into the sentence, so the validity clause reads "valid for CAMS": meaning lost
 hi39 | p00023 | hindi | c7001eae8ee500d9847de612bfd95b33 | benign | no split yet | clause order scrambled, "withdrawn" attaches to the available balance instead of the Rs 0317: meaning lost
+-    | p00719 | hindi | 69f7304c70c361fd20c9f9f00b60d0f5 | scam   | train        | "earn 8000-20000/day" lost the "per": the Hindi reads "earn 8000-20000 day" (same omission as the Kannada row in exclude_kn_v1.txt)
+-    | p00720 | hindi | 66cef64463d7b28a10078b0d8dbc7209 | scam   | train        | "earn Rs 30,000/month" lost the "per": the Hindi reads "earn Rs 30,000 month" (same omission as the Kannada row)
+-    | p00076 | hindi | b04a0c955e37d569de219835416ad7b3 | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00154 | hindi | cc7e86cc041a40aae902e6312039dd6f | benign | no split yet | brand Licious translated as ashubh "inauspicious": meaning lost
+-    | p00174 | hindi | 0d723cd56be1d447e02f6d63b1ae126c | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00313 | hindi | ecce2ebcd47ddb4ee1bf6e95f075b305 | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00349 | hindi | b2aec84a505c4ce54464eaf541e4b989 | benign | no split yet | brand Licious translated as ashubh "inauspicious": meaning lost
+-    | p00407 | hindi | f71ea96c6055978e84705034194731ca | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00567 | hindi | a6090a21313f8e71122b255dfd01d4fd | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00618 | hindi | 5a40acbd8c69b939a0e5f44d733c791b | benign | no split yet | brand Licious translated as shubh "auspicious": meaning lost
+-    | p00309 | hindi | 732d8d449ca86cf65aba9866ab6e97da | benign | no split yet | lower-case "licious items" translated as vaidh vastuon "valid items": brand lost (user's call, 2026-10-21)

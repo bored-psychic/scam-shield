@@ -181,7 +181,7 @@ Your reason holds: people paste messages they are unsure about, so bank, OTP and
 
 ## 4. Analysis plan (not run; Sonnet high to build, Opus high to review)
 
-**Rule 10 first:** `splits-v2` (waiting on the spot-check) adds Hindi / Kannada hard-legit val rows. Its PII fixes rehash ~70 rows. Run the English part now on `splits-v1` as a dry run. Rerun after `splits-v2`. Write no thresholds into the app until then and until you approve.
+**Rule 10 first:** `splits-v2` (waiting on the spot-check) adds Hindi / Kannada hard-legit val rows. *Update 2026-10-21: splits-v2 is built, but the translations are train-only (D20, D26), so it adds **no** Hindi / Kannada val rows; val has 0 rows in either language.* Its PII fixes rehash ~70 rows. Run the English part now on `splits-v1` as a dry run. Rerun after `splits-v2`. Write no thresholds into the app until then and until you approve.
 
 **New and changed files:**
 - `src/legit_tiers.py`: the §1.2 tagger as pure functions with a `RULE_VERSION`, importing the regexes from `src/translate_parents.py`. Output `data/final/legit_tiers.csv` (`text_hash, legit_tier, hl_category, scam_tier, rule_version`; git-ignored).

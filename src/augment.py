@@ -11,7 +11,8 @@ import neardup
 # the parent's source / is_synthetic / provenance / split are kept in parent_source, parent_is_synthetic, provenance,
 # split (filter on parent_is_synthetic == False for robustness numbers on real parents only).
 # Back-translation / TextAttack word-level recipes are not here yet (see README).
-random.seed(0)
+# Randomness is seeded per (split, attack) (2026-10-21, splits-v2): with one stream for everything, any change to the TRAIN parents
+# shifted every draw that followed, so the held-out test variants changed too. Now messages_adv_test.csv depends on the test parents only.
 HOMO = {"a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "x": "х", "i": "і", "y": "у", "s": "ѕ"}   # Cyrillic
 LEET = {"a": "@", "o": "0", "i": "1", "e": "3", "s": "$"}
 ZW = "​"
@@ -54,9 +55,10 @@ df = pd.read_csv("data/final/messages.csv", low_memory=False)
 df["orig_id"] = df.index   # row position in messages.csv; parent_hash is the stable key if the file is rebuilt
 base = df[(df["label"] == 1) & (df["text"].str.len() <= MAX_LEN)]
 
-def build(part, attacks):
+def build(part, attacks, split):
     rows = []
     for name, fn in attacks.items():
+        random.seed(f"{split}:{name}")
         a = part.copy()
         a["text"] = a["text"].map(fn)
         a = a[a["text"] != part["text"]]   # attack didn't apply (e.g. no URL)
@@ -75,7 +77,7 @@ assert (df["split"] == df["text_hash"].map(frozen)).all(), "messages.csv doesn't
 
 outputs = {}
 for split, out, attacks in (("train", "messages_aug.csv", TRAIN_ATTACKS), ("test", "messages_adv_test.csv", HELD_OUT_ATTACKS)):
-    a = build(base[base["split"] == split], attacks)[cols]
+    a = build(base[base["split"] == split], attacks, split)[cols]
     assert (df.loc[a["orig_id"], "split"] == split).all(), f"{out}: parent from another split"
     assert (df.loc[a["orig_id"], "text_hash"].values == a["parent_hash"].values).all(), f"{out}: orig_id / parent_hash mismatch"
     outputs[out] = a

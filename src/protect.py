@@ -25,7 +25,9 @@ PATTERNS = [
     ("mask", re.compile(r"<(?:EMAIL|UPI_ID|PHONE|ACCOUNT)>")),
     ("url", re.compile(rf"(?:https?://|www\.)[^\s<>\"']+|\b(?:[A-Za-z0-9-]+\.)+{_TLD}\b(?:/[^\s<>\"']*)?", re.I)),
     ("date", re.compile(rf"\b\d{{1,2}}[-/. ]{_MONTH}[-/., ]+\d{{2,4}}\b|\b\d{{1,2}}[-/.]\d{{1,2}}[-/.]\d{{2,4}}\b|\b\d{{4}}-\d{{2}}-\d{{2}}\b", re.I)),
-    ("time", re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?(?:\s?(?:AM|PM|Hrs|IST))?", re.I)),
+    # bounded on both sides (2026-10-21): without it an OTP like "1:363094" was cut into the time "1:36" and a loose "3094"; now a longer
+    # number falls through to the code pattern and the whole token is one span
+    ("time", re.compile(r"(?<![\d:])\b\d{1,2}:\d{2}(?::\d{2})?(?![\d:])(?:\s?(?:AM|PM|Hrs|IST))?", re.I)),
     ("money", re.compile(r"(?:Rs\.?|INR|₹)\s?\d[\d,]*(?:\.\d+)?(?:/-)?", re.I)),
     ("card", re.compile(r"(?:[Xx]{2,}|\*{2,})[.…]{0,3}[\w*]*")),
     ("code", re.compile(r"(?<![\w])[A-Za-z*#]{0,4}\d[\w*]*(?:[.,/-]\d[\w*]*)*")),

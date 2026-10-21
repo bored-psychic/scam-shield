@@ -1,6 +1,7 @@
 # Kannada machine translations to leave out of the TRAINING set (reports/spotcheck_kn.md, export kn_friend_v1.txt, decision D26).
-# NOT APPLIED to any data. Same status as exclude_v1.txt (the Hindi list): an input for the splits-v2 rebuild (build_text.py).
-# Created 2026-10-19. Nothing in data/, split_map.csv or models/ was touched; no translated text was edited.
+# APPLIED 2026-10-21 at the splits-v2 rebuild (build_text.py reads this file and leaves these Kannada translations out; every text_hash is checked).
+# Created 2026-10-19; the four Licious rows were added 2026-10-21 from reports/translation_suspects.md ("suspects" = the user's rule:
+# a Licious message whose translation contains a word for poison / (in)auspicious / wicked). p00006 matched only through "we regret" and is kept.
 #
 # Row key in the data files: (parent_id, language) in data/external/indic/translated/translated_final_2026-10-07.csv; text_hash is the
 # hash of the translation as stored there. The sheet id (knNN) is only the row id of reports/spotcheck_kn.csv.
@@ -8,7 +9,8 @@
 # Split: all three parents are frozen TRAIN rows (anchor_split = train), so no test-split row is touched. If a listed row ever lands
 # in the test split at the rebuild it is left as it is (human review is not model tuning; test rows are not edited or dropped).
 #
-# Kannada augmentation set (kept Kannada translations): 587 rows (88 scam + 499 benign) before, 584 (85 scam + 499 benign) after.
+# Kannada augmentation set (kept Kannada translations): 587 rows (88 scam + 499 benign) before, 584 (85 scam + 499 benign) after the first three
+# entries. Final count at splits-v2, after every step (val/test parents, these exclusions, D21, PII): 561 (69 scam + 492 benign), reports/splits_v2.md.
 # Scam share 15.0% -> 14.6%. The benign side and every val/test row are unchanged.
 #
 # Two kinds of entry. "reviewer" = the reviewer's own note. "found-by-check" = NOT judged by the reviewer (not on the 47 answered rows);
@@ -19,3 +21,7 @@
 kn22 | p00696 | kannada | d61e319d56f460e5ddc10791585c6ead | scam | train | reviewer       | "Salary is 23,00/month" became "salary 23,00 months": the "per" is gone, the unit is a bare noun (reviewer note: "per month should be mentioned")
 -    | p00720 | kannada | 49ce5b22a96b3c85290713d9ee4c4016 | scam | train | found-by-check | "earn Rs 30,000/month" became "Rs 30,000 month(object form) earn": same slash-rate omission, "per" missing. Not on the sheet
 -    | p00719 | kannada | b918e4adb694c71a56eb0c36ff8a610d | scam | train | found-by-check | "earn 8000-20000/day" became "8000-20000 day(object form) to earn": same slash-rate omission, "per" missing. Not on the sheet
+-    | p00174 | kannada | 9fa393aa1a8c1acee661d52629b93eb3 | benign | no split yet | suspects       | brand Licious translated as vishapurita "poisonous": meaning lost
+-    | p00313 | kannada | 61cc21ba466c7e4e2c6b1a3429f85ad6 | benign | no split yet | suspects       | brand Licious translated as dushta "wicked" (tagline ashubha "inauspicious"): meaning lost
+-    | p00339 | kannada | 4c80cd21bcac8ec4fb05de0c8373e5b0 | benign | no split yet | suspects       | brand Licious translated as dushta "wicked" (tagline ashubha "inauspicious"): meaning lost
+-    | p00407 | kannada | e83f00a5cb62a2e2c9757dd8dcbf2486 | benign | no split yet | suspects       | brand Licious translated as dushta "wicked" (tagline ashubha "inauspicious"): meaning lost

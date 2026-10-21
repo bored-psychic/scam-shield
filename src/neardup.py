@@ -95,14 +95,16 @@ def near_dup_pairs_any(texts, sources, seed, skip=None, queries=None):
 
 def assert_no_leakage(df, queries=None):
     """Fail if anything that must share a split does not. Needs df.index == 0..n-1 and columns split, cluster_id,
-    template_family, company_key, source, text. Two parts:
+    template_family, company_key, source, text (translation_of too, when present). Two parts:
       1. every cluster / template family / company sits in one split (true by construction when the split is fresh,
          but not when rows came from a frozen split_map);
       2. no two rows in different splits are near-duplicates by near_dup_pairs_any. Candidates come from an LSH built
          with CHECK_SEED, not the one the clusters were built with, so a clustering that missed pairs is caught here.
          queries = row positions to check (all rows by default)."""
     split = df["split"].astype(str)
-    for key in ("cluster_id", "template_family", "company_key"):
+    for key in ("cluster_id", "template_family", "company_key", "translation_of"):
+        if key not in df:
+            continue
         k = df[key].fillna("")
         n = split[k != ""].groupby(k[k != ""]).nunique()
         if (n > 1).any():

@@ -100,7 +100,7 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 - [ ] India-specific message collection (Google Form intake + advisories); RBI site blocks scrapers, so collect by hand
 - [ ] More Hinglish/Hindi/Kannada templates (current splits are lumpy: e.g. no Hinglish scam in test)
 - [ ] Back-translation / paraphrase augmentation (needs Bhashini or IndicTrans2)
-- [x] Freeze splits (`data/final/split_map.csv`, tag `splits-v1`)
+- [x] Freeze splits (`data/final/split_map.csv`, tag `splits-v1`; re-frozen with the Hindi / Kannada translations and the PII-mask fix as `splits-v2`, 2026-10-21)
 - [x] URL head (`src/url_head.py`)
 - [x] TF-IDF text head (`src/baseline.py`); fine-tuned MuRIL text head still to do
 - [ ] Fusion, calibration, explanations

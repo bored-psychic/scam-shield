@@ -25,8 +25,8 @@ from textprep import model_text, URL_TOKEN, MAX_CHARS
 # the softmax are computed in fp32.
 #
 # What it guarantees (CLAUDE.md rules 1, 2, 11):
-#   - split_map.csv is the frozen splits-v1 file (SHA-256 below) and messages.csv agrees with it row for row;
-#   - no cluster / template family / company straddles splits (the cheap half of neardup.assert_no_leakage; the LSH half was
+#   - split_map.csv is the frozen splits-v2 file (SHA-256 below) and messages.csv agrees with it row for row;
+#   - no cluster / template family / company / translation group straddles splits (the cheap half of neardup.assert_no_leakage; the LSH half was
 #     run by split_audit.py on exactly this split_map, 0 violations);
 #   - weights are fit on train rows only; the best epoch and both cut-offs are chosen on val; test rows are only scored;
 #   - every input goes through textprep.model_text (links -> <URL>, first 2000 chars), the same function the baseline and the
@@ -34,9 +34,9 @@ from textprep import model_text, URL_TOKEN, MAX_CHARS
 # Output (--out): model/ (best epoch, HF format) + shield_meta.json is the bundle a MurilScorer loads; epoch_<k>/ are the
 # per-epoch checkpoints; predictions_{val,test,adv_test}.csv are copied to the Mac for evaluation.
 
-SPLIT_MAP_SHA256 = "89eec6f1104bc671c034b7a9c66ce3f25d67d3dde1e6c809592a300487f838c5"   # splits-v1; keep in step with CLAUDE.md
+SPLIT_MAP_SHA256 = "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c"   # splits-v2 (2026-10-21); keep in step with CLAUDE.md
 MODELS = {"muril": "google/muril-base-cased", "mdeberta": "microsoft/mdeberta-v3-base", "xlmr": "FacebookAI/xlm-roberta-base"}
-GROUP_KEYS = ("cluster_id", "template_family", "company_key")   # rows sharing any of these must share a split
+GROUP_KEYS = ("cluster_id", "template_family", "company_key", "translation_of")   # rows sharing any of these must share a split
 
 
 def sha256(path):
@@ -77,7 +77,7 @@ def load_data(data_dir, use_aug):
     sm_path = data_dir / "split_map.csv"
     got = sha256(sm_path)
     if got != SPLIT_MAP_SHA256:
-        raise SystemExit(f"{sm_path} SHA-256 is {got[:16]}..., expected {SPLIT_MAP_SHA256[:16]}... (splits-v1). "
+        raise SystemExit(f"{sm_path} SHA-256 is {got[:16]}..., expected {SPLIT_MAP_SHA256[:16]}... (splits-v2). "
                          "Pull the repo / copy the right data, or update SPLIT_MAP_SHA256 together with CLAUDE.md.")
     frozen = pd.read_csv(sm_path).set_index("text_hash")["split"]
     df = pd.read_csv(data_dir / "messages.csv", low_memory=False)
@@ -217,7 +217,7 @@ def main():
     log(f"device {device}{f' ({gpu}, compute capability {cap})' if gpu else ''}; precision {precision} "
         f"(requested {args.precision}){'; fp16 GradScaler on' if scaler else ''}")
     log(f"data {data_dir} -> run {out}")
-    log(f"split_map.csv SHA-256 ok (splits-v1); messages.csv {len(df)} rows match it; no {'/'.join(GROUP_KEYS)} straddles splits")
+    log(f"split_map.csv SHA-256 ok (splits-v2); messages.csv {len(df)} rows match it; no {'/'.join(GROUP_KEYS)} straddles splits")
     tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))
     if aug is not None:
         tr = pd.concat([tr, aug[["text", "label", "source", "split"]].assign(text_hash=None)], ignore_index=True)

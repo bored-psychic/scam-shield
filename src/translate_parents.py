@@ -988,6 +988,57 @@ def write_final_report(args, parents_path, raw_path, out_final, out_drop, led, r
              "- **Leftover Latin is normal**: bank abbreviations (Txn, Avl Bal, A/c), brand and sender names stay Latin, as in the existing `synth_india` rows; only rows where most letters are Latin are dropped.\n")
     open(FINAL_REPORT, "w").write("\n".join(L) + "\n")
 
+# ---------------------------------------------------------------------------------------------------------------------
+# REPLACE (2026-10-21, splits-v2): swap the translations of a few parents for a re-translation, without rerunning finalise (which would
+# regenerate the spot-check sheets). Used once, for p00312 after the protect.py time-pattern fix.
+#   .venv/bin/python src/translate_parents.py replace --raw data/external/indic/translated/retranslated_raw_<date>_<pid>.csv
+# The new rows go through the same row filters as finalise (marker restore, person name, digit / mask multiset, wrong script, leftover
+# English, exact duplicates) plus the D21 digit-run check; a row that fails is dropped, never repaired. Writes translated_final_<today>.csv =
+# the latest final file with only those parents' rows swapped (every other row identical, asserted).
+# ---------------------------------------------------------------------------------------------------------------------
+def run_replace(args):
+    import datetime as _dt
+    parents_path = args.parents or latest(f"{OUT_DIR}/parents_*.csv")
+    final_path = args.final or latest(f"{TRANSLATED_DIR}/translated_final_*.csv")
+    parents, raw = pd.read_csv(parents_path), pd.read_csv(args.raw)
+    old = pd.read_csv(final_path, keep_default_na=False, dtype=str)   # as text, so the untouched rows are written back byte for byte
+    pids = sorted(raw["parent_id"].unique())
+    assert not raw.duplicated(["parent_id", "lang"]).any() and len(raw) == len(LANG_BLOCK) * len(pids), "the re-translation must cover every language once"
+    d = evaluate_translations(raw, parents)   # asserts the protected text equals protect(parent) with the CURRENT protect.py
+    m = pd.read_csv("data/final/messages.csv", low_memory=False, usecols=["text_hash"])
+    others = set(old.loc[~old["parent_id"].isin(pids), "text_hash"])
+    d["drop_step"] = ""
+    def step_(name, hit):
+        d.loc[(d["drop_step"] == "") & hit.astype(bool), "drop_step"] = name
+    step_("marker restore failed", ~d["marker_ok"])
+    step_("person name in the English parent (rule 5)", d["name_hit"])
+    step_("digit or mask-token mismatch", d["digits_ok"].eq(False) | d["masks_ok"].eq(False))
+    runs = lambda t: set(re.findall(r"[0-9]+", t if isinstance(t, str) else ""))
+    step_("D21: a digit run of the parent is missing", pd.Series([bool(runs(p) - runs(t)) for p, t in zip(d["parent_text"], d["translation"])], index=d.index))
+    step_("wrong script", (d["foreign"] > 0) | (d["tgt"] == 0))
+    step_("leftover English", d["target_share"] < args.min_target_share)
+    step_("exact duplicate of a messages.csv row or another translation", d["text_hash"].isin(set(m["text_hash"]) | others))
+    for r in d.itertuples():
+        print(f"{r.parent_id} {r.lang}: {'kept' if r.drop_step == '' else 'DROPPED: ' + r.drop_step} (status {r.status}, recovery '{r.recovery}')")
+    fcols = ["parent_id", "lang", "label", "parent_source", "parent_hash", "anchor_hash", "anchor_kind", "anchor_split", "template_id", "category", "channel", "rule",
+             "parent_is_synthetic", "parent_provenance", "recovery", "text_hash", "parent_text", "translation"]
+    new = d[d["drop_step"] == ""][fcols].rename(columns={"lang": "language", "translation": "text"}).fillna("").astype(str)
+    new["label"] = new["label"].map(lambda x: str(int(float(x))))
+    new = new.set_index(["parent_id", "language"])
+    rows = []   # original order; a replaced row takes the old row's place, a row whose re-translation was dropped is left out
+    for r in old.itertuples(index=False):
+        key = (r.parent_id, r.language)
+        if r.parent_id not in pids:
+            rows.append(r._asdict())
+        elif key in new.index:
+            rows.append({**dict(zip(["parent_id", "language"], key)), **new.loc[key].to_dict()})
+    out = pd.DataFrame(rows, columns=old.columns)
+    assert out[~out["parent_id"].isin(pids)].reset_index(drop=True).equals(old[~old["parent_id"].isin(pids)].reset_index(drop=True)), "rows of other parents changed"
+    path = f"{TRANSLATED_DIR}/translated_final_{_dt.date.today().isoformat()}.csv"
+    assert path != final_path, f"{path} would overwrite the file it was built from"
+    out.to_csv(path, index=False)
+    print(f"{final_path}: {len(old)} rows -> {path}: {len(out)} rows ({len(old[old['parent_id'].isin(pids)])} old rows of {pids} replaced by {len(new)})")
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1006,5 +1057,10 @@ if __name__ == "__main__":
                     help="write the pass-B rows (length-bin sampling of the translated benign rows against the pool's scam lengths); off by default, see the report for its cost")
     fp.add_argument("--boot", type=int, default=300, help="group-bootstrap resamples for the AUROC intervals")
     fp.add_argument("--seed", type=int, default=0)
+    rp = sub.add_parser("replace")
+    rp.add_argument("--raw", required=True, help="raw CSV of the re-translated parents (translate_indic.py run --parents <subset>)")
+    rp.add_argument("--parents", help="default: the latest translate_in/parents_*.csv")
+    rp.add_argument("--final", help="default: the latest translated/translated_final_*.csv")
+    rp.add_argument("--min-target-share", type=float, default=MIN_TARGET_SHARE)
     args = ap.parse_args()
-    {"parents": run_parents, "finalise": run_finalise}[args.cmd](args)
+    {"parents": run_parents, "finalise": run_finalise, "replace": run_replace}[args.cmd](args)

@@ -51,6 +51,9 @@ if args.save:
                  "textprep": {"url_token": URL_TOKEN, "max_chars": MAX_CHARS}}, args.save)   # app.py refuses a model without this key
     print(f"saved {args.save}: suspicious >= {min(t_susp, t_likely):.3f}, likely scam >= {t_likely:.3f} (val-chosen)")
 
+real_va = va[~va["is_synthetic"]]
+print(f"val F1 {f1_score(va['label'], va['pred']):.3f} (n={len(va)}); "
+      f"real-only F1 {f1_score(real_va['label'], real_va['pred']):.3f} (n={len(real_va)})")
 real = te[~te["is_synthetic"]]
 print(f"test F1 {f1_score(te['label'], te['pred']):.3f} (n={len(te)}); "
       f"real-only F1 {f1_score(real['label'], real['pred']):.3f} (n={len(real)})")
