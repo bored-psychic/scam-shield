@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { COMET_MS, CONE_DEG, HOLE_MS, boxSide, clipInside, clipOutside, cometShape, holeShape, toScreen, type Pt } from "./themeSwitch";
+import { COMET_MS, CONE_DEG, HOLE_MS, boxSide, clipInside, clipOutside, cometShape, holeShape, toScreen, type Box, type Pt } from "./themeSwitch";
 
 // npm test. The theme switch's geometry (lib/themeSwitch.ts, approved prototype docs/design/theme-switch.html): W1 the approved values,
-// W2 clip polygons are cut to the screen, W3 the comet's bow shock, W4 the black hole's lit area, W5 the clip paths of the page's layers, W6 which side of the edge a box is on (the glass panes, the globe's second pass). The browser side (durations, frames, the edge
+// W2 clip polygons are cut to the screen, W3 the comet's bow shock, W4 the black hole's lit area, W5 the clip paths of the page's layers (cut to each layer's reach), W6 which side of the edge a box is on (the glass panes, the globe's second pass). The browser side (durations, frames, the edge
 // through the globe, smoothness, interruptions) is e2e/switch.mjs; reduced motion and the end state are e2e/theme.mjs T5.
 const W = 1280, H = 800;
 const deg = (rad: number) => rad * 180 / Math.PI;
@@ -92,28 +92,39 @@ describe("W4 the black hole", () => {
 });
 
 describe("W5 the layers' clip paths", () => {
-  const tri: Pt[] = [[100, 100], [400, 100], [250, 300]];
+  const tri: Pt[] = [[100, 100], [400, 100], [250, 300]], screen: Box = [-20, -20, W + 20, H + 20];
   const parse = (css: string): Pt[] => [...css.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
   test("inside: the polygon, offset to the layer's own box; nothing for an empty one", () => {
-    expect(clipInside(tri)).toBe("polygon(100.00px 100.00px,400.00px 100.00px,250.00px 300.00px)");
-    expect(parse(clipInside(tri, 8, 64.5))).toEqual([[92, 35.5], [392, 35.5], [242, 235.5]]);
-    expect(clipInside([])).toBe("polygon(0 0, 0 0, 0 0)");
+    expect(clipInside(tri, screen)).toBe("polygon(100.00px 100.00px,400.00px 100.00px,250.00px 300.00px)");
+    expect(parse(clipInside(tri, screen, 8, 64.5))).toEqual([[92, 35.5], [392, 35.5], [242, 235.5]]);
+    expect(clipInside([], screen)).toBe("polygon(0 0, 0 0, 0 0)");
   });
-  test("outside: the rest of the screen, as an even-odd polygon with the polygon as its hole", () => {
-    const css = clipOutside(tri, W, H), ring = parse(css);
+  test("outside: the rest of the box, as an even-odd polygon with the polygon as its hole", () => {
+    const css = clipOutside(tri, screen), ring = parse(css);
     expect(css.startsWith("polygon(evenodd, ")).toBe(true);
     expect(inside([250, 150], ring)).toBe(false);   // inside the polygon: not in the outside clip
     for (const c of [...corners, [600, 600] as Pt, [250, 320] as Pt]) expect(inside(c, ring)).toBe(true);
-    const off = parse(clipOutside(tri, W, H, 10, 20));   // offset like every other point
+    const off = parse(clipOutside(tri, screen, 10, 20));   // offset like every other point
     expect(off[0]).toEqual([-30, -40]);
     expect(off[5]).toEqual([90, 80]);
   });
-  test("outside an empty polygon is the whole screen", () => {
-    const ring = parse(clipOutside([], W, H));
+  test("outside an empty polygon is the whole box", () => {
+    const ring = parse(clipOutside([], screen));
     expect(ring).toEqual([[-20, -20], [W + 20, -20], [W + 20, H + 20], [-20, H + 20]]);
   });
+  test("both are cut to the box: no point beyond it (Chrome sizes each clip's mask by the clip's bounds), the same pixels within it", () => {
+    const box: Box = [40, 0, 1240, 118], shock = toScreen(cometShape(.3, W, H).outline, W, H);   // a header-sized layer, the shock across it
+    for (const css of [clipInside(shock, box), clipOutside(shock, box)]) for (const [x, y] of parse(css))
+      expect(x >= 40 && x <= 1240 && y >= 0 && y <= 118).toBe(true);
+    const a = parse(clipInside(shock, box)), b = parse(clipOutside(shock, box));
+    expect(a.length).toBeGreaterThan(2);
+    for (let y = 3; y < 118; y += 7) for (let x = 43; x < 1240; x += 11) {
+      expect(inside([x, y], a)).toBe(inside([x, y], shock));
+      expect(inside([x, y], b)).toBe(!inside([x, y], shock));
+    }
+  });
   test("inside and outside split the screen: every point is in exactly one", () => {
-    const shock = toScreen(cometShape(.5, W, H).outline, W, H), a = parse(clipInside(shock)), b = parse(clipOutside(shock, W, H));
+    const shock = toScreen(cometShape(.5, W, H).outline, W, H), a = parse(clipInside(shock, screen)), b = parse(clipOutside(shock, screen));
     for (let y = 5; y < H; y += 37) for (let x = 5; x < W; x += 41) expect(inside([x, y], a) !== inside([x, y], b)).toBe(true);
   });
 });

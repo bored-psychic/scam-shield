@@ -30,6 +30,7 @@
 //      between the 0 / 25 / 50 / 75 % frames (some still fly from 25 to 50 %), at 1.5 x its normal speed (+-10 %), and lands once (one ripple,
 //      one hit, one new line in the footer feed) when 1.5 x predicts.
 //   S12 arcs start again within 1 s after a switch ends, after a hidden tab ended one, and after an instant switch (no View Transitions).
+//   S14-S16 (2026-10-21, a headed Chrome; --frames-only runs just these): see the comment above frameSweep().
 //   S13 layering and glass, in the S3 frames: the hero text, the paste box and the example chips are never covered by the globe, and look as
 //      on the still page of their side of the edge (the dark side: the box's glass blurs the live globe as outside the switch). Tolerance:
 //      <= 1 % of their pixels more than 4/255 off, none more than 16/255 (raster noise of a snapshot), more than 4 px from the edge; on the
@@ -90,6 +91,7 @@ async function open(browser, { w, h, theme, motion = "no-preference", clock = fa
 const leftovers = (page) => page.evaluate(() => {
   const out = [], root = document.documentElement;
   if (document.querySelector(".ss-fx")) out.push("effects canvas still there");
+  if (document.querySelector(".ss-vigc")) out.push("vignette canvas still there");
   if (document.querySelector(".ss-pane, .ss-glassed")) out.push("a glass pane (or its panel's class) still there");
   if ([...root.classList].some((c) => c.startsWith("ss-"))) out.push(`classes ${root.className}`);
   const vtn = getComputedStyle(document.querySelector(".themebtn")).viewTransitionName;
@@ -342,142 +344,330 @@ async function sideBySide(shots, out, w, h, kind) {
   writeFileSync(out, Buffer.from(b64, "base64"));
 }
 
+// S14 every 5 % of both animations (0..95 %, under the clock) at four screen sizes, two of them Retina-like, in a HEADED Chrome: headless Chrome
+// drew the clip right where a real window lost it (2026-10-21: on a 1710x1073 @2x screen the black hole's light page vanished for ~1.3 s but
+// for a top-left tile, the comet's late frames showed dark rectangles). Each frame (effects layer hidden) is sampled every 8 px and each sample
+// classed light or dark by the nearer of the two themes' --bg tokens (read from the page, so no colour literal); a sample counts only where
+// the still pages of both themes (before the click, after the end) are clear about it (text, dots and the moving globe's edges drop out),
+// and not within 8 px of the edge or by the switch. It must be on the polygon's side. Fail: more than 0.5 % of the samples on the wrong
+// side, or 25 wrong samples touching (40 x 40 px). --frames-only runs S14 alone; --frame-runs N repeats it; --frame-sizes 1710x1073@2,... other sizes; --frames-json FILE writes it.
+const FRAME_SIZES = arg("--frame-sizes")?.split(",").map((z) => z.split(/[x@]/).map(Number)) ?? [[1710, 1073, 2], [1440, 900, 2], [1280, 800, 1], [390, 844, 3]];
+const FRAMES_ONLY = process.argv.includes("--frames-only"), FRAME_RUNS = +(arg("--frame-runs") ?? 1), FRAMES_JSON = arg("--frames-json");
+function sideOf(load, { shots, stillFrom, stillTo, polys, bgFrom, bgTo, lightFrom, w, h, btn, circle }) {
+  return (async () => {
+    const step = 8, F = await load(stillFrom), Tt = await load(stillTo), hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    const A = hex(bgFrom), B = hex(bgTo), d2 = (D, i, c) => (D[i] - c[0]) ** 2 + (D[i + 1] - c[1]) ** 2 + (D[i + 2] - c[2]) ** 2;
+    const isFrom = (D, i) => d2(D, i, A) < d2(D, i, B);   // the pixel is nearer the old theme's background than the new one's
+    const gw = Math.floor(w / step), gh = Math.floor(h / step), use = new Uint8Array(gw * gh);
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      const x = gx * step + step / 2, y = gy * step + step / 2, i = (Math.floor(y) * w + Math.floor(x)) * 4;
+      const inBtn = x > btn.x - 6 && x < btn.x + btn.width + 6 && y > btn.y - 6 && y < btn.y + btn.height + 6;
+      use[gy * gw + gx] = !inBtn && isFrom(F.data, i) && !isFrom(Tt.data, i) ? 1 : 0;
+    }
+    const out = [];
+    for (let k = 0; k < shots.length; k++) {
+      const M = await load(shots[k]), pts = [...polys[k].matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+      const inPoly = (x, y) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+        if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c; return c; };
+      const near = (x, y) => { for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [ax, ay] = pts[j], [bx, by] = pts[i], dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l)) : 0;
+        if (Math.hypot(x - ax - t * dx, y - ay - t * dy) < 8) return true; } return false; };
+      const wrong = new Uint8Array(gw * gh);
+      let n = 0, bad = 0, lightN = 0;
+      for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+        if (!use[gy * gw + gx]) continue;
+        const x = gx * step + step / 2, y = gy * step + step / 2;
+        if (pts.length > 2 && near(x, y)) continue;
+        const lit = pts.length > 2 && inPoly(x, y), wantFrom = lit === lightFrom, i = (Math.floor(y) * w + Math.floor(x)) * 4;
+        n++; if (lit) lightN++;
+        if (isFrom(M.data, i) !== wantFrom) { bad++; wrong[gy * gw + gx] = 1; }
+      }
+      // the largest group of wrong samples that touch (8-neighbours), and its box
+      let blob = 0, box = null;
+      const seen = new Uint8Array(gw * gh);
+      for (let s0 = 0; s0 < wrong.length; s0++) {
+        if (!wrong[s0] || seen[s0]) continue;
+        const st = [s0]; seen[s0] = 1; let size = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+        while (st.length) {
+          const c = st.pop(), cx = c % gw, cy = (c - cx) / gw; size++;
+          x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy);
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const nx = cx + dx, ny = cy + dy, q = ny * gw + nx;
+            if (nx >= 0 && ny >= 0 && nx < gw && ny < gh && wrong[q] && !seen[q]) { seen[q] = 1; st.push(q); }
+          }
+        }
+        if (size > blob) { blob = size; box = [x0 * step, y0 * step, (x1 - x0 + 1) * step, (y1 - y0 + 1) * step]; }
+      }
+      out.push({ n, lightN, bad, frac: n ? bad / n : 0, blob, box });
+      // the first frame (all on the old side) against the still old page, the last (all on the new side) against the still new page, every
+      // pixel but the switch's; the last one away from the globe's reach too (it has turned on meanwhile): the vignette, painted on its own
+      // canvas during the switch, must look like the page's own
+      if (k === 0 || k === shots.length - 1) {
+        const S = k ? Tt : F, far = k ? circle.r * 1.6 : -1;
+        let m = 0, over = 0, max = 0;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+          if (x > btn.x - 6 && x < btn.x + btn.width + 6 && y > btn.y - 6 && y < btn.y + btn.height + 6) continue;
+          if (far > 0 && Math.hypot(x - circle.cx, y - circle.cy) < far) continue;
+          const i = (y * w + x) * 4, e = Math.max(Math.abs(M.data[i] - S.data[i]), Math.abs(M.data[i + 1] - S.data[i + 1]), Math.abs(M.data[i + 2] - S.data[i + 2]));
+          m++; if (e > 4) over++; if (e > max) max = e;
+        }
+        out.at(-1).still = { n: m, over4: over / m, max };
+      }
+    }
+    return out;
+  })();
+}
+// S16 smoothness in the headed window at 1710x1073 @2x (the screen of the bug): rAF frame times through two comets and two black holes, real
+// time. Reported, not gated: on the M2 Air the switch runs ~31 fps there (~25 fps before the 2026-10-21 fix; idle 16.6 ms).
+async function headedPerf(browser, w, h, dpr) {
+  const [ctx, page] = await open(browser, { w, h, theme: "dark", dpr });
+  await page.waitForTimeout(800);
+  const out = [];
+  for (let run = 0; run < 4; run++) {
+    const kind = run % 2 ? "hole" : "comet";
+    await page.evaluate(() => { const r = window.__sw, id = (r.id = (r.id || 0) + 1); r.frames = []; r.starts.length = 0; r.ends.length = 0;
+      (function loop() { if (r.id !== id) return; r.frames.push(performance.now()); requestAnimationFrame(loop); })(); });
+    await page.evaluate(() => document.querySelector(".themebtn").click());
+    await ended(page);
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => { const s = window.__sw; s.id++; return { start: s.starts[0], end: s.ends[0], frames: s.frames }; });
+    const dts = [];
+    for (let i = 1; i < r.frames.length; i++) if (r.frames[i - 1] >= r.start && r.frames[i] <= r.end) dts.push(r.frames[i] - r.frames[i - 1]);
+    dts.sort((a, b) => a - b);
+    const avg = dts.reduce((a, b) => a + b, 0) / dts.length, p95 = dts[Math.min(dts.length - 1, Math.floor(dts.length * .95))];
+    out.push({ kind, run: (run >> 1) + 1, frames: dts.length, avg, p95, max: dts.at(-1) });
+  }
+  await ctx.close();
+  return out;
+}
+
+async function frameSweep(browser, w, h, dpr, kind) {
+  const [ctx, page] = await open(browser, { w, h, theme: FROM[kind], clock: true, dpr });
+  await page.clock.runFor(1500);
+  await page.clock.pauseAt(4000);
+  const shot = async () => (await page.screenshot({ scale: "css" })).toString("base64");
+  const bg = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
+  const btn = await page.locator(".themebtn").boundingBox(), bgFrom = await bg(), stillFrom = await shot(), circle = await page.evaluate(() => window.__ssTest.globe.circle());
+  // S15: the page's background and vignette alone, on the still page and in the switch (where the vignette is painted on its own canvas)
+  const alone = async (css) => { const t = await page.addStyleTag({ content: css }); const b = await shot(); await t.evaluate((el) => el.remove()); return b; };
+  const VIG_PAGE = ".stage, #root > main, #root > header, #root > footer, .themebtn { visibility: hidden !important; }";
+  const VIG_SWITCH = ":root::view-transition-group(*) { visibility: hidden; } :root::view-transition-group(root), :root::view-transition-group(ss-vigc) { visibility: visible; }";
+  const vig = { from: await alone(VIG_PAGE) };
+  await page.click(".themebtn");
+  await begun(page);
+  await page.addStyleTag({ content: NOFX });
+  const shots = [], polys = [], ats = [];
+  let done = 0;
+  for (let k = 0; k < 20; k++) {
+    const ms = Math.round(k * .05 * T[kind]) - done;
+    if (ms) await page.clock.runFor(ms);
+    done += ms;
+    shots.push(await shot()); polys.push(await rootClip(page)); ats.push(k * 5);
+    if (k === 0) vig.first = await alone(VIG_SWITCH);
+    if (k === 10) vig.mid = await alone(VIG_SWITCH);
+    if (k === 19) vig.last = await alone(VIG_SWITCH);
+  }
+  await page.clock.runFor(T[kind] - done + 64);
+  await ended(page);
+  await page.waitForTimeout(150);
+  const bgTo = await bg(), stillTo = await shot();
+  vig.to = await alone(VIG_PAGE);
+  await ctx.close();
+  // compared on that theme's side of the frame's polygon only (more than 4 px from it): the black hole's wobbling edge can already leave a
+  // corner of a small screen dark in its first frame
+  const vd = await pixels(async (load, { pairs, btn, w, h }) => {
+    const out = {};
+    for (const [name, a, b, poly, wantLit] of pairs) {
+      const A = await load(a), B = await load(b), pts = [...poly.matchAll(/(-?[\d.]+)px (-?[\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+      const inPoly = (x, y) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+        if ((pts[i][1] > y) !== (pts[j][1] > y) && x < (pts[j][0] - pts[i][0]) * (y - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0]) c = !c; return c; };
+      const near = (x, y) => { for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [ax, ay] = pts[j], [bx, by] = pts[i], dx = bx - ax, dy = by - ay, l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l)) : 0;
+        if (Math.hypot(x - ax - t * dx, y - ay - t * dy) < 4) return true; } return false; };
+      let over = 0, max = 0, n = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        if (x > btn.x - 6 && x < btn.x + btn.width + 6 && y > btn.y - 6 && y < btn.y + btn.height + 6) continue;
+        if (pts.length > 2 && (inPoly(x + .5, y + .5) !== wantLit || near(x + .5, y + .5))) continue;
+        if (pts.length < 3 && wantLit) continue;
+        const i = (y * w + x) * 4, e = Math.max(Math.abs(A.data[i] - B.data[i]), Math.abs(A.data[i + 1] - B.data[i + 1]), Math.abs(A.data[i + 2] - B.data[i + 2]));
+        n++; if (e > 2) over++; if (e > max) max = e;
+      }
+      out[name] = { n, over2: n ? over / n : 0, max };
+    }
+    return out;
+  }, { pairs: [["old theme", vig.first, vig.from, polys[0], FROM[kind] === "light"], ["new theme", vig.last, vig.to, polys.at(-1), TO[kind] === "light"]], btn, w, h });
+  const r = await pixels(sideOf, { shots, stillFrom, stillTo, polys, bgFrom, bgTo, lightFrom: FROM[kind] === "light", w, h, btn, circle });
+  const out = r.map((q, i) => ({ ...q, pct: ats[i], ok: q.frac <= .02 && q.blob < 150 }));
+  out.vignette = vd;
+  if (SHOTS) {   // the failing frames, with the wrong samples' largest patch outlined
+    mkdirSync(SHOTS, { recursive: true });
+    out.forEach((q, i) => { if (!q.ok) writeFileSync(join(SHOTS, `frames_${kind}_${w}x${h}@${dpr}_${q.pct}.png`), Buffer.from(shots[i], "base64")); });
+    const keep = { still_from: stillFrom, first: shots[0], last: shots.at(-1), still_to: stillTo, vig_from: vig.from, vig_first: vig.first, vig_mid: vig.mid, vig_last: vig.last, vig_to: vig.to };
+    for (const [n, b] of Object.entries(keep)) writeFileSync(join(SHOTS, `frames_${kind}_${w}x${h}@${dpr}_${n}.png`), Buffer.from(b, "base64"));
+  }
+  return out;
+}
+
 const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0.1", port: PORT, strictPort: true }, logLevel: "silent" });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 lab = await (await browser.newContext()).newPage();
 const perf = [];
 try {
-  // S1 + S2 + S7 + S9 (real time): both animations, both sizes, two runs each (comet, black hole, comet, black hole)
-  for (const [w, h, dpr] of [...SIZES, [1280, 800, 2]]) {
-    const [ctx, page] = await open(browser, { w, h, theme: "dark", dpr });
-    await page.waitForTimeout(800);
-    for (let run = 0; run < (dpr === 2 ? 2 : 4); run++) {
-      const kind = run % 2 ? "hole" : "comet";
-      await page.evaluate(() => { const r = window.__sw, id = (r.id = (r.id || 0) + 1); r.frames = []; r.spins = []; r.work = []; r.starts.length = 0; r.ends.length = 0;
-        (function loop() { if (r.id !== id) return; r.frames.push(performance.now()); r.spins.push(window.__ssTest.globe.spin()); requestAnimationFrame(loop); })(); });   // one recorder at a time
-      const clicked = await page.evaluate(() => { const t = performance.now(); document.querySelector(".themebtn").click(); return t; });
-      await ended(page);
-      await page.waitForTimeout(100);
-      const r = await page.evaluate(() => { const s = window.__sw; s.id++; const out = { starts: s.starts, ends: s.ends, frames: s.frames, spins: s.spins, work: s.work }; s.work = null; return out; });
-      const start = r.starts[0], end = r.ends[0], dur = end - start, label = `${kind} ${w}x${h}${dpr === 2 ? " @2x" : ""} run ${(run >> 1) + 1}`;
-      const perFrame = new Map();
-      for (const [ts, ms] of r.work) if (ts >= start && ts <= end) perFrame.set(ts, (perFrame.get(ts) || 0) + ms);
-      const work = [...perFrame.values()].sort((a, b) => a - b);
-      check(`S1 ${label}: ${Math.round(dur)} ms (from the click ${Math.round(end - clicked)} ms)`, Math.abs(dur - T[kind]) <= 50, `want ${T[kind]} +-50`);
-      const dts = [];
-      for (let i = 1; i < r.frames.length; i++) if (r.frames[i - 1] >= start && r.frames[i] <= end) dts.push(r.frames[i] - r.frames[i - 1]);
-      dts.sort((a, b) => a - b);
-      const avg = dts.reduce((a, b) => a + b, 0) / dts.length, p95 = dts[Math.min(dts.length - 1, Math.floor(dts.length * .95))];
-      perf.push({ kind, size: `${w}x${h}${dpr === 2 ? "@2x" : ""}`, run: (run >> 1) + 1, frames: dts.length, avg: +avg.toFixed(2), p95: +p95.toFixed(2), max: +dts.at(-1).toFixed(2),
-        work: { avg: +(work.reduce((a, b) => a + b, 0) / work.length).toFixed(2), p95: +work[Math.floor(work.length * .95)].toFixed(2), max: +work.at(-1).toFixed(2) } });
-      if (dpr === 2) continue;   // reported only
-      if (PERF) check(`S2 ${label}: frame time avg ${avg.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms`, avg <= 17 && p95 <= 25, "target avg <= 17, p95 <= 25");
-      // the globe's own frames (the time it last moved) from the click to the end: the longest gap, and the spin over the whole switch
-      const sp = r.spins.filter(([t], i) => i === 0 || t !== r.spins[i - 1][0]).filter(([t]) => t >= clicked - 20 && t <= end + 20);
-      let gap = 0; for (let i = 1; i < sp.length; i++) gap = Math.max(gap, sp[i][0] - sp[i - 1][0]);
-      const rate = (sp.at(-1)[1] - sp[0][1]) / ((sp.at(-1)[0] - sp[0][0]) / 1000);
-      check(`S9 ${label}, real time: the globe moved in ${sp.length} frames, longest gap ${gap.toFixed(1)} ms, spin ${(rate * 1000).toFixed(2)} mrad/s`, gap <= 50 && Math.abs(rate / SPIN - 1) <= .02);
-      const s = await state(page);
-      check(`S7 ${label}: ends in ${TO[kind]}, nothing left`, s.theme === TO[kind] && s.stored === TO[kind] && !(await leftovers(page)).length,
-        JSON.stringify({ ...s, left: await leftovers(page) }));
-      if (run >= 2) await samePage(browser, page, w, h, TO[kind], `${kind} ${w}x${h}`);
+  // S14: the frame sweep, in a headed Chrome of its own (a window opens)
+  const headed = await chromium.launch({ channel: "chrome", headless: false });
+  const sweeps = [];
+  try {
+    for (let run = 1; run <= FRAME_RUNS; run++) for (const [w, h, dpr] of FRAME_SIZES) for (const kind of ["comet", "hole"]) {
+      const fr = await frameSweep(headed, w, h, dpr, kind), bad = fr.filter((q) => !q.ok), label = `${kind} ${w}x${h} @${dpr}x${FRAME_RUNS > 1 ? ` run ${run}` : ""}`;
+      sweeps.push({ kind, w, h, dpr, run, frames: fr, vignette: fr.vignette });
+      for (const [side, q] of Object.entries(fr.vignette))
+        check(`S15 ${label}: the vignette canvas, ${side}, as the page's own vignette: ${(100 * q.over2).toFixed(3)}% of ${q.n} pixels over 2/255, max ${q.max}/255`, q.n > w * h / 2 && q.over2 <= .001 && q.max <= 8);
+      const worst = fr.reduce((m, q) => (q.frac > m.frac ? q : m));
+      check(`S14 ${label}: ${fr.length - bad.length}/${fr.length} frames on the right side (worst ${worst.pct}%: ${(100 * worst.frac).toFixed(2)}% of ${worst.n} samples wrong, largest wrong patch ${worst.blob})`,
+        !bad.length, bad.map((q) => `${q.pct}%: ${(100 * q.frac).toFixed(1)}% wrong, patch ${q.blob} samples at ${q.box}`).join("; "));
     }
-    await ctx.close();
+    for (const p of await headedPerf(headed, 1710, 1073, 2)) {
+      const label = `S16 ${p.kind} 1710x1073 @2x headed run ${p.run}: ${p.frames} frames, avg ${p.avg.toFixed(2)} ms (${(1000 / p.avg).toFixed(1)} fps), p95 ${p.p95.toFixed(2)} ms, max ${p.max.toFixed(1)} ms`;
+      sweeps.push({ perf: p });
+      console.log(label);
+    }
+  } finally {
+    await headed.close();
+    if (FRAMES_JSON) writeFileSync(FRAMES_JSON, JSON.stringify(sweeps, null, 1));
   }
-
-  // S3 + S13: one page per frame
-  for (const [w, h] of SIZES) for (const kind of ["comet", "hole"]) for (const f of [.25, .5, .75]) await edgeFrame(browser, w, h, kind, f);
-
-  // S9 + S11 + S12: the spin and the arcs through one switch, under the clock
-  for (const [w, h] of SIZES) for (const kind of ["comet", "hole"]) await timeline(browser, w, h, kind);
-
-  // S10: drag during the switch, both directions
-  for (const kind of ["comet", "hole"]) {
-    const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: FROM[kind], clock: true });
-    await page.clock.runFor(1000);
-    await page.clock.pauseAt(2000);
-    await page.click(".themebtn");
-    await begun(page);
-    await page.clock.runFor(Math.round(.4 * T[kind]));
-    const a = await globe(page), before = await png(page);
-    await page.mouse.move(900, 700);
-    await page.mouse.down();
-    await page.mouse.move(1020, 700, { steps: 6 });
-    await page.mouse.up();
-    const b = await globe(page);
-    await page.clock.runFor(32);
-    const c = await globe(page), after = await png(page);
-    const changed = await pixels(async (load, { a, b }) => { const A = await load(a), B = await load(b); let n = 0;
-      for (let y = 560; y < 800; y += 2) for (let x = 300; x < 1000; x += 2) { const i = (y * A.width + x) * 4; if (Math.abs(A.data[i] - B.data[i]) + Math.abs(A.data[i + 1] - B.data[i + 1]) + Math.abs(A.data[i + 2] - B.data[i + 2]) > 30) n++; }
-      return n; }, { a: before, b: after });
-    const turned = b.rotY - a.rotY;
-    await page.clock.runFor(T[kind]);
-    await ended(page);
-    const s = await state(page);
-    check(`S10 ${kind}: a 120 px drag at 40% turns the globe ${turned.toFixed(3)} rad (want 0.600), it keeps turning (${(c.rotY - b.rotY).toFixed(4)} rad in 2 frames), ${changed} globe pixels change; ends in ${s.theme}`,
-      Math.abs(turned - .6) < .005 && c.rotY > b.rotY && changed > 200 && s.theme === TO[kind] && b.switching);
-    await ctx.close();
-  }
-
-  // S4: double click, and a click in the middle
-  {
-    const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: "dark" });
-    const b = await page.locator(".themebtn").boundingBox();
-    await page.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
-    await page.waitForTimeout(1000);
-    await page.evaluate(() => document.querySelector(".themebtn").click());
-    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
-    await ended(page);
-    await page.waitForTimeout(300);
-    const s = await state(page), n = await page.evaluate(() => window.__sw.starts.length);
-    check("S4 double click + clicks mid-animation: one switch, ends light", s.theme === "light" && s.stored === "light" && s.label === "Switch to the dark theme" && n === 1 && !(await leftovers(page)).length,
-      JSON.stringify({ ...s, animations: n, left: await leftovers(page) }));
-    await ctx.close();
-  }
-
-  // S5: hidden tab; S6: resize, each in both directions
-  for (const kind of ["comet", "hole"]) {
-    for (const what of ["hidden", "resize"]) {
-      const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: FROM[kind] });
-      await page.click(".themebtn");
-      await page.waitForTimeout(900);
-      const t0 = Date.now();
-      if (what === "hidden") await page.evaluate(() => {
-        Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
-        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
-        document.dispatchEvent(new Event("visibilitychange"));
-      });
-      else await page.setViewportSize({ width: 1000, height: 700 });
-      await ended(page);
-      const ms = Date.now() - t0;
-      let back = 0;
-      if (what === "hidden") back = await page.evaluate(() => {
-        delete document.hidden; delete document.visibilityState; document.dispatchEvent(new Event("visibilitychange"));
-        return performance.now();
-      });
-      await page.waitForTimeout(what === "hidden" ? 1100 : 300);
-      const s = await state(page), left = await leftovers(page);
-      check(`S${what === "hidden" ? 5 : 6} ${kind}: ${what} mid-animation -> ended after ${ms} ms in ${TO[kind]}, nothing left`, s.theme === TO[kind] && s.stored === TO[kind] && !left.length && ms < 500,
-        JSON.stringify({ ...s, left }));
-      if (what === "hidden") {
-        const first = (await globe(page)).events.find(([e, , t]) => e === "born" && t > back);
-        check(`S12 ${kind}: arcs start again ${first ? `${Math.round(first[2] - back)} ms` : "never"} after the tab is back`, !!first && first[2] - back <= 1000);
+  if (!FRAMES_ONLY) {
+    // S1 + S2 + S7 + S9 (real time): both animations, both sizes, two runs each (comet, black hole, comet, black hole)
+    for (const [w, h, dpr] of [...SIZES, [1280, 800, 2]]) {
+      const [ctx, page] = await open(browser, { w, h, theme: "dark", dpr });
+      await page.waitForTimeout(800);
+      for (let run = 0; run < (dpr === 2 ? 2 : 4); run++) {
+        const kind = run % 2 ? "hole" : "comet";
+        await page.evaluate(() => { const r = window.__sw, id = (r.id = (r.id || 0) + 1); r.frames = []; r.spins = []; r.work = []; r.starts.length = 0; r.ends.length = 0;
+          (function loop() { if (r.id !== id) return; r.frames.push(performance.now()); r.spins.push(window.__ssTest.globe.spin()); requestAnimationFrame(loop); })(); });   // one recorder at a time
+        const clicked = await page.evaluate(() => { const t = performance.now(); document.querySelector(".themebtn").click(); return t; });
+        await ended(page);
+        await page.waitForTimeout(100);
+        const r = await page.evaluate(() => { const s = window.__sw; s.id++; const out = { starts: s.starts, ends: s.ends, frames: s.frames, spins: s.spins, work: s.work }; s.work = null; return out; });
+        const start = r.starts[0], end = r.ends[0], dur = end - start, label = `${kind} ${w}x${h}${dpr === 2 ? " @2x" : ""} run ${(run >> 1) + 1}`;
+        const perFrame = new Map();
+        for (const [ts, ms] of r.work) if (ts >= start && ts <= end) perFrame.set(ts, (perFrame.get(ts) || 0) + ms);
+        const work = [...perFrame.values()].sort((a, b) => a - b);
+        check(`S1 ${label}: ${Math.round(dur)} ms (from the click ${Math.round(end - clicked)} ms)`, Math.abs(dur - T[kind]) <= 50, `want ${T[kind]} +-50`);
+        const dts = [];
+        for (let i = 1; i < r.frames.length; i++) if (r.frames[i - 1] >= start && r.frames[i] <= end) dts.push(r.frames[i] - r.frames[i - 1]);
+        dts.sort((a, b) => a - b);
+        const avg = dts.reduce((a, b) => a + b, 0) / dts.length, p95 = dts[Math.min(dts.length - 1, Math.floor(dts.length * .95))];
+        perf.push({ kind, size: `${w}x${h}${dpr === 2 ? "@2x" : ""}`, run: (run >> 1) + 1, frames: dts.length, avg: +avg.toFixed(2), p95: +p95.toFixed(2), max: +dts.at(-1).toFixed(2),
+          work: { avg: +(work.reduce((a, b) => a + b, 0) / work.length).toFixed(2), p95: +work[Math.floor(work.length * .95)].toFixed(2), max: +work.at(-1).toFixed(2) } });
+        if (dpr === 2) continue;   // reported only
+        if (PERF) check(`S2 ${label}: frame time avg ${avg.toFixed(1)} ms, p95 ${p95.toFixed(1)} ms`, avg <= 17 && p95 <= 25, "target avg <= 17, p95 <= 25");
+        // the globe's own frames (the time it last moved) from the click to the end: the longest gap, and the spin over the whole switch
+        const sp = r.spins.filter(([t], i) => i === 0 || t !== r.spins[i - 1][0]).filter(([t]) => t >= clicked - 20 && t <= end + 20);
+        let gap = 0; for (let i = 1; i < sp.length; i++) gap = Math.max(gap, sp[i][0] - sp[i - 1][0]);
+        const rate = (sp.at(-1)[1] - sp[0][1]) / ((sp.at(-1)[0] - sp[0][0]) / 1000);
+        check(`S9 ${label}, real time: the globe moved in ${sp.length} frames, longest gap ${gap.toFixed(1)} ms, spin ${(rate * 1000).toFixed(2)} mrad/s`, gap <= 50 && Math.abs(rate / SPIN - 1) <= .02);
+        const s = await state(page);
+        check(`S7 ${label}: ends in ${TO[kind]}, nothing left`, s.theme === TO[kind] && s.stored === TO[kind] && !(await leftovers(page)).length,
+          JSON.stringify({ ...s, left: await leftovers(page) }));
+        if (run >= 2) await samePage(browser, page, w, h, TO[kind], `${kind} ${w}x${h}`);
       }
-      if (what === "resize") await samePage(browser, page, 1000, 700, TO[kind], `${kind} after a resize`);
       await ctx.close();
     }
-  }
 
-  // S12: the instant switch (no View Transitions here)
-  {
-    const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: "dark", noVT: true });
-    await page.waitForTimeout(500);
-    const clicked = await page.evaluate(() => { document.querySelector(".themebtn").click(); return performance.now(); });
-    await page.waitForTimeout(1100);
-    const s = await state(page), first = (await globe(page)).events.find(([e, , t]) => e === "born" && t > clicked);
-    check(`S12 instant switch (no View Transitions): ${s.theme} at once, arcs start ${first ? `${Math.round(first[2] - clicked)} ms` : "never"} after`,
-      s.theme === "light" && !!first && first[2] - clicked <= 1000 && !(await leftovers(page)).length);
-    await ctx.close();
+    // S3 + S13: one page per frame
+    for (const [w, h] of SIZES) for (const kind of ["comet", "hole"]) for (const f of [.25, .5, .75]) await edgeFrame(browser, w, h, kind, f);
+
+    // S9 + S11 + S12: the spin and the arcs through one switch, under the clock
+    for (const [w, h] of SIZES) for (const kind of ["comet", "hole"]) await timeline(browser, w, h, kind);
+
+    // S10: drag during the switch, both directions
+    for (const kind of ["comet", "hole"]) {
+      const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: FROM[kind], clock: true });
+      await page.clock.runFor(1000);
+      await page.clock.pauseAt(2000);
+      await page.click(".themebtn");
+      await begun(page);
+      await page.clock.runFor(Math.round(.4 * T[kind]));
+      const a = await globe(page), before = await png(page);
+      await page.mouse.move(900, 700);
+      await page.mouse.down();
+      await page.mouse.move(1020, 700, { steps: 6 });
+      await page.mouse.up();
+      const b = await globe(page);
+      await page.clock.runFor(32);
+      const c = await globe(page), after = await png(page);
+      const changed = await pixels(async (load, { a, b }) => { const A = await load(a), B = await load(b); let n = 0;
+        for (let y = 560; y < 800; y += 2) for (let x = 300; x < 1000; x += 2) { const i = (y * A.width + x) * 4; if (Math.abs(A.data[i] - B.data[i]) + Math.abs(A.data[i + 1] - B.data[i + 1]) + Math.abs(A.data[i + 2] - B.data[i + 2]) > 30) n++; }
+        return n; }, { a: before, b: after });
+      const turned = b.rotY - a.rotY;
+      await page.clock.runFor(T[kind]);
+      await ended(page);
+      const s = await state(page);
+      check(`S10 ${kind}: a 120 px drag at 40% turns the globe ${turned.toFixed(3)} rad (want 0.600), it keeps turning (${(c.rotY - b.rotY).toFixed(4)} rad in 2 frames), ${changed} globe pixels change; ends in ${s.theme}`,
+        Math.abs(turned - .6) < .005 && c.rotY > b.rotY && changed > 200 && s.theme === TO[kind] && b.switching);
+      await ctx.close();
+    }
+
+    // S4: double click, and a click in the middle
+    {
+      const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: "dark" });
+      const b = await page.locator(".themebtn").boundingBox();
+      await page.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
+      await page.waitForTimeout(1000);
+      await page.evaluate(() => document.querySelector(".themebtn").click());
+      await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+      await ended(page);
+      await page.waitForTimeout(300);
+      const s = await state(page), n = await page.evaluate(() => window.__sw.starts.length);
+      check("S4 double click + clicks mid-animation: one switch, ends light", s.theme === "light" && s.stored === "light" && s.label === "Switch to the dark theme" && n === 1 && !(await leftovers(page)).length,
+        JSON.stringify({ ...s, animations: n, left: await leftovers(page) }));
+      await ctx.close();
+    }
+
+    // S5: hidden tab; S6: resize, each in both directions
+    for (const kind of ["comet", "hole"]) {
+      for (const what of ["hidden", "resize"]) {
+        const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: FROM[kind] });
+        await page.click(".themebtn");
+        await page.waitForTimeout(900);
+        const t0 = Date.now();
+        if (what === "hidden") await page.evaluate(() => {
+          Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+          Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        else await page.setViewportSize({ width: 1000, height: 700 });
+        await ended(page);
+        const ms = Date.now() - t0;
+        let back = 0;
+        if (what === "hidden") back = await page.evaluate(() => {
+          delete document.hidden; delete document.visibilityState; document.dispatchEvent(new Event("visibilitychange"));
+          return performance.now();
+        });
+        await page.waitForTimeout(what === "hidden" ? 1100 : 300);
+        const s = await state(page), left = await leftovers(page);
+        check(`S${what === "hidden" ? 5 : 6} ${kind}: ${what} mid-animation -> ended after ${ms} ms in ${TO[kind]}, nothing left`, s.theme === TO[kind] && s.stored === TO[kind] && !left.length && ms < 500,
+          JSON.stringify({ ...s, left }));
+        if (what === "hidden") {
+          const first = (await globe(page)).events.find(([e, , t]) => e === "born" && t > back);
+          check(`S12 ${kind}: arcs start again ${first ? `${Math.round(first[2] - back)} ms` : "never"} after the tab is back`, !!first && first[2] - back <= 1000);
+        }
+        if (what === "resize") await samePage(browser, page, 1000, 700, TO[kind], `${kind} after a resize`);
+        await ctx.close();
+      }
+    }
+
+    // S12: the instant switch (no View Transitions here)
+    {
+      const [ctx, page] = await open(browser, { w: 1280, h: 800, theme: "dark", noVT: true });
+      await page.waitForTimeout(500);
+      const clicked = await page.evaluate(() => { document.querySelector(".themebtn").click(); return performance.now(); });
+      await page.waitForTimeout(1100);
+      const s = await state(page), first = (await globe(page)).events.find(([e, , t]) => e === "born" && t > clicked);
+      check(`S12 instant switch (no View Transitions): ${s.theme} at once, arcs start ${first ? `${Math.round(first[2] - clicked)} ms` : "never"} after`,
+        s.theme === "light" && !!first && first[2] - clicked <= 1000 && !(await leftovers(page)).length);
+      await ctx.close();
+    }
   }
 } finally {
   await browser.close();

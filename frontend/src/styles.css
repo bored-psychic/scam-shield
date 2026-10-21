@@ -568,7 +568,8 @@
    top), the globe's stage (its live new view only: Globe.tsx draws both themes through a stencil, so it keeps turning), the vignette, the glass
    panes (.ss-pane: one per glass panel over the globe, wearing its backdrop-filter, so the dark glass blurs the live globe), main, header and
    footer, the tooltip, the effects canvas (.ss-fx), and the switch, in its new state from the first frame. The vignette, main, header, footer
-   and tooltip have both views clipped (the light one to the polygon, the dark one to the rest), each new view hidden until the first frame. No transition
+   and tooltip have both views clipped (the light one to the polygon, the dark one to the rest, each cut to the layer's own reach), each new view hidden until the first frame;
+   the vignette's views are hidden instead and both its looks are painted on .ss-vigc (fewer clip masks: GPU tile memory at deviceScaleFactor 2). No transition
    runs during the switch, so the new page is snapshotted in its final colours. Reduced motion never gets here (the switch is instant). */
 @layer components {
   :root.ss-switch::view-transition-group(*) { animation: none; }
@@ -583,7 +584,8 @@
   :root.ss-switch .tip { view-transition-name: ss-tip; }
   :root.ss-switch .themebtn { view-transition-name: ss-btn; }
   :root.ss-switch::view-transition-group(ss-globe) { z-index: 1; }
-  :root.ss-switch::view-transition-group(ss-vig) { z-index: 2; }
+  :root.ss-switch::view-transition-group(ss-vig), :root.ss-switch::view-transition-group(ss-vigc) { z-index: 2; }
+  :root.ss-vigpaint::view-transition-old(ss-vig), :root.ss-vigpaint::view-transition-new(ss-vig) { display: none; }   /* painted on .ss-vigc instead */
   :root.ss-switch::view-transition-group(.ss-pane) { z-index: 3; }
   :root.ss-switch::view-transition-group(ss-main) { z-index: 4; }
   :root.ss-switch::view-transition-group(ss-head), :root.ss-switch::view-transition-group(ss-foot) { z-index: 5; }
@@ -597,6 +599,7 @@
   :root.ss-switch, :root.ss-switch *, :root.ss-switch *::before, :root.ss-switch *::after { transition: none !important; }
   .ss-fx { position: fixed; inset: 0; z-index: 4; width: 100%; height: 100%; pointer-events: none; view-transition-name: ss-fx; }
   .ss-pane { position: fixed; pointer-events: none; view-transition-class: ss-pane; }
+  .ss-vigc { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; view-transition-name: ss-vigc; }
   /* a glass panel with a pane: the pane wears its backdrop-filter. The will-change keeps what the filter gave the panel (a stacking context, the
      containing block of fixed children, the backdrop root of glass inside it), without drawing it */
   :root.ss-switch .ss-glassed { -webkit-backdrop-filter: none; backdrop-filter: none; will-change: backdrop-filter; }

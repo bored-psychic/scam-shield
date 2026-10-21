@@ -15,3 +15,6 @@ frontend/dist/
 
 # Claude Code local settings (per machine)
 .claude/settings.local.json
+
+# screen recordings of bugs, never committed
+_bug_frames/

@@ -14,7 +14,8 @@ import type { Theme } from "./theme";
                  top and clips it so.
      ss-globe    the globe's stage, its live (new) view only: the globe keeps turning, and draws itself in both themes through a stencil cut
                  from the same polygon (clipGlobe, Globe.tsx), the light look inside and the dark one outside.
-     ss-vig      the vignette, then
+     ss-vig      the vignette: its snapshots are hidden, and the switch paints both of its looks on one canvas (.ss-vigc, new view only) each
+                 frame, either side of the polygon (paintVignette; clipped snapshots only if its background cannot be rebuilt), then
      .ss-pane    one empty pane per glass panel over the globe (anything with a backdrop-filter in the dark theme that is not inside another):
                  its group wears the panel's backdrop-filter and shape on the dark side, so it blurs the live globe beneath as the panel itself
                  does outside the switch (a panel's own snapshot has nothing behind it to blur); the light theme's panels are solid.
@@ -42,10 +43,14 @@ const D2R = Math.PI / 180;
 const ease = (x: number) => (x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const cl = (x: number) => Math.max(0, Math.min(1, x));
 
-/** Cuts a polygon down to the screen plus a 20 px margin (Sutherland-Hodgman). Chrome mis-draws clip-path polygons whose points lie
-    thousands of px off-screen. */
-export function toScreen(pts: Pt[], W: number, H: number): Pt[] {
-  const m = 20, edges: [0 | 1, number, number][] = [[0, -m, 1], [0, W + m, -1], [1, -m, 1], [1, H + m, -1]];
+/** Cuts a polygon down to the screen plus a 20 px margin. Chrome mis-draws clip-path polygons whose points lie thousands of px off-screen. */
+export const toScreen = (pts: Pt[], W: number, H: number): Pt[] => cutTo(pts, [-20, -20, W + 20, H + 20]);
+
+/** A box on screen: left, top, right, bottom (px). */
+export type Box = [number, number, number, number];
+/** Cuts a polygon down to a box (Sutherland-Hodgman). */
+export function cutTo(pts: Pt[], [x0, y0, x1, y1]: Box): Pt[] {
+  const edges: [0 | 1, number, number][] = [[0, x0, 1], [0, x1, -1], [1, y0, 1], [1, y1, -1]];
   for (const [ax, v, s] of edges) {
     const out: Pt[] = [], inside = (p: Pt) => s * (p[ax] - v) >= 0;
     for (let i = 0; i < pts.length; i++) {
@@ -219,15 +224,20 @@ function hole(f: CanvasRenderingContext2D, W: number, H: number, ink: Ink, butto
   };
 }
 
-// Clip paths, offset to a layer's own box (dx, dy: its top left on screen). Inside: the polygon. Outside: the rest of the screen (+20 px) as an
-// even-odd polygon with the polygon as its hole (the bridge to the hole and back cancels out).
+// Clip paths, offset to a layer's own box (dx, dy: its top left on screen). Inside: the polygon. Outside: the rest of `box` (the layer's reach
+// on screen) as an even-odd polygon with the polygon as its hole (the bridge to the hole and back cancels out). Both are cut to `box`: Chrome
+// draws each clip as a mask the size of the clip path's own bounds, not of the layer, and at deviceScaleFactor 2 a frame of full-screen masks
+// (one per view, even the 70 px header's) outgrew the GPU's tile memory: whole tiles of them went undrawn, so the light page vanished but for
+// a rectangle or two (2026-10-21, a 1710x1073 @2x screen; e2e/switch.mjs S14).
 const NONE = "polygon(0 0, 0 0, 0 0)";
 const at = (p: Pt, dx: number, dy: number) => `${(p[0] - dx).toFixed(2)}px ${(p[1] - dy).toFixed(2)}px`;
-export function clipInside(pts: Pt[], dx = 0, dy = 0) {
-  return pts.length > 2 ? `polygon(${pts.map((p) => at(p, dx, dy)).join(",")})` : NONE;
+export function clipInside(pts: Pt[], box: Box, dx = 0, dy = 0) {
+  const cut = cutTo(pts, box);
+  return cut.length > 2 ? `polygon(${cut.map((p) => at(p, dx, dy)).join(",")})` : NONE;
 }
-export function clipOutside(pts: Pt[], W: number, H: number, dx = 0, dy = 0) {
-  const box: Pt[] = [[-20, -20], [W + 20, -20], [W + 20, H + 20], [-20, H + 20]], ring = pts.length > 2 ? [...box, box[0], ...pts, pts[0]] : box;
+export function clipOutside(pts: Pt[], box: Box, dx = 0, dy = 0) {
+  const [x0, y0, x1, y1] = box, cut = cutTo(pts, box), rim: Pt[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const ring = cut.length > 2 ? [...rim, rim[0], ...cut, cut[0]] : rim;
   return `polygon(evenodd, ${ring.map((p) => at(p, dx, dy)).join(",")})`;
 }
 
@@ -299,26 +309,85 @@ function addPanes(panes: Pane[]): HTMLElement[] {
 
 // What gets clipped each frame: a pseudo-element and its style for the frame's polygon.
 type View = { pseudo: string; frame: (pts: Pt[]) => Keyframe };
-function views(kind: Kind, panes: Pane[], W: number, H: number): View[] {
-  const light = kind === "comet" ? "new" : "old", dark = kind === "comet" ? "old" : "new";
-  const out: View[] = [{ pseudo: `::view-transition-${light}(root)`, frame: (pts) => ({ clipPath: clipInside(pts) }) }];
+// A layer's reach: its box and INK px round it (shadows and glows drawn outside it: its snapshot holds them), on the screen (+20 px).
+const INK = 48;
+function views(kind: Kind, panes: Pane[], W: number, H: number, vigCanvas: boolean): View[] {
+  const light = kind === "comet" ? "new" : "old", dark = kind === "comet" ? "old" : "new", screen: Box = [-20, -20, W + 20, H + 20];
+  const out: View[] = [{ pseudo: `::view-transition-${light}(root)`, frame: (pts) => ({ clipPath: clipInside(pts, screen) }) }];
   for (const [name, sel] of LAYERS) {
+    if (name === "ss-vig" && vigCanvas) continue;   // drawn on its own canvas instead (paintVignette)
     const r = document.querySelector(sel)?.getBoundingClientRect();
     if (!r) continue;
-    out.push({ pseudo: `::view-transition-${light}(${name})`, frame: (pts) => ({ clipPath: clipInside(pts, r.left, r.top) }) },
-             { pseudo: `::view-transition-${dark}(${name})`, frame: (pts) => ({ clipPath: clipOutside(pts, W, H, r.left, r.top) }) });
+    const box: Box = [Math.max(-20, r.left - INK), Math.max(-20, r.top - INK), Math.min(W + 20, r.right + INK), Math.min(H + 20, r.bottom + INK)];
+    out.push({ pseudo: `::view-transition-${light}(${name})`, frame: (pts) => ({ clipPath: clipInside(pts, box, r.left, r.top) }) },
+             { pseudo: `::view-transition-${dark}(${name})`, frame: (pts) => ({ clipPath: clipOutside(pts, box, r.left, r.top) }) });
   }
   // a pane wears its panel's glass on the dark side: unclipped while all of it is dark, hidden while all of it is light, clipped only while the
   // edge crosses it (each clip is a mask the compositor draws every frame)
   panes.forEach(({ r, filter, radius, opacity }, i) => out.push({ pseudo: `::view-transition-group(ss-pane-${i})`, frame: (pts) => {
     const side = boxSide(pts, r.left - 2, r.top - 2, r.right + 2, r.bottom + 2);
-    return { backdropFilter: filter, borderRadius: radius, opacity: side === "in" ? "0" : String(opacity), clipPath: side === "across" ? clipOutside(pts, W, H, r.left, r.top) : "none" };
+    const box: Box = [r.left - 2, r.top - 2, r.right + 2, r.bottom + 2];
+    return { backdropFilter: filter, borderRadius: radius, opacity: side === "in" ? "0" : String(opacity), clipPath: side === "across" ? clipOutside(pts, box, r.left, r.top) : "none" };
   } }));
   return out;
 }
 
+// The vignette (the dark theme's darkened edges, the light theme's wash behind the hero), drawn on a canvas of its own during the switch: its
+// two snapshots, clipped, were two more full-screen clip masks, and with the root's and main's they outgrew the GPU's tile memory at
+// deviceScaleFactor 2 (see clipInside). The switch reads the vignette's computed background in each theme, a radial gradient as Chrome writes
+// it ("radial-gradient(40% 20% at 50% 42%, <rgba colour> 30%, <rgba colour> 100%)"; no size: farthest-corner), and paints both
+// looks every frame, each clipped to its side of the same polygon. Anything it cannot rebuild (another gradient, px sizes) keeps the clipped
+// snapshots. A stop with no alpha takes its neighbours' colour on each side, as CSS's premultiplied blend does; stops in between are blended
+// unpremultiplied (the canvas's way), the same here: every pair of the tokens' stops with alpha shares one colour.
+export type VigLook = "none" | { cx: number; cy: number; rx: number; ry: number; stops: [number, number[]][] };
+export function vignetteLook(bg: string, r: Pick<DOMRect, "left" | "top" | "width" | "height">): VigLook | null {
+  if (bg === "none") return "none";
+  const m = /^radial-gradient\((.*)\)$/.exec(bg.trim());
+  if (!m) return null;
+  const parts = m[1].split(/,(?![^(]*\))/).map((x) => x.trim());
+  let sx: string | undefined, sy: string | undefined, px = "50", py = "50";
+  if (!parts[0].startsWith("rgb")) {   // the shape: an ellipse, its radii (% of the box) or none (farthest-corner), and its centre
+    const shape = /^(?:ellipse\s*)?(?:([\d.]+)% ([\d.]+)%\s*)?(?:at ([\d.]+)% ([\d.]+)%)?$/.exec(parts.shift() ?? "");
+    if (!shape) return null;
+    [, sx, sy, px = "50", py = "50"] = shape;
+  }
+  const cx = r.left + +px / 100 * r.width, cy = r.top + +py / 100 * r.height;
+  const rx = sx ? +sx / 100 * r.width : Math.SQRT2 * Math.max(cx - r.left, r.left + r.width - cx);
+  const ry = sy ? +sy / 100 * r.height : Math.SQRT2 * Math.max(cy - r.top, r.top + r.height - cy);
+  const raw: [number, number[]][] = [];
+  for (const part of parts) {
+    const c = /^rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\) ([\d.]+)%$/.exec(part);
+    if (!c) return null;
+    raw.push([+c[5] / 100, [+c[1], +c[2], +c[3], c[4] === undefined ? 1 : +c[4]]]);
+  }
+  if (raw.length < 2 || !(rx > 0) || !(ry > 0)) return null;
+  const stops: [number, number[]][] = [];
+  raw.forEach(([o, c], i) => {
+    if (c[3] > 0) { stops.push([o, c]); return; }
+    const sides = [raw[i - 1], raw[i + 1]].filter((nb) => nb && nb[1][3] > 0);
+    if (!sides.length) stops.push([o, c]);
+    for (const nb of sides) stops.push([o, [...nb[1].slice(0, 3), 0]]);
+  });
+  return { cx, cy, rx, ry, stops };
+}
+function paintVignette(v: CanvasRenderingContext2D, grads: Map<VigLook, CanvasGradient>, inner: VigLook, outer: VigLook, pts: Pt[], W: number, H: number) {
+  v.clearRect(0, 0, W, H);
+  const poly = () => { pts.forEach((p, i) => (i ? v.lineTo(p[0], p[1]) : v.moveTo(p[0], p[1]))); v.closePath(); };
+  const fill = (look: VigLook, path: () => void) => {
+    if (look === "none") return;
+    let g = grads.get(look);
+    if (!g) { g = v.createRadialGradient(0, 0, 0, 0, 0, look.rx); for (const [o, c] of look.stops) g.addColorStop(o, `rgba(${c.join(", ")})`); grads.set(look, g); }
+    const k = look.rx / look.ry;
+    v.save(); v.beginPath(); path(); v.clip("evenodd");
+    v.translate(look.cx, look.cy); v.scale(1, 1 / k); v.fillStyle = g; v.fillRect(-look.cx, -look.cy * k, W, H * k);
+    v.restore();
+  };
+  fill(outer, () => { v.rect(-20, -20, W + 40, H + 40); if (pts.length > 2) poly(); });
+  if (pts.length > 2) fill(inner, poly);
+}
+
 type Run = { raf: number; anims: Animation[]; canvas: HTMLCanvasElement | null; panes: Pane[]; paneEls: HTMLElement[]; vt: ViewTransition | null; over: boolean;
-  skip: () => void; hidden: () => void };
+  vig: { el: Element; old: string; looks: [VigLook, VigLook] | null; canvas: HTMLCanvasElement | null } | null; skip: () => void; hidden: () => void };
 let active: Run | null = null;
 
 const glass = () => { const p = glassPanes(); p.forEach(({ el }) => el.classList.add("ss-glassed")); return p; };
@@ -332,7 +401,9 @@ export const switching = () => active !== null;
 export function playSwitch(to: Theme, apply: () => void, button: HTMLElement | null): boolean {
   if (active || typeof document.startViewTransition !== "function" || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
   const kind: Kind = to === "light" ? "comet" : "hole", root = document.documentElement;
+  const vigEl = document.querySelector(".vignette");
   const run: Run = { raf: 0, anims: [], canvas: null, panes: [], paneEls: [], vt: null, over: false,
+    vig: vigEl ? { el: vigEl, old: getComputedStyle(vigEl).backgroundImage, looks: null, canvas: null } : null,
     skip: () => run.vt?.skipTransition(), hidden: () => { if (document.hidden) run.skip(); } };
   active = run;
   root.classList.add("ss-switch", `ss-${kind}`);   // before the old snapshot: the layers get their view-transition-names
@@ -351,6 +422,16 @@ export function playSwitch(to: Theme, apply: () => void, button: HTMLElement | n
       c.className = "ss-fx"; c.setAttribute("aria-hidden", "true");
       document.body.appendChild(c);
       run.canvas = c;
+      const v = run.vig;   // the vignette's canvas (new page only), when both its looks can be rebuilt; else its snapshots are clipped
+      if (v) {
+        const r = v.el.getBoundingClientRect(), a = vignetteLook(v.old, r), b = vignetteLook(getComputedStyle(v.el).backgroundImage, r);
+        if (a && b) {
+          v.looks = [a, b]; v.canvas = document.createElement("canvas");
+          v.canvas.className = "ss-vigc"; v.canvas.setAttribute("aria-hidden", "true");
+          document.body.appendChild(v.canvas);
+          root.classList.add("ss-vigpaint");
+        }
+      }
     });
   } catch {
     end(run);
@@ -369,7 +450,10 @@ function start(run: Run, kind: Kind, button: HTMLElement | null) {
   c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); f.setTransform(dpr, 0, 0, dpr, 0, 0);
   const ink = inks(), T = kind === "comet" ? COMET_MS : HOLE_MS;
   const draw = kind === "comet" ? comet(f, W, H, ink) : hole(f, W, H, ink, button?.getBoundingClientRect() ?? null);
-  const vs = views(kind, run.panes, W, H);
+  const vc = run.vig?.canvas, vf = vc?.getContext("2d"), looks = run.vig?.looks, grads = new Map<VigLook, CanvasGradient>();
+  if (vc && vf) { vc.width = c.width; vc.height = c.height; vf.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  const [inner, outer] = looks ? (kind === "comet" ? [looks[1], looks[0]] : looks) : [null, null];   // the light look inside the polygon
+  const vs = views(kind, run.panes, W, H, !!vf);
   const t0 = performance.now();
   const step = () => {
     run.raf = 0;
@@ -377,6 +461,7 @@ function start(run: Run, kind: Kind, button: HTMLElement | null) {
     const now = performance.now(), t = cl((now - t0) / T), g = globeCircle(), pts = draw(t, now, g), reach = g ? g.r * GLOBE_REACH : 0;
     // the globe, on the same polygon in the same frame (drawn once while all of it is on one side)
     clipGlobe(now, pts, g ? boxSide(pts, g.cx - reach, g.cy - reach, g.cx + reach, g.cy + reach) : "across");
+    if (vf && inner && outer) paintVignette(vf, grads, inner, outer, pts, W, H);   // and the vignette
     const frames = vs.map((v) => { const k = v.frame(pts); return [k, k]; });
     if (!run.anims.length) run.anims = vs.map((v, i) => {
       const a = root.animate(frames[i], { duration: T, fill: "forwards", pseudoElement: v.pseudo });
@@ -396,9 +481,10 @@ function end(run: Run) {
   cancelAnimationFrame(run.raf);
   run.anims.forEach((a) => a.cancel());
   run.canvas?.remove();
+  run.vig?.canvas?.remove();
   run.paneEls.forEach((d) => d.remove());
   run.panes.forEach((p) => p.el.classList.remove("ss-glassed"));
-  document.documentElement.classList.remove("ss-switch", "ss-comet", "ss-hole");
+  document.documentElement.classList.remove("ss-switch", "ss-comet", "ss-hole", "ss-vigpaint");
   removeEventListener("resize", run.skip);
   document.removeEventListener("visibilitychange", run.hidden);
   endGlobeSwitch();   // one look again, and arcs again (also after a skipped or interrupted switch)
