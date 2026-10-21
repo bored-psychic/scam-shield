@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np, pandas as pd
 import torch
-from sklearn.metrics import f1_score, recall_score, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
 from textprep import model_text, URL_TOKEN, MAX_CHARS
@@ -18,7 +18,8 @@ from textprep import model_text, URL_TOKEN, MAX_CHARS
 #   python src/finetune.py --model mdeberta            # comparison runs: mdeberta, xlmr, or any HF model id
 #   python src/finetune.py --aug                       # also train on messages_aug.csv (homoglyph / leet / zero-width, train parents)
 #   python src/finetune.py --limit 50 --device cpu     # Mac dry run: 50 rows per split, no GPU
-#   python src/finetune.py --data-dir /kaggle/input/scam-shield-data/final --out /kaggle/working/models/muril_run1
+#   python src/finetune.py --data-dir /kaggle/input/scam-shield-data --out /kaggle/working/models/muril_run1   # the notebook finds the folder
+#   python src/finetune.py --score-held-out            # also score test + adv_test at the end (off by default: that happens on the Mac)
 #
 # Precision (--precision, default auto): bf16 autocast on GPUs with compute capability >= 8.0 (RTX 5050, A100), fp16 autocast
 # + GradScaler below that (T4 7.5, P100 6.0), fp32 on CPU. Weights and optimizer state stay fp32 in every mode; the loss and
@@ -28,11 +29,14 @@ from textprep import model_text, URL_TOKEN, MAX_CHARS
 #   - split_map.csv is the frozen splits-v2 file (SHA-256 below) and messages.csv agrees with it row for row;
 #   - no cluster / template family / company / translation group straddles splits (the cheap half of neardup.assert_no_leakage; the LSH half was
 #     run by split_audit.py on exactly this split_map, 0 violations);
-#   - weights are fit on train rows only; the best epoch and both cut-offs are chosen on val; test rows are only scored;
+#   - weights are fit on train rows only; the best epoch and both cut-offs are chosen on val; test rows are read only for the
+#     integrity checks above and then dropped: by default they are never tokenised, fed to the model or scored (asserted in
+#     assert_no_test_rows); --score-held-out is the one switch that scores test + adv_test, after the best epoch is chosen;
 #   - every input goes through textprep.model_text (links -> <URL>, first 2000 chars), the same function the baseline and the
 #     app use; the tokenizer then keeps the first --max-len tokens.
 # Output (--out): model/ (best epoch, HF format) + shield_meta.json is the bundle a MurilScorer loads; epoch_<k>/ are the
-# per-epoch checkpoints; predictions_{val,test,adv_test}.csv are copied to the Mac for evaluation.
+# per-epoch checkpoints; predictions_val.csv, val_metrics.csv (overall / per source / per language) and, with --score-held-out,
+# predictions_{test,adv_test}.csv are copied to the Mac for evaluation.
 
 SPLIT_MAP_SHA256 = "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c"   # splits-v2 (2026-10-21); keep in step with CLAUDE.md
 MODELS = {"muril": "google/muril-base-cased", "mdeberta": "microsoft/mdeberta-v3-base", "xlmr": "FacebookAI/xlm-roberta-base"}
@@ -72,8 +76,10 @@ def pick_precision(requested, device):
     return requested
 
 
-def load_data(data_dir, use_aug):
-    """messages.csv (+ messages_aug.csv) after the split checks; raises before anything is trained if a check fails."""
+def load_data(data_dir, use_aug, held_out):
+    """messages.csv (+ messages_aug.csv) after the split checks; raises before anything is trained if a check fails.
+    Test rows are in messages.csv, so they are read here for the checks; unless held_out they are dropped before returning
+    and messages_adv_test.csv (test parents only) is not opened at all."""
     sm_path = data_dir / "split_map.csv"
     got = sha256(sm_path)
     if got != SPLIT_MAP_SHA256:
@@ -88,6 +94,9 @@ def load_data(data_dir, use_aug):
         k = df[key].fillna("").astype(str)
         n = df["split"][k != ""].groupby(k[k != ""]).nunique()
         assert not (n > 1).any(), f"{key}: {(n > 1).sum()} groups straddle splits, e.g. {list(n[n > 1].index[:3])}"
+    test_hashes = set(frozen.index[frozen == "test"])
+    if not held_out:
+        df = df[df["split"] != "test"]
     df = df.reset_index(drop=True)
 
     aug = None
@@ -97,10 +106,48 @@ def load_data(data_dir, use_aug):
         assert (aug["parent_hash"].map(frozen) == "train").all(), "messages_aug.csv has parents outside train; rerun augment.py on the Mac"
         assert aug["cluster_id"].astype(str).isin(train_clusters).all(), "messages_aug.csv has clusters outside train"
         assert (aug["split"] == "train").all()
-    adv = pd.read_csv(data_dir / "messages_adv_test.csv", low_memory=False)
-    assert (adv["parent_hash"].map(frozen) == "test").all(), "messages_adv_test.csv has parents outside test"
-    files = {f: sha256(data_dir / f) for f in ("messages.csv", "messages_adv_test.csv") + (("messages_aug.csv",) if use_aug else ())}
-    return df, aug, adv, files
+        assert not set(aug["parent_hash"]) & test_hashes, "messages_aug.csv has a test parent"
+    adv = None
+    if held_out:
+        adv = pd.read_csv(data_dir / "messages_adv_test.csv", low_memory=False)
+        assert (adv["parent_hash"].map(frozen) == "test").all(), "messages_adv_test.csv has parents outside test"
+    files = {f: sha256(data_dir / f) for f in ("messages.csv",) + (("messages_adv_test.csv",) if held_out else ()) + (("messages_aug.csv",) if use_aug else ())}
+    return df, aug, adv, files, test_hashes
+
+
+def assert_no_test_rows(tr, va, test_hashes):
+    """Everything that will be tokenised for training or selection is train / val, and no text in it is a test row."""
+    assert set(tr["split"]) == {"train"}, f"training rows from splits {set(tr['split'])}"
+    assert set(va["split"]) == {"val"}, f"validation rows from splits {set(va['split'])}"
+    seen = set(tr["text_hash"].dropna()) | set(va["text_hash"].dropna())
+    assert not seen & test_hashes, f"{len(seen & test_hashes)} train/val rows carry a test text_hash"
+    if "parent_hash" in tr:
+        assert not set(tr["parent_hash"].dropna()) & test_hashes, "an augmented training row has a test parent"
+
+
+def val_report(va, score, t_susp, t_likely):
+    """Overall / per-source / per-language val metrics of the best epoch, at 0.5 and at the val-chosen likely cut-off."""
+    d = va.assign(_s=score, _y=va["label"].astype(int))
+    rows = []
+    def add(kind, key, g):
+        y, sc = g["_y"].to_numpy(), g["_s"].to_numpy()
+        two = len(set(y)) == 2
+        rows.append({"slice": kind, "key": key, "n": len(g), "scam": int(y.sum()),
+                     "f1_at_0.5": round(f1_score(y, sc >= 0.5, zero_division=0), 4),
+                     "f1_at_likely": round(f1_score(y, sc >= t_likely, zero_division=0), 4),
+                     "precision_at_likely": round(precision_score(y, sc >= t_likely, zero_division=0), 4),
+                     "recall_at_likely": round(recall_score(y, sc >= t_likely, zero_division=0), 4),
+                     "recall_at_suspicious": round(recall_score(y, sc >= t_susp, zero_division=0), 4) if y.sum() else None,
+                     "auroc": round(roc_auc_score(y, sc), 4) if two else None})
+    add("overall", "all", d)
+    for col, kind in (("source", "source"), ("language", "language")):
+        for key, g in d.groupby(col):
+            add(kind, key, g)
+    present = set(d["language"])
+    for lang in ("hindi", "kannada"):   # the translations are train-only; val should have none, and the log says so either way
+        if lang not in present:
+            rows.append({"slice": "language", "key": lang, "n": 0, "scam": 0})
+    return pd.DataFrame(rows)
 
 
 def sample(d, n, seed):
@@ -176,13 +223,15 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--warmup", type=float, default=0.06, help="fraction of steps with a rising learning rate")
     ap.add_argument("--aug", action="store_true", help="also train on messages_aug.csv (off by default: like-for-like with baseline.py)")
+    ap.add_argument("--score-held-out", action="store_true", help="also score test + adv_test after the best epoch is chosen "
+                    "(off: the test split is never tokenised or scored; evaluation happens on the Mac)")
     ap.add_argument("--smoke", action="store_true", help="1 epoch, 2,000 train rows, val/test/adv capped at 500: a setup check, not a model")
     ap.add_argument("--limit", type=int, help="at most N rows per split (Mac dry run)")
     ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
     ap.add_argument("--precision", choices=["auto", "bf16", "fp16", "fp32"], default="auto",
                     help="auto: bf16 if the GPU's compute capability >= 8.0, else fp16 (with GradScaler); fp32 on CPU")
     ap.add_argument("--data-dir", default="data/final", help="folder with split_map.csv, messages.csv, messages_adv_test.csv "
-                    "(+ messages_aug.csv); relative to the working directory, or absolute (e.g. /kaggle/input/<dataset>/final)")
+                    "(+ messages_aug.csv); relative to the working directory, or absolute (the Kaggle notebook finds it by file name)")
     ap.add_argument("--out", help="run directory, created if missing, must be empty; relative or absolute "
                     "(e.g. /kaggle/working/models/muril_run1). Default models/finetune/<model>_<UTC time>[_smoke]")
     args = ap.parse_args()
@@ -213,23 +262,32 @@ def main():
     seed_everything(args.seed)
 
     # ---------------------------------------------------------------- data
-    df, aug, adv, data_files = load_data(data_dir, args.aug)
+    df, aug, adv, data_files, test_hashes = load_data(data_dir, args.aug, args.score_held_out)
     log(f"device {device}{f' ({gpu}, compute capability {cap})' if gpu else ''}; precision {precision} "
         f"(requested {args.precision}){'; fp16 GradScaler on' if scaler else ''}")
     log(f"data {data_dir} -> run {out}")
-    log(f"split_map.csv SHA-256 ok (splits-v2); messages.csv {len(df)} rows match it; no {'/'.join(GROUP_KEYS)} straddles splits")
-    tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))
+    log(f"split_map.csv SHA-256 ok (splits-v2); messages.csv matches it row for row; no {'/'.join(GROUP_KEYS)} straddles splits")
+    tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))   # te is empty unless --score-held-out
     if aug is not None:
         tr = pd.concat([tr, aug[["text", "label", "source", "split"]].assign(text_hash=None)], ignore_index=True)
     caps = {"train": 2000, "val": 500, "test": 500, "adv": 500} if args.smoke else {}
     if args.limit:
         caps = {k: min(caps.get(k, args.limit), args.limit) for k in ("train", "val", "test", "adv")}
     tr, va, te = sample(tr, caps.get("train"), args.seed), sample(va, caps.get("val"), args.seed), sample(te, caps.get("test"), args.seed)
-    adv = sample(adv, caps.get("adv"), args.seed)
-    log(f"train {len(tr)} ({int(tr['label'].sum())} scam{', incl. aug' if aug is not None else ''}), val {len(va)}, "
-        f"test {len(te)}, adv_test {len(adv)}")
+    assert_no_test_rows(tr, va, test_hashes)
+    sets = {"train": tr, "val": va}
+    if args.score_held_out:
+        adv = sample(adv, caps.get("adv"), args.seed)
+        sets.update(test=te, adv=adv)
+    else:
+        assert len(te) == 0 and adv is None
+    log(f"train {len(tr)} ({int(tr['label'].sum())} scam = {tr['label'].mean():.1%}{', incl. aug' if aug is not None else ''}), val {len(va)} "
+        f"({int(va['label'].sum())} scam = {va['label'].mean():.1%})"
+        + (f", test {len(te)}, adv_test {len(adv)}" if args.score_held_out else "; test and adv_test rows: not loaded, not scored"))
+    log("val rows by language: " + ", ".join(f"{k} {v}" for k, v in va["language"].value_counts().items())
+        + ("" if {"hindi", "kannada"} & set(va["language"]) else "  (no hindi / kannada rows in val, as expected)"))
 
-    X = {k: [model_text(t) for t in d["text"]] for k, d in (("train", tr), ("val", va), ("test", te), ("adv", adv))}   # rule 11
+    X = {k: [model_text(t) for t in d["text"]] for k, d in sets.items()}   # rule 11
 
     tok = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForSequenceClassification.from_pretrained(model_id, num_labels=2).to(device)
@@ -254,6 +312,7 @@ def main():
 
     # ---------------------------------------------------------------- train
     history, best = [], None
+    t_train = time.time()
     for ep in range(1, epochs + 1):
         model.train()
         t0, total, n = time.time(), 0.0, 0
@@ -290,18 +349,28 @@ def main():
         if best is None or rec["val_f1_at_0.5"] > best["val_f1_at_0.5"]:   # ties keep the earlier epoch
             best = rec
 
+    train_seconds = round(time.time() - t_train)
+
     # ---------------------------------------------------------------- best epoch -> model/, cut-offs on val, predictions
     shutil.copytree(out / f"epoch_{best['epoch']}", out / "model")
     model = AutoModelForSequenceClassification.from_pretrained(out / "model").to(device)
-    s = {k: predict(model, X[k], batcher, args.batch, device, amp_dtype) for k in ("val", "test", "adv")}
+    s = {k: predict(model, X[k], batcher, args.batch, device, amp_dtype) for k in X if k != "train"}   # val, + test / adv with --score-held-out
     t_susp, t_likely = thresholds(y_va, s["val"])
-    log(f"best epoch {best['epoch']} (val F1@0.5 {best['val_f1_at_0.5']}); val-chosen cut-offs: suspicious >= {t_susp:.3f}, likely scam >= {t_likely:.3f}")
+    log(f"best epoch {best['epoch']} (val F1@0.5 {best['val_f1_at_0.5']}); val-chosen cut-offs: suspicious >= {t_susp:.3f}, likely scam >= {t_likely:.3f}; "
+        f"training time {train_seconds} s ({train_seconds / 60:.1f} min)")
 
-    for name, d in (("val", va), ("test", te)):
-        pd.DataFrame({"text_hash": d["text_hash"].to_numpy(), "split": name, "label": d["label"].astype(int).to_numpy(),
-                      "score": s[name]}).to_csv(out / f"predictions_{name}.csv", index=False, encoding="utf-8")
-    pd.DataFrame({"parent_hash": adv["parent_hash"].to_numpy(), "aug_method": adv["aug_method"].to_numpy(),
-                  "label": adv["label"].astype(int).to_numpy(), "score": s["adv"]}).to_csv(out / "predictions_adv_test.csv", index=False, encoding="utf-8")
+    rep_val = val_report(va, s["val"], t_susp, t_likely)
+    rep_val.to_csv(out / "val_metrics.csv", index=False, encoding="utf-8")
+    log("val metrics of the best epoch (f1@likely = F1 at the val-chosen max-F1 cut-off, the number comparable with baseline.py's val F1):\n"
+        + rep_val.fillna("").to_string(index=False))
+
+    pd.DataFrame({"text_hash": va["text_hash"].to_numpy(), "split": "val", "label": y_va, "score": s["val"]}).to_csv(
+        out / "predictions_val.csv", index=False, encoding="utf-8")
+    if args.score_held_out:
+        pd.DataFrame({"text_hash": te["text_hash"].to_numpy(), "split": "test", "label": te["label"].astype(int).to_numpy(),
+                      "score": s["test"]}).to_csv(out / "predictions_test.csv", index=False, encoding="utf-8")
+        pd.DataFrame({"parent_hash": adv["parent_hash"].to_numpy(), "aug_method": adv["aug_method"].to_numpy(),
+                      "label": adv["label"].astype(int).to_numpy(), "score": s["adv"]}).to_csv(out / "predictions_adv_test.csv", index=False, encoding="utf-8")
 
     commit, dirty = git_state()
     import transformers, tokenizers, sklearn, tldextract
@@ -316,8 +385,12 @@ def main():
         "best_epoch": best["epoch"], "selected_by": "val F1 at 0.5", "history": history,
         "settings": {"epochs": epochs, "batch": args.batch, "lr": args.lr, "max_len": args.max_len, "seed": args.seed,
                      "warmup": args.warmup, "weight_decay": 0.01, "grad_clip": 1.0, "optimizer": "AdamW",
-                     "schedule": "linear warmup + linear decay", "aug": args.aug, "smoke": args.smoke, "limit": args.limit},
-        "rows": {"train": len(tr), "train_scam": int(counts[1]), "val": len(va), "test": len(te), "adv_test": len(adv)},
+                     "schedule": "linear warmup + linear decay", "aug": args.aug, "smoke": args.smoke, "limit": args.limit,
+                     "score_held_out": args.score_held_out},
+        "rows": {"train": len(tr), "train_scam": int(counts[1]), "val": len(va), "val_scam": int(y_va.sum()),
+                 "test": len(te) if args.score_held_out else None, "adv_test": len(adv) if args.score_held_out else None},
+        "training_seconds": train_seconds,
+        "val_overall": rep_val[rep_val["slice"] == "overall"].iloc[0].dropna().to_dict(),
         "class_weights": [round(float(w), 4) for w in weights],
         "train_truncated_share_by_source": trunc,
         "device": gpu or platform.processor() or "cpu", "gpu_name": gpu, "gpu_compute_capability": cap,
@@ -331,7 +404,7 @@ def main():
         "created_utc": stamp, "command": " ".join(sys.argv),
     }
     (out / "shield_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    log(f"wrote {out / 'model'}, shield_meta.json, predictions_val/test/adv_test.csv; copy {out} back to the Mac")
+    log(f"wrote {out / 'model'}, shield_meta.json, val_metrics.csv, predictions_val.csv{', predictions_test/adv_test.csv' if args.score_held_out else ''}; copy {out} back to the Mac")
     if dirty:
         log("WARNING: the git tree had uncommitted changes; the laptop should only `git pull`")
     log_f.close()
