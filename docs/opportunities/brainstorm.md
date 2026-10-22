@@ -353,3 +353,5 @@ invite", digital-arrest script) next to the existing ones; record spotting accur
 4. The original brief and its three suspicions are reconstructed from the notes; correct them if they differ.
 
 If approved, the next step is a decision record (D28) in `docs/decisions/` with a Status header, not code.
+
+> **Update 2026-10-23:** the "Ask someone first" button (items above) was built on 2026-10-22 and **dropped by the user on 2026-10-23**; it is removed from the app. Do not re-add it. The app keeps only "Get help" (helpline + report on Chakshu), see `frontend/CLAUDE.md`.

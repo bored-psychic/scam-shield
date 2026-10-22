@@ -103,11 +103,12 @@ function measure() {
       }
     }
   }
-  // "Get help" (2026-10-22): when its panel is open, everything inside stays in the What to do panel and nothing overlaps
+  // "Get help" (2026-10-22, two rows since 2026-10-23): when its panel is open, everything inside stays in the What to do panel and nothing overlaps;
+  // on a phone every button is 40 px or more tall and the text is 14 px or more (13.5 px for the muted toast)
   const panel = document.querySelector(".askpanel");
   if (panel) {
     const todo = panel.closest(".box").getBoundingClientRect();
-    const kids = [...panel.querySelectorAll(".askhint, .asklang label, .askreview, .asknote, .askcheck, .askactions .ghost, .askprivacy, .helpsec h4, .callbtn, .helplink, .helpchakshu, .helpline, .helpsteps")].filter((el) => el.getClientRects().length);
+    const kids = [...panel.querySelectorAll(".helplabel, .callbtn, .helplink, .helpchakshu")].filter((el) => el.getClientRects().length);
     for (const el of [panel, ...kids]) {
       const r = el.getBoundingClientRect();
       if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`ask: ${el.className || el.tagName} sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
@@ -120,6 +121,11 @@ function measure() {
         const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
         if (w > 1 && h > 1) out.push(`ask: ${kids[i].className || kids[i].tagName} overlaps ${kids[j].className || kids[j].tagName}`);
       }
+    for (const el of panel.querySelectorAll(".callbtn, .helplink, .helpchakshu")) {
+      const r = el.getBoundingClientRect(), fs = parseFloat(getComputedStyle(el).fontSize);
+      if (r.height < 40) out.push(`ask: ${el.className} is ${Math.round(r.height)} px tall (< 40)`);
+      if (fs < 14) out.push(`ask: ${el.className} text is ${fs}px (< 14)`);
+    }
   }
   return out;
 }
@@ -163,21 +169,30 @@ async function runCase(browser, [w, h], label, theme) {
     await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
     await check("expanded");
   } else if (label === "shortener-keywords") problems.push("the short-link button is missing");
-  // "Get help": on a warning verdict open the panel, in each language, with the message included
+  // "Get help": on a warning verdict open the panel, check the two rows, their order, links and the copy toast
   const ask = page.locator("button.askbtn");
   const warn = await page.evaluate(() => /Likely scam|Suspicious/.test(document.querySelector(".vword")?.textContent ?? ""));
   if (warn !== (await ask.count() > 0)) problems.push(`ask: the button is ${warn ? "missing on" : "shown on"} a ${warn ? "warning" : "non-warning"} verdict`);
   if (warn) {
     await ask.click();
-    await page.check(".askcheck input");
     const likely = await page.evaluate(() => /Likely scam/.test(document.querySelector(".vword")?.textContent ?? ""));
-    const order = await page.$$eval(".helpsec", (els) => els.map((e) => e.className.split(" ")[1]));
-    if (order.join() !== (likely ? "helplost,helpreport,helpask" : "helpask,helpreport,helplost")) problems.push(`help: section order ${order.join()} on a ${likely ? "Likely scam" : "Suspicious"} verdict`);
+    const order = await page.$$eval(".helprow .helplabel", (els) => els.map((e) => e.textContent));
+    if (order.join() !== (likely ? "Helpline,Report scam" : "Report scam,Helpline")) problems.push(`help: row order ${order.join()} on a ${likely ? "Likely scam" : "Suspicious"} verdict`);
     const links = await page.evaluate(() => ({ call: document.querySelector(".callbtn")?.getAttribute("href"), chakshu: document.querySelector(".helpchakshu")?.getAttribute("href"),
-      target: document.querySelector(".helpchakshu")?.getAttribute("target"), portal: document.querySelector(".helplink")?.getAttribute("href") }));
+      target: document.querySelector(".helpchakshu")?.getAttribute("target"), portal: document.querySelector(".helplink")?.getAttribute("href"),
+      hint: document.querySelector(".callbtn")?.getAttribute("aria-label"), paras: document.querySelectorAll(".askpanel p, .askpanel h4").length }));
     if (links.call !== "tel:1930" || links.chakshu !== "https://sancharsaathi.gov.in/sfc/" || links.target !== "_blank" || links.portal !== "https://cybercrime.gov.in")
       problems.push(`help: wrong links ${JSON.stringify(links)}`);
-    for (const lang of ["English", "हिन्दी", "ಕನ್ನಡ"]) { await page.click(`.asklang label:has-text("${lang}")`); await check(`ask-${lang === "English" ? "en" : lang === "हिन्दी" ? "hi" : "kn"}`); }
+    if (!/first hour/.test(links.hint ?? "")) problems.push("help: the Call button has no first-hour aria-label");
+    if (links.paras) problems.push(`help: ${links.paras} paragraph(s) / heading(s) in the panel, there should be none`);
+    await check("help-open");
+    // the Chakshu link would open a tab: stop it at the element (React's click handler on the root still runs), then look for the toast
+    await page.evaluate(() => document.querySelector(".helpchakshu").addEventListener("click", (e) => e.preventDefault()));
+    await page.click(".helpchakshu");
+    await page.waitForSelector(".helptoast", { timeout: 2000 }).catch(() => problems.push("help: no toast after the Chakshu click"));
+    const toast = await page.locator(".helptoast").textContent().catch(() => "");
+    if (!/^(Copied – paste it on Chakshu after logging in|Couldn't copy)/.test(toast ?? "")) problems.push(`help: toast says "${toast}"`);
+    await check("help-toast");
   }
   await ctx.close();
   return [tag, problems];

@@ -306,36 +306,22 @@
   .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
     font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
-  /* "Ask someone first" (2026-10-22): a button in What to do now that opens a panel under it (a note + WhatsApp / SMS / Copy). Tokens only. */
+  /* "Get help" (2026-10-23): a button in What to do now that opens a panel of two compact rows (label + buttons). Tokens only. */
   .ask { display: grid; gap: 8px; margin-top: 4px; justify-items: start; }
   .askbtn { font-weight: 600; }
-  .askpanel, .asknote { box-sizing: border-box; }
-  .askpanel { display: grid; gap: 12px; width: 100%; padding: 14px 16px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
-  .askpanel p { margin: 0; }
-  .askhint, .askprivacy { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
-  .askreview { font-size: var(--fs-small); line-height: 1.5; color: var(--amber); }
-  .asklang { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; border: 0; min-width: 0; align-items: center; }
-  .asklang legend { float: left; padding: 0; margin-right: 4px; font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-  .asklang label, .askcheck { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--fs-body); line-height: 1.4; min-height: 32px; }
-  .askcheck { align-items: flex-start; }
-  .askcheck small { display: block; font-size: var(--fs-small); color: var(--muted); }
-  .asklang input, .askcheck input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; margin: 0; }
-  .askcheck input { margin-top: 2px; }
-  .asklang input:focus-visible, .askcheck input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .asknote { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); line-height: 1.6; color: var(--ink); max-width: 35em; padding: 12px 14px;
-    border-radius: 12px; border: 1px solid var(--line); background: var(--glass-fill); user-select: text; }
-  .helpsec { display: grid; gap: 10px; justify-items: start; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
-  .helpsec:first-of-type { border-top: 0; padding-top: 0; }
-  .helpsec h4 { margin: 0; font: 600 var(--fs-body) var(--sans); color: var(--ink); line-height: 1.4; }
-  .callbtn { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px; padding: 12px 18px; border-radius: 14px;
-    font: 700 20px var(--sans); color: var(--on-ink); background: var(--ink); text-decoration: none; text-align: center; }
+  .askpanel { box-sizing: border-box; display: grid; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
+  .helprow { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; align-items: center; min-width: 0; }
+  .helprow + .helprow { border-top: 1px solid var(--line); padding-top: 10px; }
+  .helplabel { font: 500 var(--fs-label) var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .helpbtns { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .callbtn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 18px; border-radius: 10px;
+    font: 700 var(--fs-body) var(--sans); color: var(--on-ink); background: var(--ink); text-decoration: none; text-align: center; }
   .callbtn:hover { background: var(--go-hover); }
   .callbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .helplink, .helpchakshu { min-height: 40px; display: inline-flex; align-items: center; }
-  .helptext { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
-  .helpsteps { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: var(--fs-body); line-height: 1.5; color: var(--ink); }
-  .askactions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .askactions .ghost { min-height: 40px; display: inline-flex; align-items: center; }
+  .askpanel .helplink, .askpanel .helpchakshu { box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: var(--fs-body); }   /* .ghost comes later: same size 13px otherwise */
+  .helptoast { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: var(--fs-small); line-height: 1.4; color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); }
+  .helptoast.bad { color: var(--amber); }
+  @media (max-width: 640px) { .helprow { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: var(--strong-border); }
   .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
@@ -575,6 +561,45 @@
   .mzones span { box-sizing: border-box; padding-inline: 3px; text-align: center; text-wrap: balance; }
   .mnote { margin: 4px 0 0; font: 400 var(--fs-small)/1.45 var(--sans); color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { .meter .knob { animation: none; } }
+
+  /* Phones (2026-10-23, user: the result page was far too big on a phone): the result screen at 390x844, every panel tighter. Sizes only, no
+     colour, no content; desktop (> 640px) is untouched. Body text stays 14-15px, panel titles 16px, and every tappable control keeps a 40-44px target. */
+  @media (max-width: 640px) {
+    .result, .bento, .bcol { gap: 10px; }
+    .sect, .msg .lab { font-size: 16px; margin-bottom: 6px; }
+    .verdict { padding: 14px 14px 12px; gap: 10px; }
+    .g-verdict .vicon { width: 40px; height: 40px; border-radius: 12px; }
+    .g-verdict .vicon svg { width: 22px; height: 22px; }
+    .g-verdict .vword { font-size: 28px; }
+    .vline { font-size: 14px; line-height: 1.4; margin-top: 2px; }
+    .vlowered, .vlowered b { font-size: 14px; }
+    .score { gap: 4px; }
+    .snum b { font-size: 36px; }
+    .snum span { font-size: 15px; }
+    .meter { height: 12px; margin-block: 6px 0; }
+    .meter .knob { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
+    .mscale { font-size: 11px; height: 14px; }
+    .mzones { font-size: 11.5px; }
+    .mnote { font-size: 12.5px; margin-top: 2px; }
+    .rwrap { gap: 4px; padding-block: 2px 0; }
+    .radar { width: 168px; height: 168px; }
+    .g-msg { font-size: 15.5px; line-height: 1.65; padding: 14px; }
+    .g-why { padding: 12px 12px 8px; }
+    .g-why .sect { margin: 0 2px 4px; }
+    .g-why .reason { padding: 8px 6px; gap: 10px; font-size: 14.5px; line-height: 1.4; }
+    .g-why .reason .dot { margin-top: 6px; }
+    .reason small { font-size: 12.5px; margin-top: 0; }
+    .todo { padding: 12px 14px; gap: 6px; }
+    .steplist { gap: 8px; margin-top: 2px; }
+    .steplist li { grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14.5px; line-height: 1.4; }
+    .steplist li::before { width: 24px; height: 24px; font-size: 12px; }
+    .ask .askbtn { min-height: 40px; font-size: 14px; }
+    .askpanel { padding: 10px 12px; gap: 8px; }
+    .askpanel .helplink, .askpanel .helpchakshu, .callbtn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
+    .helplabel { font-size: 11px; }
+    .rtop { gap: 4px 10px; }
+    .rmeta { font-size: 11px; }
+  }
 }
 
 /* Light theme, result panels (2026-10-18, docs/design/light-result.html): each panel gets its own subtle fill; the verdict's is 5% of its level
