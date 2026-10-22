@@ -27,6 +27,16 @@ GAMBLING_PLATFORM_ROOTS = frozenset({"tripod.com", "eu.cc", "amebaownd.com", "b-
 GAMBLING_NOT_GAMBLING = frozenset({"onelink.me", "okta.com", "uol.com.br", "orange.fr", "sfr.fr", "mundodeportivo.com", "about.com",
                                    "itv.com", "dhnet.be", "sofascore.com", "flashscore.fr", "flashscore.com.br", "livescore.in"})
 
+# Added 2026-10-23 (user instruction after reports/eval_live_links.md, decision C1): the 8 gambling / betting sites that BUGS.md ("Gambling lookup: known
+# gaps (1)") names as missing from the lookup. They are on Blocklist Project only and sit in the Tranco top 10k, where the Tranco rule in
+# gambling_lookup.py drops a Blocklist-Project-only hit unless the name has a gambling token; the live evaluation confirmed all 8 were rated "No warning
+# signs" (section 7). The source is that BUGS.md list (found by eye on 2026-10-10, no page was opened) and the user's instruction to add them. In
+# the project's G1 policy licensed operators count: sportpesa.com (Kenya), msport.com, bingoplus.com (Philippines), tippmix.hu and szerencsejatek.hu
+# (the Hungarian state lottery operator's betting brand and its company site), skyvegas.com, juan365.com, and pocketoption.com, which is a
+# binary-options broker that BUGS.md counts with the betting sites. They are kept in code, not in the git-ignored TSV, so a rebuild of the lookup keeps them.
+GAMBLING_ADDED = frozenset({"sportpesa.com", "msport.com", "bingoplus.com", "tippmix.hu", "skyvegas.com", "pocketoption.com", "szerencsejatek.hu", "juan365.com"})
+_ADDED = "Marked as a gambling or betting site in this project's review (it is missing from the public gambling lists)"
+
 _LISTS = {"both": "the UT1 and Blocklist Project gambling lists", "ut1": "the UT1 gambling list", "blp": "the Blocklist Project gambling list"}
 _REVIEW = "Marked as a gambling site in this project's manual review"
 
@@ -100,6 +110,8 @@ def load_gambling() -> GamblingLookup:
     domains = {}
     for d, lists, review in _read_tsv(GAMBLING_DOMAINS_PATH, "domain", "lists", "review"):
         domains[d] = f"On {_LISTS[lists]}" if lists else _REVIEW
+    for d in GAMBLING_ADDED:
+        domains.setdefault(d, _ADDED)
     platform_hosts, suffixes = {}, set()
     for h, suffix, lists in _read_tsv(GAMBLING_PLATFORM_HOSTS_PATH, "host", "platform_suffix", "lists"):
         platform_hosts[h] = f"On {_LISTS[lists]} (a page on a shared hosting platform)"

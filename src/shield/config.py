@@ -18,6 +18,10 @@ ABUSE_TLDS_PATH = _LINKS_DIR / "abuse_tlds.json"           # cited high-abuse TL
 # Live link checks (D23, D2: on by default). SHIELD_LIVE_CHECKS=0 turns every network check off ("not checked"); the offline checks still run.
 # The Safe Browsing key is read from the environment at call time (shield.links.live), never stored here.
 LIVE_CHECKS = os.environ.get("SHIELD_LIVE_CHECKS", "1") != "0"
+# The crt.sh certificate-age fallback (R8) is OFF by default: in the 2026-10-22 live evaluation crt.sh gave no usable answer for 93% of requests after two
+# retries (66 of 68 failed on the first try: HTTP 429 or timeout) and R8 never fired, so it only added delay (decision C1, docs/decisions/README.md).
+# SHIELD_CRTSH=1 turns it back on.
+CRTSH_CHECK = os.environ.get("SHIELD_CRTSH", "0") == "1"
 
 # Safety-advice cap (decision S1 once enabled; reports/otp_advisory.md): a message whose only reason for Suspicious is the text head, and which contains
 # standard "never share your OTP" advice and none of the signs of a scam wrapped around it (router.safety_advice_cap), is shown as No warning signs.

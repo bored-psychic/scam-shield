@@ -15,7 +15,7 @@ from shield.links import live
 from shield.links.lexical import load_url_model
 from shield.links.lists import LinkLists
 from shield.links.lookalike import link_domain, lookalike
-from shield.links.platforms import SHORTENERS
+from shield.links.platforms import DYNAMIC_DNS, SHORTENERS, SHORTENERS_ADDED, SITE_BUILDERS, assess_link
 from shield.messages.text_head import load_text_model
 
 # python tests/test_links_live.py   (from the project root; needs both models). Decision D23 (safe link checks). EVERY network call is answered by
@@ -250,9 +250,19 @@ def l5(m):
         crt_calls = [q for q in fake.seen if q.url.host == "crt.sh"]
         if [q.url.params["q"] for q in crt_calls]:
             bad.append(f"crt.sh asked although RDAP had a date: {[q.url.params['q'] for q in crt_calls]}")
-        r, rep = go("See https://zqxj-nodate.com/a")
+        from shield import config
+        n_crt = len([q for q in fake.seen if q.url.host == "crt.sh"])
+        r, _ = go("See https://zqxj-nodate.com/a")   # C1: the crt.sh fallback is off by default, so no RDAP date means no certificate call and no R8
+        if config.CRTSH_CHECK or r["links"][0]["flags"] or len([q for q in fake.seen if q.url.host == "crt.sh"]) != n_crt:
+            bad.append(f"crt.sh must be off by default: flags {r['links'][0]['flags']}, new crt.sh calls {len([q for q in fake.seen if q.url.host == 'crt.sh']) - n_crt}")
+        live.CACHE.clear()
+        config.CRTSH_CHECK = True
+        try:
+            r, rep = go("See https://zqxj-nodate.com/a")
+        finally:
+            config.CRTSH_CHECK = False
         if r["links"][0]["flags"] != ["R8"] or [q.url.params["q"] for q in fake.seen if q.url.host == "crt.sh"] != ["zqxj-nodate.com"]:
-            bad.append(f"no RDAP date -> crt.sh fallback: flags {r['links'][0]['flags']}")
+            bad.append(f"no RDAP date -> crt.sh fallback (switched on): flags {r['links'][0]['flags']}")
         age = fact(child(rep), "age")
         if age.value != "The registry didn't share a registration date" or age.status == "failed":
             bad.append(f"RDAP answered without a date: age row {age.value!r}, status {age.status}")
@@ -456,6 +466,25 @@ def l14(m):
             bad.append(f"pending {rep.pending} / {child(rep).pending}")
     return bad
 
+def l15(m):
+    """C1 list additions: the 2026-10-22 eval misses are now shortener / free-hosting (never an ordinary domain); every dynamic-DNS and PSL-sourced
+    site-builder entry is in the private section of the Public Suffix List bundled with tldextract."""
+    bad = []
+    for url, kind in (("https://zd.lc/roblox-profile-4545543", "shortener"), ("https://g5.lu/ztcyv", "shortener"), ("https://lnk.ink/condoserver", "shortener"),
+                      ("https://gemini.alybot.dpdns.org/", "free"), ("https://gemini.anzerio.ddns.net/", "free"), ("https://uq6189.craftum.io/", "free")):
+        a = assess_link(url)
+        if not a or a["kind"] != kind or a["level"] is not None:
+            bad.append(f"{kind} expected for {url}: {a and a['kind']}")
+    if not SHORTENERS_ADDED <= SHORTENERS:
+        bad.append("SHORTENERS_ADDED not merged into SHORTENERS")
+    import tldextract.tldextract as T
+    raw = Path(T.__file__).with_name(".tld_set_snapshot").read_text()
+    private = {l.strip() for l in raw[raw.index("===BEGIN PRIVATE DOMAINS==="):].splitlines()}
+    missing = sorted(d for d in (DYNAMIC_DNS | SITE_BUILDERS) - {"craftum.io"} if d not in private)
+    if missing:
+        bad.append(f"not in the PSL private section: {missing}")
+    return bad
+
 
 CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; mobile number / OTP keep Likely scam", l2),
           ("L3", "offline flags R3 / R5, abuse TLD note only, .bank.in P1", l3), ("L4", "blocklists R1, page-only on platforms, stale / no key", l4),
@@ -463,7 +492,8 @@ CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; m
           ("L6", "failures -> couldn't verify, never safe; the deadline holds", l6), ("L7", "net.py allowlist, no redirects, no updates", l7),
           ("L8", "no message text in any outbound request; only allowed hosts", l8), ("L9", "expand button: hops, destination never requested", l9),
           ("L10", "API live / expand fields and validation", l10), ("L11", "no domain / URL / IP / key in logs", l11),
-          ("L12", "in-memory cache", l12), ("L14", "offline call: no requests, pending marked", l14)]
+          ("L12", "in-memory cache", l12), ("L14", "offline call: no requests, pending marked", l14),
+          ("L15", "C1 list additions: eval misses are shortener / free hosting; PSL sources", l15)]
 
 
 @contextlib.contextmanager

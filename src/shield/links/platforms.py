@@ -16,6 +16,25 @@ FREE_HOSTING = {"pages.dev", "workers.dev", "vercel.app", "netlify.app", "github
                 "hf.space", "surge.sh", "ngrok.io", "ngrok-free.app", "trycloudflare.com", "azurewebsites.net", "appspot.com", "blogspot.com",
                 "wordpress.com", "weebly.com", "wixsite.com", "webflow.io", "framer.website", "carrd.co", "godaddysites.com", "000webhostapp.com",
                 "infinityfreeapp.com", "pythonanywhere.com"}
+# Additions of 2026-10-23 (reports/eval_live_links.md, decision C1): the 2026-10-22 live evaluation found phishing links on short-link services, dynamic-DNS hosts
+# and a site builder that none of the lists above knew, so they were judged as ordinary domains and rated "No warning signs". Each group says where it comes from.
+#
+#  SHORTENERS_ADDED   the first three were in the OpenPhish public feed of 2026-10-22 and were rated safe (eval_live_links.md section 6 rows 1, 2, 4). The
+#                     rest are well-known public URL-shortening services added from memory, NOT checked against a list in this session (offline task). A
+#                     maintained list exists (github.com/PeterDaveHello/url-shorteners, served from raw.githubusercontent.com, which net.UPDATE_HOSTS already
+#                     allows); wiring it into src/update_link_lists.py is a follow-up that needs a network run. Like every shortener, D3 applies: the
+#                     destination is shown only after the user presses the expand button.
+#  DYNAMIC_DNS        free sub-domain services (anyone picks a name under the provider's domain). Every entry is in the PRIVATE section of the Public Suffix
+#                     List (publicsuffix.org, the snapshot bundled with tldextract), which is the PSL's record that the domain hands out sub-domains to
+#                     independent users; `dpdns.org` is the one seen in the eval (row 3), `ddns.net` the other (row 7). Checked by tests/test_links_live.py L15.
+#  SITE_BUILDERS      page builders where anyone publishes a page under the builder's domain. `craftum.io` was seen in the eval (row 5; it is not in the PSL);
+#                     the other four are in the PSL private section (checked by L15).
+SHORTENERS_ADDED = {"zd.lc", "g5.lu", "lnk.ink", "gg.gg", "x.gd", "qrco.de", "tr.ee", "shorturl.asia", "cutt.us", "ouo.io", "kutt.it", "short.gy"}
+DYNAMIC_DNS = {"dpdns.org", "ddns.net", "duckdns.org", "hopto.org", "zapto.org", "myftp.org", "no-ip.org", "no-ip.biz", "no-ip.info", "dynu.net",
+               "3utilities.com", "sytes.net", "servebeer.com", "redirectme.net", "bounceme.net", "ddnsking.com", "dnsalias.com", "dnsalias.net", "dnsalias.org"}
+SITE_BUILDERS = {"craftum.io", "myshopify.com", "square.site", "yolasite.com", "bubbleapps.io"}
+SHORTENERS |= SHORTENERS_ADDED
+FREE_HOSTING |= DYNAMIC_DNS | SITE_BUILDERS
 CANT_VERIFY, CANT_JUDGE = "Can't verify - hidden destination", "Can't judge by domain - free hosting"
 # User-content hosts (D23): popular sites where anyone can post a page, a form, a file, a chat invite or a profile, so the site's popularity (P2)
 # and its registration facts say nothing about the page a link points to, and a blocklist entry there marks that page only. The URL model still

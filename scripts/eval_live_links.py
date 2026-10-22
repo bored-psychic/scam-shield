@@ -1,5 +1,7 @@
 """Live link checks on a fresh phishing sample: how well do the D23 link signals (src/shield/links/) catch links that are live today?
-MEASURES ONLY: no detection logic is changed. Re-runnable on a new date.
+Edition 1 (231db07) measured only. Edition 2 (2026-10-23, decision C1) re-scores the SAME sample offline after the list changes (platforms.py, gambling.py,
+crt.sh off by default) and adds the URL-model rule variants and a before/after section; the "before" numbers are read from the results CSV committed in
+231db07, so the cached replies are never re-pulled. Re-runnable on a new date.
 
     .venv/bin/python src/update_link_lists.py --only openphish urlhaus     # 1. fresh feed (the sanctioned list download, rule 8)
     .venv/bin/python scripts/eval_live_links.py                            # 2. sample + network pass (rate-limited) + report
@@ -21,7 +23,7 @@ What it does
     latency per link is reported separately from the cached first-attempt timings.
 Outputs: data/eval_live/{phish,benign,regression,results}_<date>.csv, reports/eval_live_links.md
 """
-import argparse, base64, collections, copy, csv, datetime as dt, gzip, hashlib, json, math, os, random, re, socket, subprocess, sys, threading, time
+import argparse, base64, collections, copy, csv, datetime as dt, gzip, hashlib, io, json, math, os, random, re, socket, subprocess, sys, threading, time
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -33,12 +35,14 @@ sys.path[:0] = [str(ROOT / "src")]
 import numpy as np
 import pandas as pd
 
+from shield import config
 from shield.config import LINKLISTS_DIR
 from shield.contracts import Level
 from shield.core import net, router
 from shield.core.report import to_report
 from shield.links import live as live_checks
-from shield.links.gambling import load_gambling
+from shield.core.verdict import LEVELS
+from shield.links.gambling import GAMBLING_VERDICT, load_gambling
 from shield.links.lexical import load_url_model
 from shield.links.lists import LinkLists, load_lists, warm as warm_lists
 from shield.links.lookalike import link_domain, raw_ip
@@ -57,10 +61,34 @@ OK_STATUS = {"rdap": {200, 404}, "doh": {200}, "crtsh": {200}, "sb": {200}}
 BANDS = [("top 10k", 1, 10_000), ("10k-100k", 10_001, 99_999), ("100k-1M", 100_000, 1_000_000)]
 LABEL = {Level.LIKELY_SCAM: "Likely scam", Level.SUSPICIOUS: "Suspicious", Level.NO_WARNING_SIGNS: "No warning signs", Level.CANT_JUDGE: "Can't judge"}
 VERDICTS = ["Likely scam", "Suspicious", "No warning signs", "Can't judge"]
+CJ = "Can't judge"
 SETTINGS = [("all_on", "All signals ON", dict(blocklists=True, tranco=True), "retry"),
             ("no_blocklists", "OpenPhish + URLhaus OFF", dict(blocklists=False, tranco=True), "retry"),
             ("honest", "OpenPhish + URLhaus + Tranco OFF (honest headline)", dict(blocklists=False, tranco=False), "retry"),
             ("honest_first", "Honest setting, first attempt only (no retries: as the app answers)", dict(blocklists=False, tranco=False), "first")]
+
+# URL-model rule variants (decision C2 proposal), each scored in the honest setting. They are applied by wrapping router.assess_background, so the app code
+# is not changed: after the link's background checks have run, a link the URL model scored whose checks raised no red flag is re-levelled:
+#   (a) current        nothing changes: the URL model alone can give Suspicious or Likely scam
+#   (b) cap            the URL model alone gives at most Suspicious (a red flag keeps the original level, so flag + model can still reach Likely scam)
+#   (c) weight only    the URL model alone gives nothing; with a red flag it keeps its weight (flag + a high model level still reaches Likely scam)
+# A gambling-list hit keeps its own Suspicious floor in all three. Free-hosting and shortener links are not scored by the URL model and are untouched.
+EXTRA_SETTINGS = [("honest_b", "Honest setting, variant (b): URL model alone at most Suspicious", dict(blocklists=False, tranco=False), "retry", "b"),
+                  ("honest_c", "Honest setting, variant (c): URL model alone cannot raise the verdict", dict(blocklists=False, tranco=False), "retry", "c")]
+VARIANT_ROWS = [("(a) current", "honest"), ("(b) URL model alone: at most Suspicious", "honest_b"), ("(c) URL model alone: no effect, weight only with a red flag", "honest_c")]
+BEFORE_COMMIT = "231db07"      # the first edition of this evaluation: its results CSV is the "before"
+
+def variant_hook(real, variant):
+    def hooked(l, lists, live=None, state="pending", now=None):
+        c = real(l, lists, live, state, now)
+        if variant != "a" and l["kind"] == "model" and not (c and c["flags"]):
+            if variant == "b" and (l["level"] or 0) > 1:
+                l["base_level"], l["level"], l["verdict"] = min(l["base_level"] or 0, 1), 1, LEVELS[1]
+            elif variant == "c":
+                l["base_level"] = 0
+                l["level"], l["verdict"] = (1, GAMBLING_VERDICT) if l["gambling"] else (0, "not flagged")
+        return c
+    return hooked
 
 # Regression group (gambling / spam-ad). The exact link of the reported miss ("a spam-ad link that led to a gambling site was rated safe") was never
 # supplied (BUGS.md, gambling entry), so this group is built from what the repo documents:
@@ -226,17 +254,26 @@ class NetHarness:
 
 
 class ResolveGuard:
-    """socket.getaddrinfo wrapper: logs every name the process resolves and refuses the sampled hosts."""
-    def __init__(self):
+    """socket.getaddrinfo wrapper: logs every name the process resolves and refuses the sampled hosts. With refuse_all (an --offline run) it refuses every
+    name and every socket connect, and counts them: the report states they are 0."""
+    def __init__(self, refuse_all=False):
         self.names, self.forbidden, self.orig = collections.Counter(), set(), socket.getaddrinfo
+        self.refuse_all, self.connects = refuse_all, 0
     def install(self):
         def guarded(host, *a, **k):
             h = (host.decode() if isinstance(host, bytes) else str(host or "")).lower().rstrip(".")
             self.names[h] += 1
-            if h in self.forbidden:
-                raise OSError("blocked by eval_live_links: sampled host")
+            if self.refuse_all or h in self.forbidden:
+                raise OSError("blocked by eval_live_links: " + ("offline run" if self.refuse_all else "sampled host"))
             return self.orig(host, *a, **k)
         socket.getaddrinfo = guarded
+        if self.refuse_all:
+            def no_connect(sock, *a, **k):
+                self.connects += 1
+                raise OSError("blocked by eval_live_links: offline run")
+            socket.socket.connect = no_connect
+            socket.socket.connect_ex = no_connect
+            socket.create_connection = no_connect
 
 
 # ------------------------------------------------------------------------------------------------ link-list views (ablations)
@@ -367,10 +404,12 @@ def run_all(items, text_model, url_model, harness, base, today, log):
         return out
     live_checks.run = run_wrapped
     results = {}
+    real_assess = router.assess_background
     try:
-        for sid, title, opts, mode in SETTINGS:
+        for sid, title, opts, mode, variant in [(*x, "a") for x in SETTINGS] + EXTRA_SETTINGS:
             lists_view = view(base, **opts)
             router.load_lists = lambda lv=lists_view: lv
+            router.assess_background = variant_hook(real_assess, variant)
             harness.mode = mode
             results[sid] = {}
             t0 = time.time()
@@ -390,6 +429,7 @@ def run_all(items, text_model, url_model, harness, base, today, log):
     finally:
         live_checks.run = orig_run
         router.load_lists = load_lists
+        router.assess_background = real_assess
     return results
 
 
@@ -436,7 +476,7 @@ def link_latency(harness, regs):
 
 def build_report(args, ctx):
     items, R, harness, info, guard, base = ctx["items"], ctx["results"], ctx["harness"], ctx["info"], ctx["guard"], ctx["base"]
-    S = {sid: R[sid] for sid, *_ in SETTINGS}
+    S = dict(R)
     sets = collections.defaultdict(list)
     for it in items:
         sets[it["set"]].append(it)
@@ -460,8 +500,11 @@ def build_report(args, ctx):
     gam = lambda sid: [S[sid][i["id"]]["verdict"] for i in sets["regression_domain"] if i["group"] == "gambling_unlisted"]
     gu_all, gu_h = gam("all_on"), gam("honest")
     w("# Live link checks on a fresh OpenPhish sample\n")
-    w(f"*Eval date {args.date}. Generated by `scripts/eval_live_links.py` (measure only: no detection logic was changed). "
+    w(f"*Eval date {args.date}. Generated by `scripts/eval_live_links.py`. **Edition 2 (2026-10-23, decision C1):** the same sample and the same cached replies were re-scored "
+      f"offline after the platform lists, the gambling additions and the crt.sh switch changed; edition 1 (commit {BEFORE_COMMIT}) is the \"before\" of section 9. "
       f"Sample and cached replies: `data/eval_live/`. Re-run: `.venv/bin/python scripts/eval_live_links.py --date {args.date} --offline`.*\n")
+    w(f"> **Read this first.** The \"after\" numbers were tuned on this same 96 + 200 + 22 link sample, so they are optimistic and must be confirmed on a fresh pull "
+      f"(a separate task). The URL-model variants of section 10 are also scored on it.\n")
     w("## Summary\n")
     w(f"1. **Phishing, honest setting** (OpenPhish, URLhaus and Tranco switched off): of {len(phish)} fresh OpenPhish links (one per registered domain; the feed held "
       f"only {info['phish']['unique_regs']} such domains, not 200) the app flagged {nflag} ({pct(nflag, len(phish), True)}), {nlikely} of them as Likely scam; "
@@ -496,6 +539,8 @@ def build_report(args, ctx):
     w(f"**Regression group ({len(sets['regression_domain'])} domains + {len(sets['regression_message'])} messages).** Described in section f.\n")
     w("**Not measured / not on:** Google Safe Browsing (no `SAFE_BROWSING_KEY`, so the app skips it), shortener expansion (never run), the sender rule. "
       "The URLhaus list is the 30-day export. Samples are only strings: no link was fetched, resolved or connected to (section 8).\n")
+    w(f"**crt.sh certificate-age check (R8):** {'ON (--crtsh)' if config.CRTSH_CHECK else 'OFF, the new default (decision C1)'} in this run. The cached replies of edition 1 still hold the 68 crt.sh requests "
+      "(section 8 describes them); with the check off the app sends none, so the certificate rows of section 2 are empty and R8 cannot fire.\n")
     w("**Lifted limits (so the throttle does not fake failures):** the 4 s message deadline of `live.run` is 60 s here; per-call timeout stays 2 s (`net.CALL_TIMEOUT`). "
       "RDAP / crt.sh failures were retried twice; the \"first attempt only\" row below uses the first try of every call, which is what the app does.\n")
 
@@ -539,7 +584,7 @@ def build_report(args, ctx):
 
     # ---- (b) verdict tables
     w("## 3. (b) Final verdicts, three signal settings\n")
-    w("Rows add up to the set size (checked by the script: it stops if they do not).\n")
+    w("Rows add up to the set size (checked by the script: it stops if they do not). These tables are edition 2 (current code).\n")
     for name, its in (("Phishing (all)", phish), ("Phishing, ordinary domains", own), ("Phishing, platform-hosted / shortened", plat),
                       ("Benign (all 200)", benign), ("Benign, Tranco top 10k", b10), ("Benign, Tranco 100k-1M", b100)):
         w(f"**{name}** (n = {len(its)})\n")
@@ -655,8 +700,14 @@ def build_report(args, ctx):
     w("Service failures (one row per distinct request; \"first try\" is what the app experiences, \"after 2 retries\" is what the tables above use for RDAP and crt.sh; DNS is not retried):\n")
     w(md_table(["Service", "Requests", "Failed, first try", "%", "Recovered by retry", "Failed after retries", "%", "First-try failure reasons", "Median ms", "p95 ms"], call_stats(harness, args.date)) + "\n")
 
+    # ---- before / after, variants
+    for line in before_after(args, ctx, S, phish, b10, b100, benign, sets, h):
+        w(line)
+    for line in variants_section(S, phish, own, b10, b100, benign):
+        w(line)
+
     # ---- checks
-    w("## 9. Checks\n")
+    w("## 11. Checks\n")
     cached_hosts = collections.Counter(e["host"] for e in harness.cache.values())
     attempts = collections.Counter()
     for e in harness.cache.values():
@@ -666,6 +717,12 @@ def build_report(args, ctx):
       "Read from the reply cache, so it is the same on an offline rerun: \"Requests\" = distinct requests, \"Network attempts\" = requests actually sent, retries included.\n")
     w(md_table(["Host", "Service", "Requests", "Network attempts"], [[f"`{x}`", harness.service_of(x), cached_hosts[x], attempts[x]] for x in hosts]
                + [["**Total**", "", sum(cached_hosts.values()), sum(attempts.values())]]) + "\n")
+    run_calls = collections.Counter((e["host"], e["fresh"]) for e in harness.log)
+    w(f"**This run ({'offline' if args.offline else 'online'}).** Calls the analysis made through `net.request` (every setting and variant, {len(harness.log):,} logical calls), by host and by whether the reply came from the cache "
+      f"or was sent. Cache misses: {harness.misses}. A guard on `socket.getaddrinfo`, `socket.connect` and `socket.create_connection` "
+      + ("refused every name and connection in this process: names asked " + str(sum(ctx['guard'].names.values())) + ", connect attempts " + str(ctx['guard'].connects) + ".\n" if args.offline else "refused only the sampled hosts.\n"))
+    w(md_table(["Host", "Answered from the cache", "Sent to the network"], [[f"`{x}`", run_calls.get((x, False), 0), run_calls.get((x, True), 0)] for x in sorted({k[0] for k in run_calls})]
+               + [["**Total**", sum(v for (x, f), v in run_calls.items() if not f), sum(v for (x, f), v in run_calls.items() if f)]]) + "\n")
     sampled_hosts = {link_domain(i["url"])[0] for i in items} | {i["reg"] for i in items}
     hit = sorted(set(hosts) & sampled_hosts)
     w(f"Hosts contacted that are also a sampled link's host or registered domain: **{len(hit)}** {hit or ''}. Only the registered domain was sent, to a registry (RDAP), Cloudflare DoH or crt.sh; the IP in a DNS answer was never connected to.\n")
@@ -679,6 +736,123 @@ def build_report(args, ctx):
     return "\n".join(L) + "\n"
 
 
+# ------------------------------------------------------------------------------------------------ before / after, variants
+def load_before(date):
+    """{setting: {id: row}} from the results CSV committed in BEFORE_COMMIT (edition 1)."""
+    txt = subprocess.run(["git", "show", f"{BEFORE_COMMIT}:data/eval_live/results_{date}.csv"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    df = pd.read_csv(io.StringIO(txt), keep_default_na=False)
+    out = collections.defaultdict(dict)
+    for r in df.to_dict("records"):
+        out[r["setting"]][r["id"]] = r
+    return out
+
+def fa_cell(k, n):
+    return f"{k} ({pct(k, n, True)})"
+
+def before_after(args, ctx, S, phish, b10, b100, benign, sets, h):
+    items, base = ctx["items"], ctx["base"]
+    B = load_before(args.date)
+    L = []
+    w = L.append
+    ids_ok = {i["id"] for i in items}
+    assert ids_ok == set(B[h]), "the before CSV and this sample differ"
+    bv = lambda sid, its: [B[sid][i["id"]]["verdict"] for i in its]
+    av = lambda sid, its: [S[sid][i["id"]]["verdict"] for i in its]
+    cnt = lambda vs: [vs.count(v) for v in VERDICTS]
+    flag = lambda vs: sum(v in ("Likely scam", "Suspicious") for v in vs)
+    lk = lambda vs: sum(v == "Likely scam" for v in vs)
+    ug = [i for i in sets["regression_domain"] if i["group"] == "gambling_unlisted"]
+    own = [i for i in phish if i["kind"] == "own_domain"]
+    w("## 9. Before vs after (decision C1)\n")
+    w(f"*Before* = edition 1, read from `data/eval_live/results_{args.date}.csv` as committed in `{BEFORE_COMMIT}` (replies from the same cache). *After* = this run. Same links, same cached "
+      "replies, same honest setting (OpenPhish, URLhaus and Tranco off, variant (a) = the app's rule). What changed in the code: the platform lists (short links, dynamic DNS, site builders: "
+      "`platforms.py`), the 8 gambling additions (`gambling.py`), the crt.sh check off by default. **The \"after\" numbers were tuned on this same sample and must be confirmed on a fresh pull "
+      "(a separate task); they are an upper bound on what the changes will do on new links.** The sample's `kind` column (own domain / free hosting) is the one saved at sampling time, so the groups "
+      "do not move between before and after.\n")
+    w("**Honest-setting verdicts, before and after**\n")
+    rows = []
+    for name, its in (("Phishing (n = 96)", phish), ("Benign, Tranco top 10k (n = 100)", b10), ("Benign, Tranco 100k-1M (n = 100)", b100), (f"Unlisted gambling sites (n = {len(ug)})", ug)):
+        for tag, vs in (("before", bv(h, its)), ("after", av(h, its))):
+            rows.append([name if tag == "before" else "", tag, *cnt(vs), len(vs)])
+    w(md_table(["Group", "", *VERDICTS, "Total"], rows) + "\n")
+    w("**Recall and false alarms by Tranco band, honest setting** (flagged = Suspicious or Likely scam; 95% Wilson interval; Can't judge is neither)\n")
+    rows = []
+    groups = [("Phishing, all", phish, "recall")] + [(f"Phishing, {b}", [i for i in phish if band_of(i['rank']) == b], "recall") for b in [x[0] for x in BANDS] + ["not in top 1M"]]
+    groups += [("Phishing, ordinary domains (sample-time kind)", own, "recall"), ("Benign, all", benign, "false alarm"), ("Benign, Tranco top 10k", b10, "false alarm"), ("Benign, Tranco 100k-1M", b100, "false alarm")]
+    for name, its, role in groups:
+        if not its:
+            continue
+        b_, a_ = bv(h, its), av(h, its)
+        rows.append([name, len(its), role, fa_cell(flag(b_), len(its)), fa_cell(flag(a_), len(its)), f"{lk(b_)} -> {lk(a_)}", f"{b_.count('No warning signs')} -> {a_.count('No warning signs')}",
+                     f"{b_.count(CJ)} -> {a_.count(CJ)}"])
+    w(md_table(["Group", "n", "Meaning", "Flagged before", "Flagged after", "Likely only (before -> after)", "No warning signs (before -> after)", "Can't judge (before -> after)"], rows) + "\n")
+
+    # the misses
+    miss = [i for i in phish if B[h][i["id"]]["verdict"] == "No warning signs"]
+    miss.sort(key=lambda i: (S[h][i["id"]]["url_score"] if S[h][i["id"]]["url_score"] is not None else 1.0))
+    w(f"**The {len(miss)} phishing links rated \"No warning signs\" before** (the list of section 6 in edition 1), and what the app says now:\n")
+    rows = []
+    for k, i in enumerate(miss):
+        r = S[h][i["id"]]
+        now_kind = kind_of(link_domain(i["url"])[0])
+        rows.append([k + 1, f"`{defang(i['url'])[:90]}`", i["kind"] + (" -> " + now_kind if now_kind != i["kind"] else ""), B[h][i["id"]]["verdict"], r["verdict"],
+                     ", ".join(r["flags"]) or "-"])
+    w(md_table(["#", "Link (defanged)", "Kind (sample -> now)", "Before", "After", "Flags after"], rows) + "\n")
+    after = [S[h][i["id"]]["verdict"] for i in miss]
+    n_flag, n_cj, n_ws = flag(after), after.count(CJ), after.count("No warning signs")
+    ctx["miss_after"] = (len(miss), n_flag, n_cj, n_ws)
+    w(f"Of the {len(miss)}: **{n_flag} are now flagged** (Suspicious or Likely scam), **{n_cj} are now \"Can't judge\"** (the short-link, dynamic-DNS and site-builder lists: the app says it cannot judge the "
+      f"link by its domain, which is honest but is not a catch), **{n_ws} are still \"No warning signs\"** (ordinary old domains with no signal: a compromised or purpose-bought site that the "
+      "checks cannot tell from a normal one).\n")
+
+    # ledger
+    trans = collections.defaultdict(list)
+    for i in items:
+        b_, a_ = B[h][i["id"]]["verdict"], S[h][i["id"]]["verdict"]
+        if b_ != a_:
+            trans[(b_, a_, i["set"])].append(i["id"])
+    w(f"**Every verdict that changed in the honest setting** (all {len(items)} items; unchanged items are not listed). Each change has one of three causes: platform list, gambling addition, "
+      "or (not expected) something else.\n")
+    rows = []
+    for (b_, a_, st), ids in sorted(trans.items(), key=lambda kv: -len(kv[1])):
+        causes = collections.Counter()
+        for x in ids:
+            it = next(i for i in items if i["id"] == x)
+            g = S[h][x]["gambling"]
+            causes["gambling addition" if g and not B[h][x]["gambling"] else "platform list" if kind_of(link_domain(it["url"])[0]) != it["kind"] else "other"] += 1
+        rows.append([f"{b_} -> {a_}", st, len(ids), ", ".join(f"{k} {v}" for k, v in causes.most_common())])
+    w(md_table(["Change", "Set", "Items", "Cause"], rows or [["none", "", 0, ""]]) + "\n")
+    ctx["changes_other"] = sum(int(c.split()[-1]) for r in rows for c in r[3].split(", ") if c.startswith("other"))
+    ao = [S["all_on"][i["id"]]["verdict"] for i in benign]
+    w(f"All-signals-ON run, benign (n = {len(benign)}): flagged {flag(bv('all_on', benign))} before, {flag(ao)} after.\n")
+    return L
+
+def variants_section(S, phish, own, b10, b100, benign):
+    L = []
+    w = L.append
+    w("## 10. URL-model rule variants (honest setting)\n")
+    w("The host-only URL model is the only thing that fired on 27 of the 29 benign false alarms of edition 1. Three rules for it are scored on the same links with the same cached replies "
+      "(OpenPhish, URLhaus and Tranco off, current lists). **The app still uses (a); nothing changes until the choice is made.** Applied by wrapping `router.assess_background` in this script: "
+      "a link the URL model scored and whose link checks raised no red flag is re-levelled. (b) caps its level at Suspicious; (c) sets it to nothing. With a red flag (R1-R9) the original level "
+      "is kept, so a flag plus a high model score can still reach Likely scam. A gambling-list hit keeps its Suspicious floor in all three. Free-hosting and short links are not scored by the URL model, so no variant touches them.\n")
+    rows = []
+    for name, sid in VARIANT_ROWS:
+        ph, p_own = [S[sid][i["id"]]["verdict"] for i in phish], [S[sid][i["id"]]["verdict"] for i in own]
+        f10, f100, fall = [S[sid][i["id"]]["verdict"] for i in b10], [S[sid][i["id"]]["verdict"] for i in b100], [S[sid][i["id"]]["verdict"] for i in benign]
+        fl = lambda vs: sum(v in ("Likely scam", "Suspicious") for v in vs)
+        lk = lambda vs: sum(v == "Likely scam" for v in vs)
+        rows.append([name, fa_cell(fl(ph), len(ph)), lk(ph), fa_cell(fl(p_own), len(p_own)), fa_cell(fl(f10), len(f10)), lk(f10), fa_cell(fl(f100), len(f100)), lk(f100), fa_cell(fl(fall), len(fall)), lk(fall)])
+    w(md_table(["Variant", "Phishing recall, all (96)", "Likely only", "Recall, ordinary domains (83)", "False alarms, top 10k (100)", "Likely only", "False alarms, 100k-1M (100)", "Likely only",
+                "False alarms, all benign (200)", "Likely only"], rows) + "\n")
+    a = {i["id"]: S["honest"][i["id"]]["verdict"] for i in phish}
+    c = {i["id"]: S["honest_c"][i["id"]]["verdict"] for i in phish}
+    only_model = [k for k in a if a[k] in ("Likely scam", "Suspicious") and c[k] not in ("Likely scam", "Suspicious")]
+    w(f"Phishing links flagged in (a) and not in (c), i.e. caught by the URL model alone: **{len(only_model)} of {len(phish)}**. "
+      f"Benign domains flagged in (a) and not in (c): **{sum(S['honest'][i['id']]['verdict'] in ('Likely scam', 'Suspicious') and S['honest_c'][i['id']]['verdict'] not in ('Likely scam', 'Suspicious') for i in benign)} of {len(benign)}**. "
+      "Recall, false alarms and the same figures with the intervals are computed from the same rows, so a difference of 1-2 links is inside the noise of 96 / 100 links.\n")
+    return L
+
+
 # ------------------------------------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
@@ -687,6 +861,7 @@ def main():
     ap.add_argument("--n-benign", type=int, default=200, help="in total, half per band")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--offline", action="store_true", help="never use the network: replay data/eval_live/netcache_<date>.jsonl.gz (a miss is recorded as unavailable)")
+    ap.add_argument("--crtsh", action="store_true", help="switch the crt.sh certificate-age check on for this run (off by default since decision C1)")
     ap.add_argument("--resample", action="store_true", help="redraw the samples even if the CSVs for this date exist")
     ap.add_argument("--out-dir", default=str(OUT_DIR))
     ap.add_argument("--report", default=str(REPORT))
@@ -695,6 +870,7 @@ def main():
     log = lambda s: print(s, file=sys.stderr, flush=True)
     today = dt.date.fromisoformat(args.date)
 
+    config.CRTSH_CHECK = args.crtsh or config.CRTSH_CHECK
     log("loading models and lists ...")
     text_model, url_model = load_text_model(), load_url_model()
     load_gambling()
@@ -766,7 +942,7 @@ def main():
     sampled_hosts = set()
     for i in items:
         sampled_hosts |= {link_domain(u)[0] for u in re.findall(r"https?://\S+", i["text"])} | {i["reg"]}
-    guard = ResolveGuard()
+    guard = ResolveGuard(refuse_all=args.offline)
     guard.forbidden = sampled_hosts
     guard.install()
     harness = NetHarness(out / f"netcache_{args.date}.jsonl.gz", args.offline)
@@ -779,12 +955,13 @@ def main():
 
     rl = out / f"resolved_{args.date}.json"
     resolved = collections.Counter(json.loads(rl.read_text()) if rl.exists() else {})
-    resolved.update(guard.names)                      # an offline rerun adds nothing
+    if not args.offline:
+        resolved.update(guard.names)                  # an offline rerun adds nothing (its guard refuses every name)
     rl.write_text(json.dumps(dict(sorted(resolved.items())), indent=1))
 
     # ---- results csv
     rows = []
-    for sid, title, _, _ in SETTINGS:
+    for sid in results:
         for it in items:
             r = results[sid][it["id"]]
             rows.append({"setting": sid, "set": it["set"], "id": it["id"], "group": it["group"], "url_defanged": defang(it["url"]), "kind": it["kind"],

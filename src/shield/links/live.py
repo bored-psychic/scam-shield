@@ -2,6 +2,7 @@ import base64, concurrent.futures as cf, datetime as dt, hashlib, json, os, thre
 from collections import OrderedDict
 from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
+from shield import config
 from shield.core import net
 from shield.links.lookalike import link_domain, raw_ip
 from shield.links.platforms import SHORTENERS, platform_of, suffix_match
@@ -115,7 +116,7 @@ def crtsh(reg, deadline):
 
 def registration(reg, base, deadline):
     out = {"rdap": rdap(reg, base, deadline)}
-    if not out["rdap"].get("created"):   # D2 / D23: crt.sh only when the registry gave no registration date
+    if not out["rdap"].get("created") and config.CRTSH_CHECK:   # D2 / D23: crt.sh only when the registry gave no registration date, and only when switched on (C1: off by default)
         out["crtsh"] = crtsh(reg, deadline)
     return out
 

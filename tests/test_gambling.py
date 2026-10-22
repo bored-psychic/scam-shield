@@ -7,7 +7,7 @@ from shield.api.main import app
 from shield.config import GAMBLING_DOMAINS_PATH, GAMBLING_PLATFORM_HOSTS_PATH
 from shield.contracts import Report
 from shield.core.router import analyse
-from shield.links.gambling import GAMBLING_NOT_GAMBLING, GAMBLING_PLATFORM_ROOTS, GAMBLING_VERDICT, load_gambling, registered_domain
+from shield.links.gambling import GAMBLING_ADDED, GAMBLING_NOT_GAMBLING, GAMBLING_PLATFORM_ROOTS, GAMBLING_VERDICT, load_gambling, registered_domain
 from url_features import parse_url
 
 # python tests/test_gambling.py   (from the project root; needs the two models and the lookup files from src/gambling_lookup.py)
@@ -233,6 +233,11 @@ def g20():
     return (expect("https://somebody.150m.com/", None) + expect("https://150m.com/", None) + expect("https://satta-news.150m.com/", "india_token")
             + ([] if "150m.com" in GAMBLING_PLATFORM_ROOTS and "150m.com" in load_gambling().domains else ["150m.com must be a platform root AND still on the domain list"])), ""
 
+def g21():
+    # the 8 sites BUGS.md named as missing (added 2026-10-23, decision C1): a plain URL and a www. + path URL both match by "list" with the added-site reason
+    bad = [b for d in sorted(GAMBLING_ADDED) for u in (f"https://{d}/", f"https://www.{d}/promo") for b in expect(u, "list")]
+    return bad + ([] if len(GAMBLING_ADDED) == 8 else [f"{len(GAMBLING_ADDED)} added sites, wanted 8"]), f"{len(GAMBLING_ADDED)} domains, 2 URLs each"
+
 CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com -> None (allow-listed)", g2), ("G3", "a WordPress blog -> None (platform root)", g3),
           ("G4", "the first listed platform host -> platform_host", g4), ("G5", "a Satta name on an unlisted domain -> india_token", g5),
           ("G6", "kalyanjewellers.net -> None (one weak token)", g6), ("G7", "sattaresults.gov.in -> None (exempt)", g7),
@@ -244,7 +249,8 @@ CHECKS = [("G1", "a list domain (bet365.com) -> list", g1), ("G2", "loksatta.com
           ("G17", "the 13 reviewed non-gambling domains (and www.) -> None", g17),
           ("G18", "the 9 hosting roots (8 reviewed + 150m.com): host-level only (somebody.<root> -> None unless listed)", g18),
           ("G19", "bet365.com, 1xbet.com, dpboss.tax, stake.com, fanduel.com still -> list", g19),
-          ("G20", "somebody.150m.com and 150m.com -> None (hosting root); satta-news.150m.com -> india_token", g20)]
+          ("G20", "somebody.150m.com and 150m.com -> None (hosting root); satta-news.150m.com -> india_token", g20),
+          ("G21", "the 8 BUGS.md-named sites (added 2026-10-23) -> list", g21)]
 
 def run():
     return [(gid, what, *fn()) for gid, what, fn in CHECKS]
