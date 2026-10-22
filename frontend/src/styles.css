@@ -306,7 +306,6 @@
   .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
     font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
-  .helpline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   /* "Ask someone first" (2026-10-22): a button in What to do now that opens a panel under it (a note + WhatsApp / SMS / Copy). Tokens only. */
   .ask { display: grid; gap: 8px; margin-top: 4px; justify-items: start; }
   .askbtn { font-weight: 600; }
@@ -333,11 +332,10 @@
   .callbtn:hover { background: var(--go-hover); }
   .callbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .helplink, .helpchakshu { min-height: 40px; display: inline-flex; align-items: center; }
-  .helpline { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
+  .helptext { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
   .helpsteps { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: var(--fs-body); line-height: 1.5; color: var(--ink); }
   .askactions { display: flex; flex-wrap: wrap; gap: 8px; }
   .askactions .ghost { min-height: 40px; display: inline-flex; align-items: center; }
-  .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: var(--strong-border); }
   .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }

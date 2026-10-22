@@ -5,7 +5,7 @@ from shield.contracts import Level
 ADVICE: dict[Level, list[str]] = {
     Level.LIKELY_SCAM: ["Don't reply, click the link or call back.",
                         "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-                        "If you paid or shared details, call 1930 now and tell your bank.",
+                        "If you paid or shared details, use Get help below.",
                         "Report it at cybercrime.gov.in."],
     Level.SUSPICIOUS: ["Don't click the link or share any code yet.",
                        "Contact the company through its official app or the number on your card, not the one in the message.",

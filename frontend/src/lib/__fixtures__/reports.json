@@ -373,7 +373,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -929,7 +929,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2469,7 +2469,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2557,7 +2557,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2645,7 +2645,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2733,7 +2733,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2821,7 +2821,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -2960,7 +2960,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3032,7 +3032,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3104,7 +3104,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3192,7 +3192,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3264,7 +3264,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3352,7 +3352,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3424,7 +3424,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3512,7 +3512,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3600,7 +3600,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3763,7 +3763,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -3773,7 +3773,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -3898,7 +3898,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -3986,7 +3986,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -4104,7 +4104,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -4260,7 +4260,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -4276,11 +4276,11 @@
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "pages.dev is #195 of the top 1 million, but anyone can post there",
+        "value": "pages.dev is #194 of the top 1 million, but anyone can post there",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        }
       ],
@@ -4399,7 +4399,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -4415,11 +4415,11 @@
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "pages.dev is #195 of the top 1 million, but anyone can post there",
+        "value": "pages.dev is #194 of the top 1 million, but anyone can post there",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        }
       ],
@@ -4503,7 +4503,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -4561,17 +4561,17 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "bit.ly is #117 of the top 1 million, but anyone can post there",
+        "value": "bit.ly is #115 of the top 1 million, but anyone can post there",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        }
       ],
@@ -4646,7 +4646,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -4694,7 +4694,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -4704,7 +4704,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -4862,7 +4862,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -4905,7 +4905,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -4956,7 +4956,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -4966,7 +4966,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -5103,7 +5103,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -5179,7 +5179,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -5189,7 +5189,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -5314,7 +5314,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -5455,7 +5455,7 @@
     "Don't deposit money or share payment details with betting sites or apps promoted by message.",
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -5521,17 +5521,17 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "#2,879 of the top 1 million websites",
+        "value": "#2,780 of the top 1 million websites",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -5656,7 +5656,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -5722,7 +5722,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -5732,7 +5732,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -5742,7 +5742,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -5882,7 +5882,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -5933,7 +5933,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -5943,7 +5943,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -5953,7 +5953,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -6143,7 +6143,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -6153,7 +6153,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -6163,7 +6163,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -6371,7 +6371,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -6381,7 +6381,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -6391,7 +6391,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -6598,7 +6598,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -6608,7 +6608,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -6618,7 +6618,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -6828,7 +6828,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -6838,7 +6838,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -6848,7 +6848,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -7046,7 +7046,7 @@
         "effect": "reassuring",
         "why": ".jio is a brand domain ending: under ICANN's rules only Reliance Industries Limited (and its affiliates) can register these.",
         "status": "ok",
-        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-18",
+        "source": "ICANN gTLD list (Specification 13) + IANA root zone, verified 2026-10-22",
         "sent": null
        },
        {
@@ -7056,7 +7056,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -7066,7 +7066,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -7241,7 +7241,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -7317,7 +7317,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -7327,7 +7327,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -7568,7 +7568,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -7686,7 +7686,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -7762,7 +7762,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -7772,7 +7772,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -7897,7 +7897,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -7969,7 +7969,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -8057,7 +8057,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -8145,7 +8145,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -8221,7 +8221,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
@@ -8231,7 +8231,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {
@@ -8324,7 +8324,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -8382,17 +8382,17 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "bit.ly is #117 of the top 1 million, but anyone can post there",
+        "value": "bit.ly is #115 of the top 1 million, but anyone can post there",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        }
       ],
@@ -8495,7 +8495,7 @@
    "advice": [
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [],
@@ -8671,7 +8671,7 @@
     "Don't deposit money or share payment details with betting sites or apps promoted by message.",
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now and tell your bank.",
+    "If you paid or shared details, use Get help below.",
     "Report it at cybercrime.gov.in."
    ],
    "children": [
@@ -8737,17 +8737,17 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 3 days ago; URLhaus updated 3 days ago",
+        "source": "OpenPhish updated 3 h ago; URLhaus updated 3 h ago",
         "sent": null
        },
        {
         "key": "popularity",
         "label": "Popularity",
-        "value": "#2,879 of the top 1 million websites",
+        "value": "#2,780 of the top 1 million websites",
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 3 days ago",
+        "source": "Tranco list updated 3 h ago",
         "sent": null
        },
        {

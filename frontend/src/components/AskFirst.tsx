@@ -71,7 +71,7 @@ export default function AskFirst({ level, reason, message, quotes }: Props) {
         <h4 id={`${id}-lost`} lang={langInfo.lang}>{h.lostHead}</h4>
         <a className="callbtn" href={CALL_URL} lang={langInfo.lang}>{h.call}</a>
         <a className="ghost helplink" href={CYBERCRIME_URL} target="_blank" rel="noopener noreferrer" lang={langInfo.lang}>{h.portal} <span aria-hidden="true">↗</span></a>
-        <p className="helpline" lang={langInfo.lang}>{h.hour}</p>
+        <p className="helptext" lang={langInfo.lang}>{h.hour}</p>
       </section>
     ),
     report: (
@@ -81,7 +81,7 @@ export default function AskFirst({ level, reason, message, quotes }: Props) {
           {report === "copied" ? h.copied : h.chakshu} <span aria-hidden="true">↗</span>
         </a>
         <ol className="helpsteps" lang={langInfo.lang}>{h.steps.map((t) => <li key={t}>{t}</li>)}</ol>
-        <p className="helpline" lang={langInfo.lang}>{h.reportNote}</p>
+        <p className="helptext" lang={langInfo.lang}>{h.reportNote}</p>
         <span className="sr-only" role="status" aria-live="polite">{report === "copied" ? h.copied : report === "failed" ? h.copyFailed : ""}</span>
         {report === "failed" && <p className="askreview" lang={langInfo.lang}>{h.copyFailed}</p>}
       </section>
