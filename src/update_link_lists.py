@@ -60,8 +60,15 @@ def now_utc():
 def get(url, max_bytes=300_000_000):
     """The body of url. A redirect is followed (at most 3) only to a host that is itself on net.UPDATE_HOSTS: tranco-list.eu sends the
     daily file from its own /download/ path, openphish.com's feed.txt points at OpenPhish's own GitHub mirror (openphish/public_feed)."""
+    retried = False
     for _ in range(4):
-        r = net.request(url, "update", timeout=net.UPDATE_TIMEOUT, max_bytes=max_bytes)
+        try:
+            r = net.request(url, "update", timeout=net.UPDATE_TIMEOUT, max_bytes=max_bytes)
+        except net.NetError as e:
+            if e.status not in ("bad_response", "timeout") or retried:   # a dropped connection mid-download (iptoasn's 7 MB file): once more
+                raise
+            retried = True
+            continue
         if r.status in (301, 302, 303, 307, 308) and r.headers.get("location"):
             url = urljoin(url, r.headers["location"])
             continue

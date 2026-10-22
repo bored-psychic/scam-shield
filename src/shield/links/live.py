@@ -52,7 +52,9 @@ def _left(deadline):
 
 def _date(s):
     try:
-        return dt.datetime.fromisoformat(str(s).replace("Z", "+00:00")).astimezone(dt.timezone.utc).date()
+        t = dt.datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+        # crt.sh writes "2026-10-16T00:00:00" with no zone and means UTC; astimezone() on a naive value would read it as the machine's local time
+        return (t.replace(tzinfo=dt.timezone.utc) if t.tzinfo is None else t.astimezone(dt.timezone.utc)).date()
     except (TypeError, ValueError):
         return None
 

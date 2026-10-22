@@ -42,13 +42,13 @@ describe("H2 the note", () => {
     expect(buildNote("suspicious", null, "en")).toContain("Scam Shield says: Suspicious. Please call me");
     expect(buildNote("suspicious", "  ", "en")).not.toContain("–");
   });
-  test("Hindi and Kannada notes are in their script, name the verdict and are marked as needing review", () => {
+  test("Hindi and Kannada notes are in their script, name the verdict and are signed off (NEEDS_REVIEW false)", () => {
     for (const lang of ["hi", "kn"] as const) {
       const n = buildNote("likely_scam", "It asks for your OTP", lang);
       expect(n).toMatch(lang === "hi" ? /[ऀ-ॿ]/ : /[ಀ-೿]/);
       expect(n).toContain("Scam Shield");
       expect(n).toContain("It asks for your OTP");
-      expect(NEEDS_REVIEW[lang]).toBe(true);
+      expect(NEEDS_REVIEW[lang]).toBe(false);
     }
     expect(NEEDS_REVIEW.en).toBe(false);
   });

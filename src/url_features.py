@@ -113,7 +113,7 @@ def parse_url(url, host_norm="none"):
         return "", ""
     if not host:
         return "", ""
-    reg = tld_ext(host).registered_domain or host
+    reg = tld_ext(host).top_domain_under_public_suffix or host
     return normalise_host(host, host_norm, reg), reg
 
 def host_row(url, top_tld, host_norm="none"):

@@ -31,7 +31,7 @@ def sha256(path):
     return h.hexdigest()
 
 def _reg(host):
-    return host if IP_RE.match(host) else (ext(host).registered_domain or host)
+    return host if IP_RE.match(host) else (ext(host).top_domain_under_public_suffix or host)
 
 def read_ut1(path):
     """Hosts of gambling/domains inside the UT1 tarball, read in memory (nothing is extracted to disk). A leading dot
@@ -70,7 +70,7 @@ def load_lists(raw=RAW):
         for h in hosts:
             ip = bool(IP_RE.match(h))
             reg = _reg(h)
-            rows.append((src, h, reg, (not ip) and (ext_priv(h).registered_domain or h) != reg, ip))
+            rows.append((src, h, reg, (not ip) and (ext_priv(h).top_domain_under_public_suffix or h) != reg, ip))
     info = {"ut1": ut_path, "blp": bl_path, "ut1_date": snapshot_date(ut_path), "blp_date": snapshot_date(bl_path),
             "ut1_sha256": sha256(ut_path), "blp_sha256": sha256(bl_path)}
     return pd.DataFrame(rows, columns=["src", "host", "reg", "platform", "ip"]), info

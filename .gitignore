@@ -19,3 +19,4 @@ frontend/dist/
 
 # screen recordings of bugs, never committed
 _bug_frames/
+web ss*/

@@ -16,10 +16,10 @@ export const NOTE_LANGS: { id: NoteLang; label: string; lang: string }[] = [
 /** Only a warning verdict gets the button (Suspicious, Likely scam), not No warning signs, Promotional or Can't judge. */
 export const canAskFirst = (level: Level): level is AskLevel => level === "suspicious" || level === "likely_scam";
 
-/* NEEDS REVIEW BY A NATIVE SPEAKER (Hindi and Kannada): written by the model, not yet checked. The panel says so next to the picker; remove
-   that line only after the wording is signed off. The reason is the backend's English sentence in every language (the Report has no
+/* Hindi and Kannada wording was checked by a native speaker (2026-10-22), so NEEDS_REVIEW is false for both; set a language back to true to
+   show the "not yet checked" line next to the picker again. The reason is the backend's English sentence in every language (the Report has no
    translations), so a Hindi or Kannada note carries one English clause. */
-export const NEEDS_REVIEW: Record<NoteLang, boolean> = { en: false, hi: true, kn: true };
+export const NEEDS_REVIEW: Record<NoteLang, boolean> = { en: false, hi: false, kn: false };
 
 const WORDS: Record<NoteLang, { verdict: Record<AskLevel, string>; head: string; says: string; tail: string; message: string }> = {
   en: {
@@ -33,13 +33,13 @@ const WORDS: Record<NoteLang, { verdict: Record<AskLevel, string>; head: string;
     verdict: { suspicious: "संदिग्ध", likely_scam: "स्कैम होने की संभावना अधिक" },
     head: "नमस्ते, मुझे एक मैसेज मिला है जो स्कैम हो सकता है।",
     says: "Scam Shield के अनुसार:",
-    tail: "पैसे भेजने या कुछ भी साझा करने से पहले कृपया मुझे फ़ोन करें।",
+    tail: "पैसे भेजने या कुछ भी शेयर करने से पहले कृपया मुझे फ़ोन करें।",
     message: "मैसेज:",
   },
   kn: {
     verdict: { suspicious: "ಸಂಶಯಾಸ್ಪದ", likely_scam: "ಸ್ಕ್ಯಾಮ್ ಆಗಿರುವ ಸಾಧ್ಯತೆ ಹೆಚ್ಚು" },
     head: "ನಮಸ್ಕಾರ, ನನಗೆ ಒಂದು ಸಂದೇಶ ಬಂದಿದೆ, ಅದು ಸ್ಕ್ಯಾಮ್ ಆಗಿರಬಹುದು.",
-    says: "Scam Shield ಹೇಳುವುದು:",
+    says: "Scam Shield ಪ್ರಕಾರ:",
     tail: "ನಾನು ಹಣ ಕಳುಹಿಸುವ ಅಥವಾ ಏನನ್ನಾದರೂ ಹಂಚಿಕೊಳ್ಳುವ ಮೊದಲು ದಯವಿಟ್ಟು ನನಗೆ ಕರೆ ಮಾಡಿ.",
     message: "ಸಂದೇಶ:",
   },

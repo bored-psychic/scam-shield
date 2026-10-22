@@ -68,7 +68,7 @@ os.makedirs("data/final", exist_ok=True)
 look.to_csv("data/final/gambling_domains.tsv", sep="\t", index=False)
 
 plat = G[G.platform & ~G.ip].copy()
-plat["suffix"] = [gl.ext(h).registered_domain for h in plat.host]
+plat["suffix"] = [gl.ext(h).top_domain_under_public_suffix for h in plat.host]
 ph = plat.groupby(["host", "suffix"])["src"].agg(lambda s: "both" if set(s) == {"ut1", "blp"} else s.iloc[0]).reset_index()
 ph.columns = ["host", "platform_suffix", "lists"]
 ph.sort_values("host").to_csv("data/final/gambling_platform_hosts.tsv", sep="\t", index=False)

@@ -38,7 +38,7 @@ def parse(u):
     return pd.Series({
         "scheme": s.scheme or "http",
         "host": host,
-        "reg_domain": ext(host).registered_domain or host,   # IPs fall back to host
+        "reg_domain": ext(host).top_domain_under_public_suffix or host,   # IPs fall back to host
         "has_ip": bool(IP_RE.match(host)),
         "has_path": len(s.path) > 1 or bool(s.query),
         "ext": os.path.splitext(s.path)[1].lower(),
