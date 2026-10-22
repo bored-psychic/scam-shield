@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Report } from "../types/report";
-import { buildNote, canAskFirst, defang, linkQuotes, MAX_MESSAGE_CHARS, maskPii, NEEDS_REVIEW, shareableMessage, smsUrl, whatsappUrl } from "./askFirst";
+import { buildNote, CALL_URL, canAskFirst, CHAKSHU_URL, CYBERCRIME_URL, defang, HELP, HELP_NEEDS_REVIEW, helpOrder, reportableMessage, linkQuotes, MAX_MESSAGE_CHARS, maskPii, NEEDS_REVIEW, shareableMessage, smsUrl, whatsappUrl } from "./askFirst";
 import WhatToDo from "../components/WhatToDo";
 import raw from "./__fixtures__/reports.json";
 
-// npm test. "Ask someone first" (2026-10-22).
+// npm test. "Get help" (2026-10-22).
 //   H1 only Suspicious and Likely scam get the button         H2 the default note, in three languages, and the reason's full stop
 //   H3 maskPii() agrees with src/pii.py mask_text()           H4 links in the shared message are made unclickable
 //   H5 the message is appended only when asked, and capped    H6 WhatsApp / SMS links: every character survives a decode, no number in them
@@ -20,10 +20,10 @@ describe("H1 who gets the button", () => {
   test("WhatToDo renders the button only on a warning level and only when given the message", () => {
     const ask = { reason: "It asks for your OTP", message: "m", quotes: [] };
     for (const level of ["likely_scam", "suspicious"] as const)
-      expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level={level} tip={null} ask={ask} />)).toContain("Ask someone first");
+      expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level={level} tip={null} ask={ask} />)).toContain("Get help");
     for (const level of ["no_warning_signs", "cant_judge", "promotional"] as const)
-      expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level={level} tip={null} ask={ask} />)).not.toContain("Ask someone first");
-    expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level="likely_scam" tip={null} />)).not.toContain("Ask someone first");
+      expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level={level} tip={null} ask={ask} />)).not.toContain("Get help");
+    expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level="likely_scam" tip={null} />)).not.toContain("Get help");
   });
   test("the panel is closed until the button is pressed, and the button says so", () => {
     const html = renderToStaticMarkup(<WhatToDo advice={["a"]} level="suspicious" tip={null} ask={{ reason: null, message: "m", quotes: [] }} />);
@@ -127,5 +127,36 @@ describe("H6 WhatsApp and SMS links", () => {
   test("no phone number is in either address", () => {
     expect(whatsappUrl("hi")).toBe("https://wa.me/?text=hi");
     expect(smsUrl("hi")).toBe("sms:?&body=hi");
+  });
+});
+
+describe("H7 Get help panel", () => {
+  test("section order: Likely scam lost -> report -> ask, Suspicious the reverse", () => {
+    expect(helpOrder("likely_scam")).toEqual(["lost", "report", "ask"]);
+    expect(helpOrder("suspicious")).toEqual(["ask", "report", "lost"]);
+  });
+  test("the three official links", () => {
+    expect(CALL_URL).toBe("tel:1930");
+    expect(CYBERCRIME_URL).toBe("https://cybercrime.gov.in");
+    expect(CHAKSHU_URL).toBe("https://sancharsaathi.gov.in/sfc/");
+  });
+  test("every language has every string, three steps, and HI / KN are flagged for review", () => {
+    for (const lang of ["en", "hi", "kn"] as const) {
+      const w = HELP[lang];
+      for (const v of [w.title, w.lostHead, w.call, w.portal, w.hour, w.reportHead, w.chakshu, w.reportNote, w.copied, w.copyFailed, w.askHead]) expect(v.length).toBeGreaterThan(3);
+      expect(w.steps).toHaveLength(3);
+      expect(w.call).toContain("1930");
+    }
+    expect(HELP.hi.call).toMatch(/[ऀ-ॿ]/);
+    expect(HELP.kn.call).toMatch(/[ಀ-೿]/);
+    expect(HELP_NEEDS_REVIEW).toEqual({ en: false, hi: true, kn: true });
+  });
+  test("the report message is masked and defanged, and not cut at the note's cap", () => {
+    const long = "Call 9876543210 now https://evil.example/x " + "word ".repeat(300);
+    const m = reportableMessage(long, ["https://evil.example/x"]);
+    expect(m).toContain("<PHONE>");
+    expect(m).toContain("hxxps://evil[.]example/x");
+    expect(m).not.toContain("9876543210");
+    expect(Array.from(m).length).toBeGreaterThan(MAX_MESSAGE_CHARS);
   });
 });

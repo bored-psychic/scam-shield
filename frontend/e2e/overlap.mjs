@@ -103,11 +103,11 @@ function measure() {
       }
     }
   }
-  // "Ask someone first" (2026-10-22): when its panel is open, everything inside stays in the What to do panel and nothing overlaps
+  // "Get help" (2026-10-22): when its panel is open, everything inside stays in the What to do panel and nothing overlaps
   const panel = document.querySelector(".askpanel");
   if (panel) {
     const todo = panel.closest(".box").getBoundingClientRect();
-    const kids = [...panel.querySelectorAll(".askhint, .asklang label, .askreview, .asknote, .askcheck, .askactions .ghost, .askprivacy")].filter((el) => el.getClientRects().length);
+    const kids = [...panel.querySelectorAll(".askhint, .asklang label, .askreview, .asknote, .askcheck, .askactions .ghost, .askprivacy, .helpsec h4, .callbtn, .helplink, .helpchakshu, .helpline, .helpsteps")].filter((el) => el.getClientRects().length);
     for (const el of [panel, ...kids]) {
       const r = el.getBoundingClientRect();
       if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`ask: ${el.className || el.tagName} sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
@@ -163,13 +163,20 @@ async function runCase(browser, [w, h], label, theme) {
     await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
     await check("expanded");
   } else if (label === "shortener-keywords") problems.push("the short-link button is missing");
-  // "Ask someone first": on a warning verdict open the panel, in each language, with the message included
+  // "Get help": on a warning verdict open the panel, in each language, with the message included
   const ask = page.locator("button.askbtn");
   const warn = await page.evaluate(() => /Likely scam|Suspicious/.test(document.querySelector(".vword")?.textContent ?? ""));
   if (warn !== (await ask.count() > 0)) problems.push(`ask: the button is ${warn ? "missing on" : "shown on"} a ${warn ? "warning" : "non-warning"} verdict`);
   if (warn) {
     await ask.click();
     await page.check(".askcheck input");
+    const likely = await page.evaluate(() => /Likely scam/.test(document.querySelector(".vword")?.textContent ?? ""));
+    const order = await page.$$eval(".helpsec", (els) => els.map((e) => e.className.split(" ")[1]));
+    if (order.join() !== (likely ? "helplost,helpreport,helpask" : "helpask,helpreport,helplost")) problems.push(`help: section order ${order.join()} on a ${likely ? "Likely scam" : "Suspicious"} verdict`);
+    const links = await page.evaluate(() => ({ call: document.querySelector(".callbtn")?.getAttribute("href"), chakshu: document.querySelector(".helpchakshu")?.getAttribute("href"),
+      target: document.querySelector(".helpchakshu")?.getAttribute("target"), portal: document.querySelector(".helplink")?.getAttribute("href") }));
+    if (links.call !== "tel:1930" || links.chakshu !== "https://sancharsaathi.gov.in/sfc/" || links.target !== "_blank" || links.portal !== "https://cybercrime.gov.in")
+      problems.push(`help: wrong links ${JSON.stringify(links)}`);
     for (const lang of ["English", "हिन्दी", "ಕನ್ನಡ"]) { await page.click(`.asklang label:has-text("${lang}")`); await check(`ask-${lang === "English" ? "en" : lang === "हिन्दी" ? "hi" : "kn"}`); }
   }
   await ctx.close();

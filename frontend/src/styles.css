@@ -325,6 +325,16 @@
   .asklang input:focus-visible, .askcheck input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .asknote { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); line-height: 1.6; color: var(--ink); max-width: 35em; padding: 12px 14px;
     border-radius: 12px; border: 1px solid var(--line); background: var(--glass-fill); user-select: text; }
+  .helpsec { display: grid; gap: 10px; justify-items: start; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
+  .helpsec:first-of-type { border-top: 0; padding-top: 0; }
+  .helpsec h4 { margin: 0; font: 600 var(--fs-body) var(--sans); color: var(--ink); line-height: 1.4; }
+  .callbtn { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 100%; min-height: 56px; padding: 12px 18px; border-radius: 14px;
+    font: 700 20px var(--sans); color: var(--on-ink); background: var(--ink); text-decoration: none; text-align: center; }
+  .callbtn:hover { background: var(--go-hover); }
+  .callbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .helplink, .helpchakshu { min-height: 40px; display: inline-flex; align-items: center; }
+  .helpline { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
+  .helpsteps { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: var(--fs-body); line-height: 1.5; color: var(--ink); }
   .askactions { display: flex; flex-wrap: wrap; gap: 8px; }
   .askactions .ghost { min-height: 40px; display: inline-flex; align-items: center; }
   .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */

@@ -45,6 +45,68 @@ const WORDS: Record<NoteLang, { verdict: Record<AskLevel, string>; head: string;
   },
 };
 
+/* "Get help" panel (2026-10-22): the panel around the note. Three sections: 1930 + cybercrime.gov.in (lost money / shared an OTP), report to Chakshu
+   (Sanchar Saathi), ask someone you trust (the note above). Likely scam shows them 1 -> 2 -> 3, Suspicious 3 -> 2 -> 1. NEW HINDI AND KANNADA
+   STRINGS BELOW ARE THE MODEL'S, NOT CHECKED BY A NATIVE SPEAKER: HELP_NEEDS_REVIEW is true for both and the panel says so. */
+export const HELP_NEEDS_REVIEW: Record<NoteLang, boolean> = { en: false, hi: true, kn: true };
+export const CALL_URL = "tel:1930";
+export const CYBERCRIME_URL = "https://cybercrime.gov.in";
+export const CHAKSHU_URL = "https://sancharsaathi.gov.in/sfc/";
+
+export type HelpWords = {
+  title: string; lostHead: string; call: string; portal: string; hour: string;
+  reportHead: string; chakshu: string; steps: [string, string, string]; reportNote: string; copied: string; copyFailed: string;
+  askHead: string;
+};
+export const HELP: Record<NoteLang, HelpWords> = {
+  en: {
+    title: "Get help",
+    lostHead: "Lost money or shared an OTP/PIN?",
+    call: "Call 1930 now",
+    portal: "Report on cybercrime.gov.in",
+    hour: "Call within the first hour, the bank can freeze the money.",
+    reportHead: "Report this message",
+    chakshu: "Copy message & open Chakshu",
+    steps: ["Log in with your mobile number.", "Choose the medium: SMS, WhatsApp or call.", "Paste the message."],
+    reportNote: "Scam Shield sends nothing. You submit the report yourself on the government site.",
+    copied: "Message copied", copyFailed: "Couldn't copy the message. Copy it by hand from the result.",
+    askHead: "Ask someone you trust",
+  },
+  hi: {
+    title: "मदद लें",
+    lostHead: "पैसे गँवा दिए या OTP/PIN बता दिया?",
+    call: "अभी 1930 पर कॉल करें",
+    portal: "cybercrime.gov.in पर रिपोर्ट करें",
+    hour: "पहले एक घंटे में कॉल करें, बैंक पैसे फ़्रीज़ कर सकता है।",
+    reportHead: "इस मैसेज की रिपोर्ट करें",
+    chakshu: "मैसेज कॉपी करें और चक्षु खोलें",
+    steps: ["अपने मोबाइल नंबर से लॉग इन करें।", "माध्यम चुनें: SMS, WhatsApp या कॉल।", "मैसेज पेस्ट करें।"],
+    reportNote: "Scam Shield कुछ नहीं भेजता। रिपोर्ट आप खुद सरकारी साइट पर सबमिट करते हैं।",
+    copied: "मैसेज कॉपी हो गया", copyFailed: "मैसेज कॉपी नहीं हो सका। नतीजे से हाथ से कॉपी करें।",
+    askHead: "किसी भरोसेमंद व्यक्ति से पूछें",
+  },
+  kn: {
+    title: "ಸಹಾಯ ಪಡೆಯಿರಿ",
+    lostHead: "ಹಣ ಕಳೆದುಕೊಂಡಿದ್ದೀರಾ ಅಥವಾ OTP/PIN ಹಂಚಿಕೊಂಡಿದ್ದೀರಾ?",
+    call: "ಈಗಲೇ 1930 ಗೆ ಕರೆ ಮಾಡಿ",
+    portal: "cybercrime.gov.in ನಲ್ಲಿ ವರದಿ ಮಾಡಿ",
+    hour: "ಮೊದಲ ಒಂದು ಗಂಟೆಯೊಳಗೆ ಕರೆ ಮಾಡಿ, ಬ್ಯಾಂಕ್ ಹಣವನ್ನು ಫ್ರೀಜ್ ಮಾಡಬಹುದು.",
+    reportHead: "ಈ ಸಂದೇಶವನ್ನು ವರದಿ ಮಾಡಿ",
+    chakshu: "ಸಂದೇಶ ನಕಲಿಸಿ ಮತ್ತು ಚಕ್ಷು ತೆರೆಯಿರಿ",
+    steps: ["ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಲಾಗಿನ್ ಮಾಡಿ.", "ಮಾಧ್ಯಮ ಆರಿಸಿ: SMS, WhatsApp ಅಥವಾ ಕರೆ.", "ಸಂದೇಶವನ್ನು ಪೇಸ್ಟ್ ಮಾಡಿ."],
+    reportNote: "Scam Shield ಏನನ್ನೂ ಕಳುಹಿಸುವುದಿಲ್ಲ. ವರದಿಯನ್ನು ನೀವೇ ಸರ್ಕಾರಿ ಸೈಟ್‌ನಲ್ಲಿ ಸಲ್ಲಿಸುತ್ತೀರಿ.",
+    copied: "ಸಂದೇಶ ನಕಲಾಗಿದೆ", copyFailed: "ಸಂದೇಶ ನಕಲಿಸಲಾಗಲಿಲ್ಲ. ಫಲಿತಾಂಶದಿಂದ ಕೈಯಾರೆ ನಕಲಿಸಿ.",
+    askHead: "ನಂಬಿಕಸ್ಥರನ್ನು ಕೇಳಿ",
+  },
+};
+
+/** Which sections, top to bottom: Likely scam leads with the emergency steps, Suspicious with asking someone first. */
+export const helpOrder = (level: AskLevel): ("lost" | "report" | "ask")[] =>
+  level === "likely_scam" ? ["lost", "report", "ask"] : ["ask", "report", "lost"];
+
+/** The message as the Chakshu form should get it: PII-masked and defanged like the share note, but not cut at MAX_MESSAGE_CHARS (a report wants all of it). */
+export const reportableMessage = (text: string, quotes: string[] = []): string => defang(maskPii(text.trim()), quotes);
+
 /** The most of the message that goes into a note. A WhatsApp link carries the whole note in its address, and Hindi and Kannada letters take nine
  *  characters each once percent-encoded, so an unbounded paste could exceed what a browser or app accepts. */
 export const MAX_MESSAGE_CHARS = 500;
