@@ -1,0 +1,201 @@
+id,url_defanged,reg_domain_defanged,tranco_rank,band,kind
+b001,hxxps://yandex[.]net/,yandex[.]net,84,top 10k,own_domain
+b002,hxxps://hubspot[.]com/,hubspot[.]com,256,top 10k,own_domain
+b003,hxxps://ggpht[.]com/,ggpht[.]com,284,top 10k,own_domain
+b004,hxxps://capcut[.]com/,capcut[.]com,542,top 10k,own_domain
+b005,hxxps://featureassets[.]org/,featureassets[.]org,617,top 10k,own_domain
+b006,hxxps://eeroup[.]com/,eeroup[.]com,780,top 10k,own_domain
+b007,hxxps://zpath[.]net/,zpath[.]net,872,top 10k,own_domain
+b008,hxxps://vk-analytics[.]ru/,vk-analytics[.]ru,1045,top 10k,own_domain
+b009,hxxps://starlink[.]com/,starlink[.]com,1244,top 10k,own_domain
+b010,hxxps://lookmovie2[.]to/,lookmovie2[.]to,1324,top 10k,own_domain
+b011,hxxps://cmoa[.]jp/,cmoa[.]jp,1405,top 10k,own_domain
+b012,hxxps://iltalehti[.]fi/,iltalehti[.]fi,1411,top 10k,own_domain
+b013,hxxps://nya2[.]com/,nya2[.]com,1594,top 10k,own_domain
+b014,hxxps://xvideos-ar[.]com/,xvideos-ar[.]com,1623,top 10k,own_domain
+b015,hxxps://xpaja[.]net/,xpaja[.]net,1667,top 10k,own_domain
+b016,hxxps://annunci69[.]it/,annunci69[.]it,1725,top 10k,own_domain
+b017,hxxps://va[.]gov/,va[.]gov,1857,top 10k,own_domain
+b018,hxxps://usgs[.]gov/,usgs[.]gov,1866,top 10k,own_domain
+b019,hxxps://apple[.]news/,apple[.]news,2044,top 10k,own_domain
+b020,hxxps://infocyte[.]com/,infocyte[.]com,2135,top 10k,own_domain
+b021,hxxps://kasserver[.]com/,kasserver[.]com,2275,top 10k,own_domain
+b022,hxxps://useinsider[.]com/,useinsider[.]com,2285,top 10k,own_domain
+b023,hxxps://vtb[.]ru/,vtb[.]ru,2314,top 10k,own_domain
+b024,hxxps://tvsquared[.]com/,tvsquared[.]com,2676,top 10k,own_domain
+b025,hxxps://icloud[.]com[.]cn/,icloud[.]com[.]cn,2801,top 10k,own_domain
+b026,hxxps://capitalone[.]com/,capitalone[.]com,2822,top 10k,own_domain
+b027,hxxps://cnnbrasil[.]com[.]br/,cnnbrasil[.]com[.]br,2931,top 10k,own_domain
+b028,hxxps://sedoparking[.]com/,sedoparking[.]com,2984,top 10k,own_domain
+b029,hxxps://faqs[.]org/,faqs[.]org,3110,top 10k,own_domain
+b030,hxxps://nianticlabs[.]com/,nianticlabs[.]com,3271,top 10k,own_domain
+b031,hxxps://backblaze[.]com/,backblaze[.]com,3382,top 10k,own_domain
+b032,hxxps://ibytedtos[.]com/,ibytedtos[.]com,3433,top 10k,own_domain
+b033,hxxps://code[.]org/,code[.]org,3493,top 10k,own_domain
+b034,hxxps://unl[.]edu/,unl[.]edu,3606,top 10k,own_domain
+b035,hxxps://uidapi[.]com/,uidapi[.]com,3656,top 10k,own_domain
+b036,hxxps://bayern[.]de/,bayern[.]de,3860,top 10k,own_domain
+b037,hxxps://google[.]com[.]my/,google[.]com[.]my,3985,top 10k,own_domain
+b038,hxxps://g2[.]com/,g2[.]com,4032,top 10k,own_domain
+b039,hxxps://usf[.]edu/,usf[.]edu,4276,top 10k,own_domain
+b040,hxxps://merchant-center-analytics[.]goog/,merchant-center-analytics[.]goog,4311,top 10k,own_domain
+b041,hxxps://just-eat[.]co[.]uk/,just-eat[.]co[.]uk,4363,top 10k,own_domain
+b042,hxxps://sway[.]com/,sway[.]com,4473,top 10k,own_domain
+b043,hxxps://miibeian[.]gov[.]cn/,miibeian[.]gov[.]cn,4548,top 10k,own_domain
+b044,hxxps://caissedesdepots[.]fr/,caissedesdepots[.]fr,4591,top 10k,own_domain
+b045,hxxps://boredpanda[.]com/,boredpanda[.]com,4778,top 10k,own_domain
+b046,hxxps://fastpanel[.]direct/,fastpanel[.]direct,4882,top 10k,own_domain
+b047,hxxps://bose[.]io/,bose[.]io,4970,top 10k,own_domain
+b048,hxxps://myportfolio[.]com/,myportfolio[.]com,5010,top 10k,own_domain
+b049,hxxps://samsara[.]com/,samsara[.]com,5198,top 10k,own_domain
+b050,hxxps://audiomack[.]com/,audiomack[.]com,5206,top 10k,own_domain
+b051,hxxps://appfolio[.]com/,appfolio[.]com,5434,top 10k,own_domain
+b052,hxxps://loggly[.]com/,loggly[.]com,5617,top 10k,own_domain
+b053,hxxps://xxx[.]com/,xxx[.]com,5836,top 10k,own_domain
+b054,hxxps://cqloud[.]com/,cqloud[.]com,5960,top 10k,own_domain
+b055,hxxps://thescore[.]com/,thescore[.]com,6023,top 10k,own_domain
+b056,hxxps://homeoffice[.]gov[.]uk/,homeoffice[.]gov[.]uk,6027,top 10k,own_domain
+b057,hxxps://gpo[.]gov/,gpo[.]gov,6279,top 10k,own_domain
+b058,hxxps://hostpapa[.]com/,hostpapa[.]com,6353,top 10k,own_domain
+b059,hxxps://n11[.]com/,n11[.]com,6356,top 10k,own_domain
+b060,hxxps://wistia[.]net/,wistia[.]net,6755,top 10k,own_domain
+b061,hxxps://maze[.]co/,maze[.]co,6799,top 10k,own_domain
+b062,hxxps://aidcgroup[.]net/,aidcgroup[.]net,6832,top 10k,own_domain
+b063,hxxps://theplanet[.]com/,theplanet[.]com,6894,top 10k,own_domain
+b064,hxxps://rtesvc[.]com/,rtesvc[.]com,6991,top 10k,own_domain
+b065,hxxps://poolbinance[.]com/,poolbinance[.]com,7122,top 10k,own_domain
+b066,hxxps://playbattlegrounds[.]com/,playbattlegrounds[.]com,7185,top 10k,own_domain
+b067,hxxps://lgappstv[.]com/,lgappstv[.]com,7322,top 10k,own_domain
+b068,hxxps://wtr-lab[.]com/,wtr-lab[.]com,7336,top 10k,own_domain
+b069,hxxps://bling[.]com[.]br/,bling[.]com[.]br,7459,top 10k,own_domain
+b070,hxxps://palmettostatearmory[.]com/,palmettostatearmory[.]com,7547,top 10k,own_domain
+b071,hxxps://pokemondb[.]net/,pokemondb[.]net,7612,top 10k,own_domain
+b072,hxxps://tvpixel[.]com/,tvpixel[.]com,7817,top 10k,own_domain
+b073,hxxps://papy[.]co[.]jp/,papy[.]co[.]jp,7839,top 10k,own_domain
+b074,hxxps://profesia[.]sk/,profesia[.]sk,8011,top 10k,own_domain
+b075,hxxps://intersport[.]fr/,intersport[.]fr,8139,top 10k,own_domain
+b076,hxxps://runsignup[.]com/,runsignup[.]com,8179,top 10k,own_domain
+b077,hxxps://livecamrips[.]to/,livecamrips[.]to,8257,top 10k,own_domain
+b078,hxxps://darknessporn[.]com/,darknessporn[.]com,8299,top 10k,own_domain
+b079,hxxps://fortunebusinessinsights[.]com/,fortunebusinessinsights[.]com,8445,top 10k,own_domain
+b080,hxxps://freeporno[.]xxx/,freeporno[.]xxx,8569,top 10k,own_domain
+b081,hxxps://whatwg[.]org/,whatwg[.]org,8592,top 10k,own_domain
+b082,hxxps://njav[.]com/,njav[.]com,8602,top 10k,own_domain
+b083,hxxps://ads-tinyorbit[.]com/,ads-tinyorbit[.]com,8765,top 10k,own_domain
+b084,hxxps://gnezdo[.]ru/,gnezdo[.]ru,8775,top 10k,own_domain
+b085,hxxps://unstop[.]com/,unstop[.]com,8785,top 10k,own_domain
+b086,hxxps://mintmanga[.]com/,mintmanga[.]com,8861,top 10k,own_domain
+b087,hxxps://sportal[.]bg/,sportal[.]bg,8882,top 10k,own_domain
+b088,hxxps://sfile[.]co/,sfile[.]co,8906,top 10k,own_domain
+b089,hxxps://digmawifi[.]com/,digmawifi[.]com,8917,top 10k,own_domain
+b090,hxxps://lsgkerala[.]gov[.]in/,lsgkerala[.]gov[.]in,8988,top 10k,own_domain
+b091,hxxps://toomics[.]com/,toomics[.]com,9077,top 10k,own_domain
+b092,hxxps://aafp[.]org/,aafp[.]org,9152,top 10k,own_domain
+b093,hxxps://umingle[.]com/,umingle[.]com,9269,top 10k,own_domain
+b094,hxxps://komikindo[.]ch/,komikindo[.]ch,9329,top 10k,own_domain
+b095,hxxps://pscube[.]jp/,pscube[.]jp,9539,top 10k,own_domain
+b096,hxxps://infopanel[.]jp/,infopanel[.]jp,9667,top 10k,own_domain
+b097,hxxps://locanto[.]org/,locanto[.]org,9690,top 10k,own_domain
+b098,hxxps://theweek[.]com/,theweek[.]com,9729,top 10k,own_domain
+b099,hxxps://videy[.]design/,videy[.]design,9816,top 10k,own_domain
+b100,hxxps://yenibeygir[.]com/,yenibeygir[.]com,10000,top 10k,own_domain
+b101,hxxps://totalfootballanalysis[.]com/,totalfootballanalysis[.]com,103502,100k-1M,own_domain
+b102,hxxps://gridwise[.]com[.]cn/,gridwise[.]com[.]cn,124344,100k-1M,own_domain
+b103,hxxps://mkvcinemas[.]as/,mkvcinemas[.]as,129326,100k-1M,own_domain
+b104,hxxps://toto123resmi[.]cyou/,toto123resmi[.]cyou,129813,100k-1M,own_domain
+b105,hxxps://tnews[.]co[.]th/,tnews[.]co[.]th,134758,100k-1M,own_domain
+b106,hxxps://digimon[.]net/,digimon[.]net,145007,100k-1M,own_domain
+b107,hxxps://shespeaks[.]com/,shespeaks[.]com,148406,100k-1M,own_domain
+b108,hxxps://dnsup[.]net/,dnsup[.]net,162939,100k-1M,own_domain
+b109,hxxps://gorodperm[.]ru/,gorodperm[.]ru,166925,100k-1M,own_domain
+b110,hxxps://agro-ukraine[.]com/,agro-ukraine[.]com,175212,100k-1M,own_domain
+b111,hxxps://observatoriodosfamosos[.]com[.]br/,observatoriodosfamosos[.]com[.]br,192553,100k-1M,own_domain
+b112,hxxps://webmail[.]ee/,webmail[.]ee,194752,100k-1M,own_domain
+b113,hxxps://affiliated-business[.]com/,affiliated-business[.]com,208869,100k-1M,own_domain
+b114,hxxps://casinofreak[.]com/,casinofreak[.]com,211389,100k-1M,own_domain
+b115,hxxps://letsdatascience[.]com/,letsdatascience[.]com,212505,100k-1M,own_domain
+b116,hxxps://trivago[.]com[.]co/,trivago[.]com[.]co,219447,100k-1M,own_domain
+b117,hxxps://689pgwin[.]com/,689pgwin[.]com,223144,100k-1M,own_domain
+b118,hxxps://textline[.]com/,textline[.]com,241543,100k-1M,own_domain
+b119,hxxps://dokonlin[.]online/,dokonlin[.]online,252943,100k-1M,own_domain
+b120,hxxps://bestrevie[.]ws/,bestrevie[.]ws,265245,100k-1M,own_domain
+b121,hxxps://wiiwii[.]co/,wiiwii[.]co,272691,100k-1M,own_domain
+b122,hxxps://peachandlily[.]com/,peachandlily[.]com,301138,100k-1M,own_domain
+b123,hxxps://cirquent[.]de/,cirquent[.]de,313565,100k-1M,own_domain
+b124,hxxps://communitycoffee[.]com/,communitycoffee[.]com,315072,100k-1M,own_domain
+b125,hxxps://96590[.]net/,96590[.]net,326315,100k-1M,own_domain
+b126,hxxps://maxracing[.]co/,maxracing[.]co,342389,100k-1M,own_domain
+b127,hxxps://rcservidores[.]com/,rcservidores[.]com,353834,100k-1M,own_domain
+b128,hxxps://inwebproservers[.]com/,inwebproservers[.]com,357317,100k-1M,own_domain
+b129,hxxps://interwijs[.]nl/,interwijs[.]nl,360614,100k-1M,own_domain
+b130,hxxps://span[.]app/,span[.]app,374862,100k-1M,own_domain
+b131,hxxps://macworldexpo[.]com/,macworldexpo[.]com,377970,100k-1M,own_domain
+b132,hxxps://5series[.]net/,5series[.]net,389968,100k-1M,own_domain
+b133,hxxps://ziyouz[.]com/,ziyouz[.]com,391587,100k-1M,own_domain
+b134,hxxps://freesoft-board[.]de/,freesoft-board[.]de,409122,100k-1M,own_domain
+b135,hxxps://3ecompany[.]com/,3ecompany[.]com,412222,100k-1M,own_domain
+b136,hxxps://forendors[.]cz/,forendors[.]cz,416233,100k-1M,own_domain
+b137,hxxps://slamwrestling[.]net/,slamwrestling[.]net,419098,100k-1M,own_domain
+b138,hxxps://satincrystals[.]com/,satincrystals[.]com,425466,100k-1M,own_domain
+b139,hxxps://romanticai[.]com/,romanticai[.]com,428823,100k-1M,own_domain
+b140,hxxps://xxxsex[.]best/,xxxsex[.]best,429716,100k-1M,own_domain
+b141,hxxps://actiondns[.]it/,actiondns[.]it,468310,100k-1M,own_domain
+b142,hxxps://plus[.]es/,plus[.]es,474646,100k-1M,own_domain
+b143,hxxps://roomservice360[.]com/,roomservice360[.]com,492192,100k-1M,own_domain
+b144,hxxps://raos[.]com/,raos[.]com,499497,100k-1M,own_domain
+b145,hxxps://radiatetheworld[.]com/,radiatetheworld[.]com,505952,100k-1M,own_domain
+b146,hxxps://getbuddy[.]com/,getbuddy[.]com,516927,100k-1M,own_domain
+b147,hxxps://autoparts[.]expert/,autoparts[.]expert,523906,100k-1M,own_domain
+b148,hxxps://brodownload[.]site/,brodownload[.]site,536784,100k-1M,own_domain
+b149,hxxps://qxvsoftwarecompany[.]com/,qxvsoftwarecompany[.]com,551596,100k-1M,own_domain
+b150,hxxps://artistbooks[.]de/,artistbooks[.]de,554702,100k-1M,own_domain
+b151,hxxps://franklyflawless[.]org/,franklyflawless[.]org,567321,100k-1M,own_domain
+b152,hxxps://maxbmw[.]com/,maxbmw[.]com,568311,100k-1M,own_domain
+b153,hxxps://cbsnorthstar[.]com/,cbsnorthstar[.]com,582505,100k-1M,own_domain
+b154,hxxps://actaport[.]de/,actaport[.]de,594033,100k-1M,own_domain
+b155,hxxps://dakym[.]com/,dakym[.]com,598017,100k-1M,own_domain
+b156,hxxps://mrcrack[.]xyz/,mrcrack[.]xyz,598782,100k-1M,own_domain
+b157,hxxps://enerset-shop[.]rs/,enerset-shop[.]rs,606576,100k-1M,own_domain
+b158,hxxps://horances[.]com/,horances[.]com,628403,100k-1M,own_domain
+b159,hxxps://nolabels[.]org/,nolabels[.]org,640998,100k-1M,own_domain
+b160,hxxps://legionsdk[.]com/,legionsdk[.]com,652496,100k-1M,own_domain
+b161,hxxps://leisurelands[.]nl/,leisurelands[.]nl,655220,100k-1M,own_domain
+b162,hxxps://timex[.]cz/,timex[.]cz,659730,100k-1M,own_domain
+b163,hxxps://nishohi[.]com/,nishohi[.]com,695306,100k-1M,own_domain
+b164,hxxps://dyestatpro[.]com/,dyestatpro[.]com,700525,100k-1M,own_domain
+b165,hxxps://arcdyn[.]com/,arcdyn[.]com,708084,100k-1M,own_domain
+b166,hxxps://transid[.]org/,transid[.]org,711071,100k-1M,own_domain
+b167,hxxps://kosgos[.]ru/,kosgos[.]ru,721147,100k-1M,own_domain
+b168,hxxps://wwcom[.]ch/,wwcom[.]ch,728077,100k-1M,own_domain
+b169,hxxps://hypesneakerid[.]com/,hypesneakerid[.]com,731927,100k-1M,own_domain
+b170,hxxps://norma[.]ch/,norma[.]ch,745499,100k-1M,own_domain
+b171,hxxps://daailynews[.]com/,daailynews[.]com,746307,100k-1M,own_domain
+b172,hxxps://flygo[.]com/,flygo[.]com,786579,100k-1M,own_domain
+b173,hxxps://givav[.]fr/,givav[.]fr,789628,100k-1M,own_domain
+b174,hxxps://izidok[.]id/,izidok[.]id,797488,100k-1M,own_domain
+b175,hxxps://jankariupdate[.]in/,jankariupdate[.]in,797923,100k-1M,own_domain
+b176,hxxps://javoak[.]com/,javoak[.]com,798040,100k-1M,own_domain
+b177,hxxps://kaskus800[.]biz/,kaskus800[.]biz,800479,100k-1M,own_domain
+b178,hxxps://kec[.]ac[.]in/,kec[.]ac[.]in,800734,100k-1M,own_domain
+b179,hxxps://mombelli[.]org/,mombelli[.]org,811418,100k-1M,own_domain
+b180,hxxps://pizzacooc[.]com/,pizzacooc[.]com,821501,100k-1M,own_domain
+b181,hxxps://sabadogol[.]com[.]ar/,sabadogol[.]com[.]ar,828756,100k-1M,own_domain
+b182,hxxps://sieuthinama[.]com/,sieuthinama[.]com,832173,100k-1M,own_domain
+b183,hxxps://t5j9[.]com/,t5j9[.]com,837111,100k-1M,own_domain
+b184,hxxps://vip888laos[.]online/,vip888laos[.]online,845638,100k-1M,own_domain
+b185,hxxps://xmeta[.]vn/,xmeta[.]vn,868760,100k-1M,own_domain
+b186,hxxps://meat-profi[.]ru/,meat-profi[.]ru,869334,100k-1M,own_domain
+b187,hxxps://annamatari[.]ru/,annamatari[.]ru,873417,100k-1M,own_domain
+b188,hxxps://lifeinthefastlane[.]com/,lifeinthefastlane[.]com,883452,100k-1M,own_domain
+b189,hxxps://robertet[.]com/,robertet[.]com,893119,100k-1M,own_domain
+b190,hxxps://blogbuzzecho[.]com/,blogbuzzecho[.]com,896439,100k-1M,own_domain
+b191,hxxps://vyvod-iz-zapoya-v-novorossijske3[.]ru/,vyvod-iz-zapoya-v-novorossijske3[.]ru,915280,100k-1M,own_domain
+b192,hxxps://plantanimalmineral[.]com/,plantanimalmineral[.]com,919880,100k-1M,own_domain
+b193,hxxps://amatore[.]nl/,amatore[.]nl,920707,100k-1M,own_domain
+b194,hxxps://plugged[.]host/,plugged[.]host,928071,100k-1M,own_domain
+b195,hxxps://totolink[.]vn/,totolink[.]vn,932492,100k-1M,own_domain
+b196,hxxps://josephatelier[.]de/,josephatelier[.]de,942560,100k-1M,own_domain
+b197,hxxps://dailytrailvista[.]com/,dailytrailvista[.]com,942951,100k-1M,own_domain
+b198,hxxps://fedplus[.]be/,fedplus[.]be,975442,100k-1M,own_domain
+b199,hxxps://turbospin138login11[.]shop/,turbospin138login11[.]shop,987960,100k-1M,own_domain
+b200,hxxps://win9999[.]store/,win9999[.]store,989214,100k-1M,own_domain

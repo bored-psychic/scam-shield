@@ -1,0 +1,26 @@
+id,group,text_defanged,url_defanged,reg_domain_defanged,tranco_rank,note,expected
+reg01,gambling_unlisted,hxxps://sportpesa[.]com/,hxxps://sportpesa[.]com/,sportpesa[.]com,8210,gambling_unlisted,Suspicious
+reg02,gambling_unlisted,hxxps://msport[.]com/,hxxps://msport[.]com/,msport[.]com,7713,gambling_unlisted,Suspicious
+reg03,gambling_unlisted,hxxps://bingoplus[.]com/,hxxps://bingoplus[.]com/,bingoplus[.]com,1615,gambling_unlisted,Suspicious
+reg04,gambling_unlisted,hxxps://tippmix[.]hu/,hxxps://tippmix[.]hu/,tippmix[.]hu,9857,gambling_unlisted,Suspicious
+reg05,gambling_unlisted,hxxps://skyvegas[.]com/,hxxps://skyvegas[.]com/,skyvegas[.]com,3669,gambling_unlisted,Suspicious
+reg06,gambling_unlisted,hxxps://pocketoption[.]com/,hxxps://pocketoption[.]com/,pocketoption[.]com,7924,gambling_unlisted,Suspicious
+reg07,gambling_unlisted,hxxps://szerencsejatek[.]hu/,hxxps://szerencsejatek[.]hu/,szerencsejatek[.]hu,9168,gambling_unlisted,Suspicious
+reg08,gambling_unlisted,hxxps://juan365[.]com/,hxxps://juan365[.]com/,juan365[.]com,9716,gambling_unlisted,Suspicious
+reg09,gambling_unconfirmed,hxxps://betonuzzz[.]ru/,hxxps://betonuzzz[.]ru/,betonuzzz[.]ru,,gambling_unconfirmed,Suspicious
+reg10,gambling_unconfirmed,hxxps://casino50[.]com/,hxxps://casino50[.]com/,casino50[.]com,18017,gambling_unconfirmed,Suspicious
+reg11,gambling_unconfirmed,hxxps://metabet[.]tv/,hxxps://metabet[.]tv/,metabet[.]tv,10092,gambling_unconfirmed,Suspicious
+reg12,gambling_unconfirmed,hxxps://parimatchs123[.]com/,hxxps://parimatchs123[.]com/,parimatchs123[.]com,13353,gambling_unconfirmed,Suspicious
+reg13,gambling_control,hxxps://bet365[.]com/,hxxps://bet365[.]com/,bet365[.]com,2780,gambling_control,Suspicious
+reg14,gambling_control,hxxps://1xbet[.]com/,hxxps://1xbet[.]com/,1xbet[.]com,11904,gambling_control,Suspicious
+reg15,gambling_control,hxxps://stake[.]com/,hxxps://stake[.]com/,stake[.]com,5405,gambling_control,Suspicious
+reg16,gambling_control,hxxps://dpboss[.]tax/,hxxps://dpboss[.]tax/,dpboss[.]tax,1742,gambling_control,Suspicious
+reg17,gambling_control,hxxps://betika[.]com/,hxxps://betika[.]com/,betika[.]com,1598,gambling_control,Suspicious
+reg18,gambling_control,hxxps://sportybet[.]com/,hxxps://sportybet[.]com/,sportybet[.]com,1382,gambling_control,Suspicious
+reg19,gambling_control,hxxps://ultrabet852[.]com/,hxxps://ultrabet852[.]com/,ultrabet852[.]com,,gambling_control,Suspicious
+reg20,gambling_control,hxxps://casinocashvault[.]com/,hxxps://casinocashvault[.]com/,casinocashvault[.]com,,gambling_control,Suspicious
+reg21,gambling_control,hxxps://elroyalecasinobonuses[.]com/,hxxps://elroyalecasinobonuses[.]com/,elroyalecasinobonuses[.]com,,gambling_control,Suspicious
+reg22,gambling_control,hxxps://aurealmoneycasino[.]com/,hxxps://aurealmoneycasino[.]com/,aurealmoneycasino[.]com,,gambling_control,Suspicious
+msg-listed,gambling_message,Congratulations! You have won a 500% welcome bonus on your first deposit. Play now and win big: hxxps://bet365[.]com/,hxxps://bet365[.]com/,bet365[.]com,,spam ad + listed gambling site,Suspicious
+msg-short,gambling_message,Congratulations! You have won a 500% welcome bonus on your first deposit. Play now and win big: hxxps://bit[.]ly/3Xk9Qp,hxxps://bit[.]ly/3Xk9Qp,bit[.]ly,,"spam ad + short link (destination hidden, never expanded)",Suspicious or Can't judge
+msg-unlisted,gambling_message,Congratulations! You have won a 500% welcome bonus on your first deposit. Play now and win big: hxxps://sportpesa[.]com/,hxxps://sportpesa[.]com/,sportpesa[.]com,,spam ad + gambling site missing from the lookup,Suspicious
