@@ -185,6 +185,8 @@ def _registration(res, reg, positive, today):
             facts.append(_fact("registration_length", "Paid until", f"{rd['expires']:%d %b %Y}" + (f" ({years} year{'s' if years != 1 else ''} in all)" if years else "")))
     elif rd.get("status") == "not_found":
         facts.append(_fact("age", "Registered", "The registry has no record of this name (it may have been taken down)", "unknown", sent=rd["sent"]))
+    elif rd.get("status") == "ok":   # the registry answered but gave no registration event: not a failure
+        facts.append(_fact("age", "Registered", "The registry didn't share a registration date", "unknown", sent=rd["sent"]))
     elif rd.get("status") == "unsupported":
         facts.append(_fact("age", "Registered", f"Couldn't verify (no public registry lookup for .{tld})", "unknown", status="failed"))
     else:

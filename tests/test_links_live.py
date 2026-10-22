@@ -253,6 +253,9 @@ def l5(m):
         r, rep = go("See https://zqxj-nodate.com/a")
         if r["links"][0]["flags"] != ["R8"] or [q.url.params["q"] for q in fake.seen if q.url.host == "crt.sh"] != ["zqxj-nodate.com"]:
             bad.append(f"no RDAP date -> crt.sh fallback: flags {r['links'][0]['flags']}")
+        age = fact(child(rep), "age")
+        if age.value != "The registry didn't share a registration date" or age.status == "failed":
+            bad.append(f"RDAP answered without a date: age row {age.value!r}, status {age.status}")
         r, rep = go(JIO)   # registered "1 day ago" in the fake registry: a .brand name's age is never a flag
         if r["links"][0]["flags"] or rep.level != Level.SUSPICIOUS:
             bad.append(f"Jio live: flags {r['links'][0]['flags']}, level {rep.level.value}")
