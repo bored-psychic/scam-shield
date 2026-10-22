@@ -136,11 +136,11 @@ describe("C What to do now is a numbered list", () => {
     expect(renderToStaticMarkup(<WhatToDo advice={r.advice} level={r.level} tip={null} />)).not.toContain("sendertip");
     expect(textOf(page(fx("jio-no-sender")))).toContain(SENDER_TIP);
   });
-  test("What to do now has no helpline buttons: on a warning verdict they are in Get help, on a quiet one nothing is added", () => {
+  test("What to do now has the single helpline row on a warning verdict (no copy-helpline button), and on a quiet one nothing is added", () => {
     const w = renderToStaticMarkup(<WhatToDo advice={["a"]} level="likely_scam" tip={null} />);
     expect(w).not.toContain("Copy helpline 1930");
-    expect(w).not.toContain("cybercrime.gov.in");
     expect(w).not.toContain("helptext");
+    expect(w.match(/class="helprow"/g)).toHaveLength(1);
     expect(renderToStaticMarkup(<WhatToDo advice={["a"]} level="no_warning_signs" tip={null} />)).not.toContain("helpline");
   });
 });

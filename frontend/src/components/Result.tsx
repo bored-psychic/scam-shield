@@ -10,7 +10,6 @@ import WhatToDo from "./WhatToDo";
 import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
 import { SENDER_TIP, showSenderTip } from "../lib/sender";
-import { linkQuotes } from "../lib/getHelp";
 
 type Props = {
   report: Report;
@@ -85,8 +84,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
   const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;
-  const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null}
-                       help={{ message: text, quotes: linkQuotes(report) }} />;
+  const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null} />;
   return (
     <section className="result" ref={root}>
       <div className="rtop">

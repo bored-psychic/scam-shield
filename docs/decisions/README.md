@@ -310,3 +310,11 @@ g03 ("Your Amazon order has been delivered. Rate your delivery experience in the
 - `Report.meta.models["text"]` = `muril <sha8 of model.safetensors>`. Report schema unchanged ("5").
 - Dependencies: torch 2.14.1, transformers 5.19.0, tokenizers 0.23.2, safetensors 0.8.0 in `.venv`; huggingface_hub 2.1.1 -> 1.33.0 (tokenizers 0.23.2 requires < 2), the same set as `.venv-finetune`.
 
+## U1: helpline row, Chakshu copy flow dropped (2026-10-23)
+
+Status: decided by the user, built (frontend + the Likely scam advice text).
+
+- On Suspicious and Likely scam, What to do now ends with one always-visible helpline row: label, `Call 1930` (`tel:1930`), `cybercrime.gov.in` (new tab), and a compact EN / हिंदी / ಕನ್ನಡ switch on the right (`components/Helpline.tsx`, strings in `lib/helpline.ts`). The "Get help" toggle is gone. The "call within one hour" hint is only the Call button's aria-label and title. `HELP_NEEDS_REVIEW`: Hindi true (not checked by a native speaker), Kannada false.
+- **The "Copy & report on Chakshu" flow was dropped by the user. Do not re-add it**, nor the TS PII-mask port (`maskPii`) and link defanging (`defang`) that only it used, nor "Ask someone first".
+- Backend advice (`src/shield/core/advice.py`), Likely scam: step 3 is "If you paid or shared details, call 1930 now."; the "Report it at cybercrime.gov.in." step is removed because the row has it. Suspicious never had that step. Report schema unchanged.
+

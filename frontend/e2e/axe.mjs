@@ -32,7 +32,6 @@ try {
         if (screen === "result") {
           await page.fill("#msg", jio.text); await page.click("button.go"); await page.waitForSelector(".result .vword");
           await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
-          if (await page.locator("button.askbtn").count()) await page.click("button.askbtn");
         }
         await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(600);
         const got = await page.evaluate(() => document.documentElement.dataset.theme);

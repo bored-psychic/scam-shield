@@ -306,22 +306,21 @@
   .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
     font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
-  /* "Get help" (2026-10-23): a button in What to do now that opens a panel of two compact rows (label + buttons). Tokens only. */
-  .ask { display: grid; gap: 8px; margin-top: 4px; justify-items: start; }
-  .askbtn { font-weight: 600; }
-  .askpanel { box-sizing: border-box; display: grid; gap: 10px; width: 100%; padding: 12px 14px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
-  .helprow { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; align-items: center; min-width: 0; }
-  .helprow + .helprow { border-top: 1px solid var(--line); padding-top: 10px; }
-  .helplabel { font: 500 var(--fs-label) var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  /* Helpline row (2026-10-23): the one place for 1930 / cybercrime.gov.in, under the steps in What to do now on Suspicious and Likely scam. A head line
+     (label left, EN / हिंदी / ಕನ್ನಡ switch right, wrapping if the label is long) and the two buttons below it, which also wrap. Tokens only. */
+  .helprow { box-sizing: border-box; display: grid; gap: 10px; width: 100%; min-width: 0; margin-top: 4px; padding: 12px 14px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
+  .helphead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-width: 0; }
+  .helplabel { flex: 1 1 140px; min-width: 0; font: 500 var(--fs-label)/1.35 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
+  .helplang { flex: none; display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line); }
+  .helplangbtn { box-sizing: border-box; min-width: 32px; min-height: 28px; padding: 3px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 500 13px/1.2 var(--sans); cursor: pointer; }
+  .helplangbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .helplangbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .helpbtns { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
   .callbtn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 18px; border-radius: 10px;
     font: 700 var(--fs-body) var(--sans); color: var(--on-ink); background: var(--ink); text-decoration: none; text-align: center; }
   .callbtn:hover { background: var(--go-hover); }
   .callbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .askpanel .helplink, .askpanel .helpchakshu { box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: var(--fs-body); }   /* .ghost comes later: same size 13px otherwise */
-  .helptoast { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: var(--fs-small); line-height: 1.4; color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); }
-  .helptoast.bad { color: var(--amber); }
-  @media (max-width: 640px) { .helprow { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+  .helprow .helplink { box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: var(--fs-body); text-align: start; min-width: 0; overflow-wrap: anywhere; }   /* .ghost comes later: same size 13px otherwise */
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: var(--strong-border); }
   .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
@@ -471,7 +470,7 @@
   .radar .blip { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; opacity: 0; transform: scale(.3); transition: opacity .3s, transform .45s cubic-bezier(.3,1.8,.5,1); }
   .radar .blip::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0; animation: ping 2.2s ease-out infinite; }
   @keyframes ping { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
-  .radar .lbl { position: absolute; font: 500 11px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 7px; cursor: pointer;
+  .radar .lbl { position: absolute; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 24px; font: 500 11px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 7px; cursor: pointer;   /* >= 24px tall: WCAG 2.5.8 */
     background: var(--label-fill); border: 1px solid var(--label-border); color: inherit; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, border-color .2s; }
   .radar .lbl:hover, .radar .lbl:focus-visible { border-color: currentColor; outline: none; }
   /* new: a tag with nothing to point at. Not "static": Tailwind's utility of that name would set position: static */
@@ -554,7 +553,8 @@
   .meter .knob { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--bg);
     border: 3px solid var(--ink); box-shadow: var(--knob-shadow); animation: knobin .9s cubic-bezier(.2,.8,.2,1) both; }
   @keyframes knobin { from { left: 0; } }
-  .mscale { position: relative; height: 16px; font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mscale { position: relative; height: 16px; margin-top: 6px;   /* the knob hangs 4px below the bar (22px vs 14px): the numbers start below it, at any score */
+    font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .mscale span { position: absolute; top: 0; transform: translateX(-50%); }
   .mscale span:first-child { transform: none; } .mscale span:last-child { transform: translateX(-100%); }
   .mzones { display: flex; font: 500 13px/1.25 var(--sans); color: var(--muted); }
@@ -593,9 +593,8 @@
     .steplist { gap: 8px; margin-top: 2px; }
     .steplist li { grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14.5px; line-height: 1.4; }
     .steplist li::before { width: 24px; height: 24px; font-size: 12px; }
-    .ask .askbtn { min-height: 40px; font-size: 14px; }
-    .askpanel { padding: 10px 12px; gap: 8px; }
-    .askpanel .helplink, .askpanel .helpchakshu, .callbtn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
+    .helprow { padding: 10px 12px; gap: 8px; }
+    .helprow .helplink, .callbtn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
     .helplabel { font-size: 11px; }
     .rtop { gap: 4px 10px; }
     .rmeta { font-size: 11px; }

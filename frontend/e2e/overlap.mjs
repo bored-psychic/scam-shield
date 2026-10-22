@@ -103,29 +103,54 @@ function measure() {
       }
     }
   }
-  // "Get help" (2026-10-22, two rows since 2026-10-23): when its panel is open, everything inside stays in the What to do panel and nothing overlaps;
-  // on a phone every button is 40 px or more tall and the text is 14 px or more (13.5 px for the muted toast)
-  const panel = document.querySelector(".askpanel");
-  if (panel) {
-    const todo = panel.closest(".box").getBoundingClientRect();
-    const kids = [...panel.querySelectorAll(".helplabel, .callbtn, .helplink, .helpchakshu")].filter((el) => el.getClientRects().length);
-    for (const el of [panel, ...kids]) {
+  // Helpline row (2026-10-23): always visible inside What to do now on a warning verdict; everything in it stays in the What to do panel, nothing
+  // overlaps (also with the long Hindi / Kannada labels, the page sets lang through the switch), buttons >= 40 px tall on a phone, text >= 14 px
+  const row = document.querySelector(".helprow");
+  if (row) {
+    const todo = row.closest(".box").getBoundingClientRect();
+    const kids = [...row.querySelectorAll(".helplabel, .helplangbtn, .callbtn, .helplink")].filter((el) => el.getClientRects().length);
+    for (const el of [row, ...kids]) {
       const r = el.getBoundingClientRect();
-      if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`ask: ${el.className || el.tagName} sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
-      if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) out.push(`ask: ${el.className || el.tagName} overflows (${el.scrollWidth} > ${el.clientWidth})`);
+      if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`help: ${el.className || el.tagName} sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
+      if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) out.push(`help: ${el.className || el.tagName} overflows (${el.scrollWidth} > ${el.clientWidth})`);
     }
     for (let i = 0; i < kids.length; i++)
       for (let j = i + 1; j < kids.length; j++) {
         const a = kids[i].getBoundingClientRect(), b = kids[j].getBoundingClientRect();
         if (kids[i].contains(kids[j]) || kids[j].contains(kids[i])) continue;
         const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-        if (w > 1 && h > 1) out.push(`ask: ${kids[i].className || kids[i].tagName} overlaps ${kids[j].className || kids[j].tagName}`);
+        if (w > 1 && h > 1) out.push(`help: ${kids[i].className || kids[i].tagName} overlaps ${kids[j].className || kids[j].tagName}`);
       }
-    for (const el of panel.querySelectorAll(".callbtn, .helplink, .helpchakshu")) {
+    for (const el of row.querySelectorAll(".callbtn, .helplink")) {
       const r = el.getBoundingClientRect(), fs = parseFloat(getComputedStyle(el).fontSize);
-      if (r.height < 40) out.push(`ask: ${el.className} is ${Math.round(r.height)} px tall (< 40)`);
-      if (fs < 14) out.push(`ask: ${el.className} text is ${fs}px (< 14)`);
+      if (r.height < 40) out.push(`help: ${el.className} is ${Math.round(r.height)} px tall (< 40)`);
+      if (fs < 14) out.push(`help: ${el.className} text is ${fs}px (< 14)`);
     }
+    for (const el of row.querySelectorAll(".helplangbtn")) {
+      const r = el.getBoundingClientRect();
+      if (r.height < 24 || r.width < 24) out.push(`help: switch button ${el.textContent} is ${Math.round(r.width)}x${Math.round(r.height)} px (< 24)`);
+    }
+  }
+  // Risk meter (2026-10-23): at any score the knob (moved here to 0, 1, 30, 50, 70, 99, 100) does not touch a scale number, and a number stays on the panel
+  const knob = document.querySelector(".meter .knob");
+  if (knob) {
+    const keep = knob.style.left, anim = knob.style.animation, trans = knob.style.transition;
+    knob.style.animation = "none"; knob.style.transition = "none";   // a transition on left would leave the knob where it was
+    for (const sc of [0, 1, 30, 50, 70, 99, 100]) {
+      knob.style.left = `${sc}%`;
+      const k = knob.getBoundingClientRect();
+      for (const n of document.querySelectorAll(".mscale span")) {
+        const r = n.getBoundingClientRect();
+        const w = Math.min(k.right, r.right) - Math.max(k.left, r.left), h = Math.min(k.bottom, r.bottom) - Math.max(k.top, r.top);
+        if (w > 0 && h > 0) out.push(`meter: the knob at ${sc} touches the scale number ${n.textContent}`);
+      }
+    }
+    knob.style.left = keep; knob.style.animation = anim; knob.style.transition = trans;
+  }
+  // Radar tags (2026-10-23): at least 24 px tall (WCAG 2.5.8), none sticking out of the radar's wrapper
+  for (const t of document.querySelectorAll(".radar .lbl")) {
+    const r = t.getBoundingClientRect();
+    if (r.height < 24) out.push(`radar: tag "${t.textContent}" is ${r.height.toFixed(1)} px tall (< 24)`);
   }
   return out;
 }
@@ -169,30 +194,25 @@ async function runCase(browser, [w, h], label, theme) {
     await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
     await check("expanded");
   } else if (label === "shortener-keywords") problems.push("the short-link button is missing");
-  // "Get help": on a warning verdict open the panel, check the two rows, their order, links and the copy toast
-  const ask = page.locator("button.askbtn");
+  // Helpline row: on a warning verdict it is there without any toggle, links and wording right; then switch to Hindi and Kannada and check the layout again
   const warn = await page.evaluate(() => /Likely scam|Suspicious/.test(document.querySelector(".vword")?.textContent ?? ""));
-  if (warn !== (await ask.count() > 0)) problems.push(`ask: the button is ${warn ? "missing on" : "shown on"} a ${warn ? "warning" : "non-warning"} verdict`);
+  if (warn !== (await page.locator(".helprow").count() > 0)) problems.push(`help: the row is ${warn ? "missing on" : "shown on"} a ${warn ? "warning" : "non-warning"} verdict`);
+  if (await page.locator("button.askbtn, .askpanel, .helptoast, .helpchakshu").count()) problems.push("help: a dropped element (Get help toggle / Chakshu / toast) is back");
   if (warn) {
-    await ask.click();
-    const likely = await page.evaluate(() => /Likely scam/.test(document.querySelector(".vword")?.textContent ?? ""));
-    const order = await page.$$eval(".helprow .helplabel", (els) => els.map((e) => e.textContent));
-    if (order.join() !== (likely ? "Helpline,Report scam" : "Report scam,Helpline")) problems.push(`help: row order ${order.join()} on a ${likely ? "Likely scam" : "Suspicious"} verdict`);
-    const links = await page.evaluate(() => ({ call: document.querySelector(".callbtn")?.getAttribute("href"), chakshu: document.querySelector(".helpchakshu")?.getAttribute("href"),
-      target: document.querySelector(".helpchakshu")?.getAttribute("target"), portal: document.querySelector(".helplink")?.getAttribute("href"),
-      hint: document.querySelector(".callbtn")?.getAttribute("aria-label"), paras: document.querySelectorAll(".askpanel p, .askpanel h4").length }));
-    if (links.call !== "tel:1930" || links.chakshu !== "https://sancharsaathi.gov.in/sfc/" || links.target !== "_blank" || links.portal !== "https://cybercrime.gov.in")
-      problems.push(`help: wrong links ${JSON.stringify(links)}`);
-    if (!/first hour/.test(links.hint ?? "")) problems.push("help: the Call button has no first-hour aria-label");
-    if (links.paras) problems.push(`help: ${links.paras} paragraph(s) / heading(s) in the panel, there should be none`);
-    await check("help-open");
-    // the Chakshu link would open a tab: stop it at the element (React's click handler on the root still runs), then look for the toast
-    await page.evaluate(() => document.querySelector(".helpchakshu").addEventListener("click", (e) => e.preventDefault()));
-    await page.click(".helpchakshu");
-    await page.waitForSelector(".helptoast", { timeout: 2000 }).catch(() => problems.push("help: no toast after the Chakshu click"));
-    const toast = await page.locator(".helptoast").textContent().catch(() => "");
-    if (!/^(Copied – paste it on Chakshu after logging in|Couldn't copy)/.test(toast ?? "")) problems.push(`help: toast says "${toast}"`);
-    await check("help-toast");
+    const links = await page.evaluate(() => ({ call: document.querySelector(".callbtn")?.getAttribute("href"), portal: document.querySelector(".helplink")?.getAttribute("href"),
+      target: document.querySelector(".helplink")?.getAttribute("target"), hint: document.querySelector(".callbtn")?.getAttribute("aria-label"),
+      label: document.querySelector(".helplabel")?.textContent, below: document.querySelector(".steplist").compareDocumentPosition(document.querySelector(".helprow")) & 4 }));
+    if (links.call !== "tel:1930" || links.portal !== "https://cybercrime.gov.in" || links.target !== "_blank") problems.push(`help: wrong links ${JSON.stringify(links)}`);
+    if (!/within one hour/.test(links.hint ?? "")) problems.push("help: the Call button has no one-hour aria-label");
+    if (links.label !== "Cyber crime helpline") problems.push(`help: label is "${links.label}"`);
+    if (!links.below) problems.push("help: the row is not under the steps");
+    await check("help-en");
+    for (const [name, label] of [["हिंदी", "साइबर क्राइम हेल्पलाइन"], ["ಕನ್ನಡ", "ಸೈಬರ್ ಕ್ರೈಂ ಹೆಲ್ಪ್‌ಲೈನ್"]]) {
+      await page.click(`.helplangbtn:has-text("${name}")`);
+      const got = await page.locator(".helplabel").textContent();
+      if (got !== label) problems.push(`help: ${name} label is "${got}"`);
+      await check(`help-${name}`);
+    }
   }
   await ctx.close();
   return [tag, problems];

@@ -72,8 +72,7 @@ try {
       const page = await ctx.newPage();
       await page.route("**/api/analyse", (r) => r.fulfill({ json: jio.report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
-      if (screen === "result") { await page.fill("#msg", jio.text); await page.click("button.go"); await page.waitForSelector(".result .vword"); await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
-          if (await page.locator("button.askbtn").count()) await page.click("button.askbtn"); }
+      if (screen === "result") { await page.fill("#msg", jio.text); await page.click("button.go"); await page.waitForSelector(".result .vword"); await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; })); }
       await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(800);
       const rows = await audit(page);
       const bad = rows.filter((r) => r.ratio < r.need);
