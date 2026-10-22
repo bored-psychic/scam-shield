@@ -9,11 +9,11 @@ Date 2026-10-22. No app code changed. Script: `scripts/investment_probe.py` (`bu
 ## 1. brainstorm.md fixes (done)
 
 - "77%" is now **76% of money lost, digital arrest 9%, sextortion 4%** (MHA data via [ThePrint](https://theprint.in/india/cybercrime-saw-24-spike-in-2025-indians-lost-rs-22495-crore-mainly-in-investment-scams/2859930/), Rs 22,495 cr total; I fetched it and the article says "76 percent", though its lead says "more than 75 percent"). The 77% / 8% figures stay only where they are labelled as the I4C-via-The420 basis (Rs 19,813 cr).
-- "0.24 -> 0.13" **kept, but now linked to the published paper** ([Wen et al. 2022, IJERPH](https://www.mdpi.com/1660-4601/19/14/8294)) and flagged: it is the raw fraud-case rate of the redesigned warning 1 against the existing warning, and the paper's own "62.3%" improvement does not match those rates. If you would rather not lean on it at all, delete the clause; nothing else depends on it.
+- "0.24 -> 0.13" **removed** (2026-10-22), with the rest of the Wen et al. 2022 (IJERPH) sentence in brainstorm.md: the rates do not reconcile with the paper's own "62.3%" improvement, and its qualitative point about generic warnings could not be re-verified, so no generic-forewarning claim is kept. The design rules after it rest on the other cited studies and are unchanged.
 
 ## 2. How the probe set was collected
 
-I used 14 fetches (limit ~15) plus searches. Reddit is blocked for the search tool. Result per source: 11 pages paraphrased the messages and quoted nothing (Open, iQOO, Nicobar Times, The420, Careerindia, IANS, cybershitty and others); 3 returned 403 or timed out (Newschecker, Business Standard x2, Angel One); only two gave text.
+I used 14 fetches (limit ~15) plus searches. Reddit is blocked for the search tool. Result per source: 7 pages paraphrased the messages and quoted nothing (Open, iQOO, Nicobar Times, The420, Careerindia, IANS, cybershitty); 4 failed (403 from Newschecker and two Business Standard pages, a timeout from Angel One); only two gave text.
 
 | Source | What it gave |
 |---|---|

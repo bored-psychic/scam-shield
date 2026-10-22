@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Level } from "../types/report";
+import { canAskFirst } from "../lib/askFirst";
+import AskFirst from "./AskFirst";
 
 const HELPLINE = "1930";   // the national cyber-fraud helpline
 const PORTAL = "https://cybercrime.gov.in";
 
-type Props = { advice: string[]; level: Level; tip: string | null };
+/** What "Ask someone first" needs: the top reason, the pasted text and the links in it. Without it the button is not shown. */
+export type AskInfo = { reason: string | null; message: string; quotes: string[] };
+type Props = { advice: string[]; level: Level; tip: string | null; ask?: AskInfo };
 
 /** text with every sender ID in it (JM-JIOCPN-P) kept on one line: a browser would otherwise break it at a hyphen. */
 function NoBreakIds({ text }: { text: string }) {
@@ -16,7 +20,7 @@ function NoBreakIds({ text }: { text: string }) {
    copy button). The numbers are drawn by CSS counters on a real <ol>, so assistive tech still reads a list of N steps. On a warning
    verdict also the helpline and the reporting portal. Copying uses the clipboard; where that is refused, the number is shown selected.
    tip: the "check who sent it" line (lib/sender.ts, D22), shown as a note rather than a step. */
-export default function WhatToDo({ advice, level, tip }: Props) {
+export default function WhatToDo({ advice, level, tip, ask }: Props) {
   const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
   const num = useRef<HTMLSpanElement>(null);
   const warn = level === "likely_scam" || level === "suspicious";
@@ -50,6 +54,7 @@ export default function WhatToDo({ advice, level, tip }: Props) {
         {advice.map((a, i) => <li key={i}>{a}</li>)}
       </ol>
       {tip && <p className="sendertip"><b>Tip</b><NoBreakIds text={tip} /></p>}
+      {ask && canAskFirst(level) && <AskFirst level={level} reason={ask.reason} message={ask.message} quotes={ask.quotes} />}
       {warn && (
         <div className="helpline">
           <button type="button" className="ghost" onClick={copyHelpline}>{copy === "copied" ? `Copied ${HELPLINE}` : `Copy helpline ${HELPLINE}`}</button>

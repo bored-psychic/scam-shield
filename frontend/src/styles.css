@@ -300,13 +300,33 @@
   .lblock { display: grid; gap: 6px; } .lblock + .lblock { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
   .checks { display: grid; gap: 6px; font-size: 14.5px; color: var(--muted); }
   .checks div { display: flex; gap: 8px; }
-  .todo { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .28s cubic-bezier(.2,.7,.2,1) both; }
+  .todo { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; animation: rise .45s .28s cubic-bezier(.2,.7,.2,1) both; }
   /* D24: What to do now is a numbered list (the tick boxes are gone). A real <ol>; the numbers are CSS counters. */
   .steplist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
   .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
     font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
   .helpline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  /* "Ask someone first" (2026-10-22): a button in What to do now that opens a panel under it (a note + WhatsApp / SMS / Copy). Tokens only. */
+  .ask { display: grid; gap: 8px; margin-top: 4px; justify-items: start; }
+  .askbtn { font-weight: 600; }
+  .askpanel, .asknote { box-sizing: border-box; }
+  .askpanel { display: grid; gap: 12px; width: 100%; padding: 14px 16px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
+  .askpanel p { margin: 0; }
+  .askhint, .askprivacy { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; max-width: 35em; }
+  .askreview { font-size: var(--fs-small); line-height: 1.5; color: var(--amber); }
+  .asklang { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; border: 0; min-width: 0; align-items: center; }
+  .asklang legend { float: left; padding: 0; margin-right: 4px; font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .asklang label, .askcheck { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--fs-body); line-height: 1.4; min-height: 32px; }
+  .askcheck { align-items: flex-start; }
+  .askcheck small { display: block; font-size: var(--fs-small); color: var(--muted); }
+  .asklang input, .askcheck input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; margin: 0; }
+  .askcheck input { margin-top: 2px; }
+  .asklang input:focus-visible, .askcheck input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .asknote { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-body); line-height: 1.6; color: var(--ink); max-width: 35em; padding: 12px 14px;
+    border-radius: 12px; border: 1px solid var(--line); background: var(--glass-fill); user-select: text; }
+  .askactions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .askactions .ghost { min-height: 40px; display: inline-flex; align-items: center; }
   .hlnum { font: 500 14px var(--mono); color: var(--ink); align-self: center; user-select: all; }   /* new: copy fallback */
   .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: var(--strong-border); }

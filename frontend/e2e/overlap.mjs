@@ -103,6 +103,24 @@ function measure() {
       }
     }
   }
+  // "Ask someone first" (2026-10-22): when its panel is open, everything inside stays in the What to do panel and nothing overlaps
+  const panel = document.querySelector(".askpanel");
+  if (panel) {
+    const todo = panel.closest(".box").getBoundingClientRect();
+    const kids = [...panel.querySelectorAll(".askhint, .asklang label, .askreview, .asknote, .askcheck, .askactions .ghost, .askprivacy")].filter((el) => el.getClientRects().length);
+    for (const el of [panel, ...kids]) {
+      const r = el.getBoundingClientRect();
+      if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`ask: ${el.className || el.tagName} sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
+      if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) out.push(`ask: ${el.className || el.tagName} overflows (${el.scrollWidth} > ${el.clientWidth})`);
+    }
+    for (let i = 0; i < kids.length; i++)
+      for (let j = i + 1; j < kids.length; j++) {
+        const a = kids[i].getBoundingClientRect(), b = kids[j].getBoundingClientRect();
+        if (kids[i].contains(kids[j]) || kids[j].contains(kids[i])) continue;
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 1 && h > 1) out.push(`ask: ${kids[i].className || kids[i].tagName} overlaps ${kids[j].className || kids[j].tagName}`);
+      }
+  }
   return out;
 }
 
@@ -145,6 +163,15 @@ async function runCase(browser, [w, h], label, theme) {
     await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
     await check("expanded");
   } else if (label === "shortener-keywords") problems.push("the short-link button is missing");
+  // "Ask someone first": on a warning verdict open the panel, in each language, with the message included
+  const ask = page.locator("button.askbtn");
+  const warn = await page.evaluate(() => /Likely scam|Suspicious/.test(document.querySelector(".vword")?.textContent ?? ""));
+  if (warn !== (await ask.count() > 0)) problems.push(`ask: the button is ${warn ? "missing on" : "shown on"} a ${warn ? "warning" : "non-warning"} verdict`);
+  if (warn) {
+    await ask.click();
+    await page.check(".askcheck input");
+    for (const lang of ["English", "हिन्दी", "ಕನ್ನಡ"]) { await page.click(`.asklang label:has-text("${lang}")`); await check(`ask-${lang === "English" ? "en" : lang === "हिन्दी" ? "hi" : "kn"}`); }
+  }
   await ctx.close();
   return [tag, problems];
 }

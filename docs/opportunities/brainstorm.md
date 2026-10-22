@@ -6,7 +6,7 @@ checks. Jump to "Recommendation (step 5)" for the answer._
 ## Brief (as understood)
 
 Pick the next feature for Scam Shield after the core detector (MuRIL text head + URL head + link checks + OCR input).
-Inputs: the seven research notes in `research_notes/Scam Shield next feature 2/` (written earlier on 2026-10-22) plus a small
+Inputs: the seven research notes in [`research_notes/Scam Shield next feature 2/`](research_notes/Scam%20Shield%20next%20feature%202/) (written earlier on 2026-10-22) plus a small
 number of targeted web checks (budget: about 25 fetches) to fill gaps or confirm claims that drive the ranking.
 
 Rules that constrain every idea (from `CLAUDE.md`): never visit a link from a message (rule 8), mask PII (rule 5),
@@ -208,9 +208,9 @@ staff) email warnings cut dangerous actions ~64-70%, short = detailed; embedded 
 Ho et al. 2025 (19,789 staff): training -2% at best. Jensen et al. 2024: a bank's mass awareness message had no
 measurable effect. Akesson et al. 2023 (15,888, mock bank app): risk-targeted warning + salient buttons ("cancel",
 "save for later", "call the bank") cut fraudulent payments 22% -> ~4% (-81%); plain behavioural warnings decayed
-with exposure; cost: legit payments -14 pp. Wen et al. 2022 (Alipay field A/B, ~200k flagged payments): a warning
-that names the specific trick cut the fraud case rate from 0.24 to 0.13 (raw rates as tabulated in the paper, [Wen et al. 2022, IJERPH](https://www.mdpi.com/1660-4601/19/14/8294); the paper's own '62.3%' improvement does not match them, so treat the size with care); victims had dismissed the generic warning as "not about me"
-and 12% asked the scammer about it. Prebunking in India (Jigsaw, N=4,272 field): weak, some items backfired.
+with exposure; cost: legit payments -14 pp. Prebunking in India (Jigsaw, N=4,272 field): weak, some items backfired.
+(An Alipay field A/B result, Wen et al. 2022, was removed on 2026-10-22: its numbers did not reconcile, and its qualitative
+point about generic warnings being dismissed could not be re-verified.)
 => Design rules for any new warning: specific (name the script), at the moment, with an action button that
 involves another human; avoid generic awareness content as the main lever.
 
