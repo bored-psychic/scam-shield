@@ -21,7 +21,7 @@ export default function Helpline() {
       </div>
       <div className="helpbtns" lang={tag}>
         <a className="callbtn" href={CALL_URL} aria-label={`${s.call}. ${s.hint}`} title={s.hint}>{s.call}</a>
-        <a className="ghost helplink" href={CYBERCRIME_URL} target="_blank" rel="noopener noreferrer">{s.portal} <span aria-hidden="true">↗</span></a>
+        <a className="ghost helplink" href={CYBERCRIME_URL} target="_blank" rel="noopener noreferrer"><span>{s.portal}<span className="arrow" aria-hidden="true">↗</span></span></a>
       </div>
     </div>
   );

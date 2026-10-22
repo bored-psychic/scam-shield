@@ -40,7 +40,7 @@ describe("H7 the helpline row", () => {
     const html = renderToStaticMarkup(<Helpline />);
     expect(html).toContain("Cyber crime helpline");
     expect(html).toContain(">Call 1930<");
-    expect(html).toContain("File a complaint on cybercrime.gov.in");
+    expect(html).toContain("File a complaint on cybercrime.gov.in<span class=\"arrow\"");
     expect(html).toContain('aria-label="Call 1930. If money was lost, call within one hour so the bank can hold the funds."');
     expect(html).toContain('title="If money was lost, call within one hour so the bank can hold the funds."');
     expect(html).not.toContain("Chakshu");
