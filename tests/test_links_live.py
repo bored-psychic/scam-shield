@@ -96,8 +96,10 @@ def fixture(fake=None, sb_key=None):
     lists = LinkLists(root=FIXTURES, now=NOW)
     net.add_expand_hosts(SHORTENERS)
     fake = fake or Net()
-    saved_lists, saved_key = router.load_lists, os.environ.pop("SAFE_BROWSING_KEY", None)
+    saved_lists, saved_key, saved_ab = router.load_lists, os.environ.pop("SAFE_BROWSING_KEY", None), router.assess_background
     router.load_lists = lambda: lists
+    # the fixture dates are relative to NOW; without this the registration / certificate ages used the real clock and R7 / R8 stopped firing as the days passed
+    router.assess_background = lambda l, lists_, live_=None, state="pending", now=None: saved_ab(l, lists_, live_, state, NOW)
     if sb_key:
         os.environ["SAFE_BROWSING_KEY"] = sb_key
     net.set_transport(httpx.MockTransport(fake))
@@ -106,7 +108,7 @@ def fixture(fake=None, sb_key=None):
         yield fake, lists
     finally:
         net.set_transport(None)
-        router.load_lists = saved_lists
+        router.load_lists, router.assess_background = saved_lists, saved_ab
         os.environ.pop("SAFE_BROWSING_KEY", None)
         if saved_key is not None:
             os.environ["SAFE_BROWSING_KEY"] = saved_key
@@ -485,6 +487,62 @@ def l15(m):
         bad.append(f"not in the PSL private section: {missing}")
     return bad
 
+def l16(m):
+    """C2 (b): the URL model alone stops at Suspicious; a link-check red flag keeps its Likely scam; SHIELD_URL_ALONE_MAX=2 / config restores the old
+    behaviour. xfinity-maillogin-zqxj.top is a synthetic name the URL model scores 0.973 (level 2) and no list or lookalike check knows."""
+    from shield import config
+    bad = []
+    url, text = "https://xfinity-maillogin-zqxj.top/", "Check this: https://xfinity-maillogin-zqxj.top/"
+    r = analyse(text, *m)
+    l = r["links"][0]
+    if l["kind"] != "model" or l["flags"] or l["score"] is None or l["score"] < 0.9:
+        bad.append(f"fixture URL is not a model-only high score any more: score {l['score']}, flags {l['flags']}")
+    if (l["level"], l["base_level"], l["risk_level"], r["url_level"]) != (1, 1, 1, 1) or not l.get("url_capped") or l["verdict"] != "Suspicious":
+        bad.append(f"offline, model alone: level/base/risk/url {(l['level'], l['base_level'], l['risk_level'], r['url_level'])}, capped {l.get('url_capped')}, verdict {l['verdict']}")
+    c = to_report(text, r).children[0]
+    if c.level != Level.SUSPICIOUS or not any(e.id == "model.url" and "no other check agreed" in (e.detail or "") for e in c.evidence):
+        bad.append(f"report: link {c.level.value}, model.url detail missing the cap sentence")
+    if to_report(text, r).level == Level.LIKELY_SCAM and r["text_level"] is None:
+        bad.append("link-only message reached Likely scam on the URL model alone")
+    config.URL_ALONE_MAX_LEVEL = 2
+    try:
+        r2 = analyse(text, *m)
+    finally:
+        config.URL_ALONE_MAX_LEVEL = 1
+    if r2["links"][0]["level"] != 2 or r2["level"] != 2 or r2["links"][0].get("url_capped"):
+        bad.append(f"URL_ALONE_MAX_LEVEL=2 must give the old level 2: {r2['links'][0]['level']}, message {r2['level']}")
+    with fixture(Net(created={"xfinity-maillogin-zqxj.top": days_ago(2)}, ips={"xfinity-maillogin-zqxj.top": ["192.0.2.9"]})):
+        r3_ = analyse(text, *m, live=True)
+    l3 = r3_["links"][0]
+    if l3["flags"] != ["R7"] or l3["base_level"] != 2 or l3["risk_level"] != 2 or l3.get("url_capped") or r3_["level"] != 2:
+        bad.append(f"with R7 (2 days old) the model's level 2 must stand: flags {l3['flags']}, base {l3['base_level']}, risk {l3['risk_level']}, message {r3_['level']}")
+    r4 = analyse("See https://xfinity-maillogin-zqxj.top/ and https://bit.ly/abc", *m)   # the cap touches only model links
+    if [x["kind"] for x in r4["links"]] != ["model", "shortener"] or r4["links"][1]["level"] is not None:
+        bad.append("shortener link changed by the cap")
+    return bad
+
+def l17(m):
+    """C2: the downloaded shortener list is merged (parser, exclusions), the hand-added ones stay, and a missing file changes nothing."""
+    import tempfile
+    from shield.links import platforms as P
+    bad = []
+    with tempfile.TemporaryDirectory() as d:
+        f = Path(d) / "url_shorteners.txt"
+        f.write_text("zq-short.example\nYOUTU.BE\nt.me\nibb.co\nnot a domain\n-bad.com\nmy.tinyone.xyz\n\n")
+        got = P.load_downloaded_shorteners(f)
+        if got != {"zq-short.example", "my.tinyone.xyz"}:
+            bad.append(f"parser / exclusions: {sorted(got)}")
+        if P.load_downloaded_shorteners(Path(d) / "missing.txt") != set():
+            bad.append("a missing file must give an empty set")
+    if not P.SHORTENERS_ADDED <= P.SHORTENERS or not {"bit.ly", "t.co"} <= P.SHORTENERS:
+        bad.append("hand-written shorteners lost")
+    if not P.SHORTENERS >= P.DOWNLOADED_SHORTENERS:
+        bad.append("downloaded shorteners not merged")
+    for host in ("youtu.be", "t.me", "wa.me", "dw.com", "ibb.co"):
+        if P.suffix_match(host, P.SHORTENERS) and host not in P.SHORTENERS_ADDED:
+            bad.append(f"{host} must not be a shortener")
+    return bad
+
 
 CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; mobile number / OTP keep Likely scam", l2),
           ("L3", "offline flags R3 / R5, abuse TLD note only, .bank.in P1", l3), ("L4", "blocklists R1, page-only on platforms, stale / no key", l4),
@@ -493,7 +551,8 @@ CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; m
           ("L8", "no message text in any outbound request; only allowed hosts", l8), ("L9", "expand button: hops, destination never requested", l9),
           ("L10", "API live / expand fields and validation", l10), ("L11", "no domain / URL / IP / key in logs", l11),
           ("L12", "in-memory cache", l12), ("L14", "offline call: no requests, pending marked", l14),
-          ("L15", "C1 list additions: eval misses are shortener / free hosting; PSL sources", l15)]
+          ("L15", "C1 list additions: eval misses are shortener / free hosting; PSL sources", l15),
+          ("L16", "C2 (b): URL model alone stops at Suspicious; a red flag keeps Likely scam", l16), ("L17", "C2: downloaded shortener list merged, exclusions", l17)]
 
 
 @contextlib.contextmanager

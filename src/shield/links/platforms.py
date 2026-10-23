@@ -1,5 +1,6 @@
 import re
 from urllib.parse import unquote, urlsplit
+from shield import config
 from url_features import BRANDS, SUSPICIOUS, parse_url
 
 # ---------------------------------------------------------------- risky hosting
@@ -21,9 +22,10 @@ FREE_HOSTING = {"pages.dev", "workers.dev", "vercel.app", "netlify.app", "github
 #
 #  SHORTENERS_ADDED   the first three were in the OpenPhish public feed of 2026-10-22 and were rated safe (eval_live_links.md section 6 rows 1, 2, 4). The
 #                     rest are well-known public URL-shortening services added from memory, NOT checked against a list in this session (offline task). A
-#                     maintained list exists (github.com/PeterDaveHello/url-shorteners, served from raw.githubusercontent.com, which net.UPDATE_HOSTS already
-#                     allows); wiring it into src/update_link_lists.py is a follow-up that needs a network run. Like every shortener, D3 applies: the
-#                     destination is shown only after the user presses the expand button.
+#                     maintained list exists (github.com/PeterDaveHello/url-shorteners, CC BY-SA 4.0); since 2026-10-23 (decision C2) src/update_link_lists.py
+#                     downloads it through the update path (raw.githubusercontent.com is on net.UPDATE_HOSTS) and load_downloaded_shorteners() below merges it
+#                     in, so these hand-added ones are the fallback when the file is missing and the ones the list lacks (10 of the 36 hand-listed shorteners
+#                     were not on it on 2026-10-23). Like every shortener, D3 applies: the destination is shown only after the user presses the expand button.
 #  DYNAMIC_DNS        free sub-domain services (anyone picks a name under the provider's domain). Every entry is in the PRIVATE section of the Public Suffix
 #                     List (publicsuffix.org, the snapshot bundled with tldextract), which is the PSL's record that the domain hands out sub-domains to
 #                     independent users; `dpdns.org` is the one seen in the eval (row 3), `ddns.net` the other (row 7). Checked by tests/test_links_live.py L15.
@@ -45,6 +47,25 @@ USER_CONTENT = {"t.me", "telegram.me", "wa.me", "chat.whatsapp.com", "api.whatsa
                 "linktr.ee", "instagram.com", "facebook.com", "fb.me", "youtube.com", "youtu.be", "github.com", "githubusercontent.com",
                 "gitlab.com", "medium.com", "pastebin.com", "discord.gg", "discord.com", "x.com", "twitter.com", "linkedin.com", "lnkd.in",
                 "canva.site", "my.canva.site", "typeform.com", "jotform.com", "wixstudio.com", "translate.goog", "ipfs.io"}
+
+# Entries of the downloaded shortener list that must NOT become shorteners (reviewed 2026-10-23, 1,454 entries):
+#  - a domain that is already a user-content, free-hosting, dynamic-DNS or site-builder platform (9: 1drv.ms, discord.gg, fb.me, forms.gle, lnkd.in, on.fb.me,
+#    t.me, wa.me, youtu.be). Those keep their own rule; a YouTube or WhatsApp link is not a hidden destination.
+#  - two entries in the Tranco top 10k that are whole websites, not redirectors: dw.com (a news site, listed for its dw.com/p/... short links) and ibb.co
+#    (an image host whose pages anyone can create).
+SHORTENERS_EXCLUDED = {"dw.com", "ibb.co"}
+
+def load_downloaded_shorteners(path=None):
+    """The domains in data/final/linklists/url_shorteners.txt (src/update_link_lists.py, PeterDaveHello/url-shorteners), minus the platform hosts above and
+    SHORTENERS_EXCLUDED. An empty set when the file is missing: the app then knows only the hand-written lists."""
+    path = path or config.LINKLISTS_DIR / "url_shorteners.txt"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return set()
+    plat = USER_CONTENT | FREE_HOSTING
+    return {d for d in (l.strip().lower() for l in lines) if re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,24}", d)
+            and d not in SHORTENERS_EXCLUDED and not suffix_match(d, plat) and not any(u.endswith("." + d) for u in plat)}
 
 def platform_of(host):
     """The root of the shortener, free-hosting or user-content platform host is on (e.g. "pages.dev", "docs.google.com"), or None."""
@@ -86,3 +107,6 @@ def assess_link(url):
         return {"kind": "free", "verdict": CANT_JUDGE, "level": None,
                 "note": f"{note} Subdomain `{sub or '(none)'}`: no brand or scam keyword found."}
     return None
+
+DOWNLOADED_SHORTENERS = load_downloaded_shorteners()   # merged last: it needs suffix_match; every reader looks SHORTENERS up at call time
+SHORTENERS |= DOWNLOADED_SHORTENERS

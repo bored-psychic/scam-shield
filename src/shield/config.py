@@ -22,6 +22,10 @@ LIVE_CHECKS = os.environ.get("SHIELD_LIVE_CHECKS", "1") != "0"
 # retries (66 of 68 failed on the first try: HTTP 429 or timeout) and R8 never fired, so it only added delay (decision C1, docs/decisions/README.md).
 # SHIELD_CRTSH=1 turns it back on.
 CRTSH_CHECK = os.environ.get("SHIELD_CRTSH", "0") == "1"
+# Decision C2 (2026-10-23, variant b): the host-only URL model, with no link check agreeing, may raise a link to Suspicious at most; Likely scam needs
+# link-check evidence (a red flag R1-R9). In the 2026-10-22 live evaluation the model alone fired on 27 of the 29 flagged benign domains, and 3 of them
+# reached Likely scam. 2 = the old behaviour (the scripts/eval_live_links.py variant (a) sets it for the "before" rows). SHIELD_URL_ALONE_MAX=2 restores it.
+URL_ALONE_MAX_LEVEL = int(os.environ.get("SHIELD_URL_ALONE_MAX", "1"))
 
 # Safety-advice cap (decision S1 once enabled; reports/otp_advisory.md): a message whose only reason for Suspicious is the text head, and which contains
 # standard "never share your OTP" advice and none of the signs of a scam wrapped around it (router.safety_advice_cap), is shown as No warning signs.

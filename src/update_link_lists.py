@@ -27,6 +27,7 @@ OPENPHISH_URL = "https://openphish.com/feed.txt"
 URLHAUS_URL = "https://urlhaus-api.abuse.ch/v2/files/exports/{key}/recent.csv"   # URLs added in the past 30 days (abuse.ch export)
 RDAP_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
 IP2ASN_URL = "https://iptoasn.com/data/ip2asn-v4.tsv.gz"
+SHORTENERS_URL = "https://raw.githubusercontent.com/PeterDaveHello/url-shorteners/master/list"   # one domain per line, community-maintained
 ICANN_GTLDS_URL = "https://www.icann.org/resources/registries/gtlds/v2/gtlds.json"
 IANA_TLDS_URL = "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
 IANA_ROOT_DB = "https://www.iana.org/domains/root/db/{tld}.html"
@@ -38,6 +39,7 @@ LICENCE = {
                  "no redistribution without written permission.",
     "urlhaus": "abuse.ch fair-use terms, free with an Auth-Key (free account); commercial use may need a paid plan.",
     "rdap_bootstrap": "IANA RDAP bootstrap registry (RFC 9224), public.",
+    "shorteners": "PeterDaveHello/url-shorteners (github.com/PeterDaveHello/url-shorteners), CC BY-SA 4.0 (its LICENSE file): credit the repository; the file is not redistributed (git-ignored).",
     "ip2asn": "iptoasn.com, Public Domain Dedication and License (PDDL) 1.0.",
 }
 
@@ -53,6 +55,8 @@ BRAND_TLD_CANDIDATES = [
     ("netflix", "Netflix", "Netflix"), ("flipkart", "Flipkart", "Flipkart"), ("lic", "LIC", "Life Insurance Corporation"),
 ]
 
+
+DOMAIN_RX = re.compile(r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,24}$")
 
 def now_utc():
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
@@ -118,6 +122,14 @@ def pull_rdap(manifest):
     services = json.loads(data)["services"]
     save("rdap_bootstrap", "rdap_dns.json", data, RDAP_BOOTSTRAP_URL, sum(len(s[0]) for s in services), manifest)
 
+def pull_shorteners(manifest):
+    """The maintained list of URL-shortening domains (decision C2). Only lines that look like a bare domain are kept; shield.links.platforms merges
+    the file into SHORTENERS at import (the hand-added SHORTENERS_ADDED stay), dropping any domain that is a user-content, free-hosting or
+    dynamic-DNS platform. Short links stay under D3: nothing is expanded except on the user's button press."""
+    data = get(SHORTENERS_URL, max_bytes=5_000_000)
+    ok = [l.strip().lower() for l in data.decode("utf-8", "replace").splitlines() if DOMAIN_RX.match(l.strip().lower())]
+    save("shorteners", "url_shorteners.txt", ("\n".join(sorted(set(ok))) + "\n").encode(), SHORTENERS_URL, len(set(ok)), manifest)
+
 def pull_ip2asn(manifest):
     data = get(IP2ASN_URL, max_bytes=100_000_000)
     save("ip2asn", "ip2asn-v4.tsv.gz", data, IP2ASN_URL, gzip.decompress(data).count(b"\n"), manifest)
@@ -165,7 +177,8 @@ def verify_brand_tlds():
         print(f"    dropped .{tld}: {why}")
 
 
-STEPS = {"tranco": pull_tranco, "openphish": pull_openphish, "urlhaus": pull_urlhaus, "rdap_bootstrap": pull_rdap, "ip2asn": pull_ip2asn}
+STEPS = {"tranco": pull_tranco, "openphish": pull_openphish, "urlhaus": pull_urlhaus, "rdap_bootstrap": pull_rdap, "ip2asn": pull_ip2asn,
+         "shorteners": pull_shorteners}
 
 
 def main():

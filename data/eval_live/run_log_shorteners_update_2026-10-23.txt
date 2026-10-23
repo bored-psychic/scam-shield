@@ -1,0 +1,12 @@
+start 2026-10-23T00:18:42Z
+  shorteners: 1,454 rows -> url_shorteners.txt
+exit 0
+LICENSE status 200
+Attribution-ShareAlike 4.0 International
+
+=======================================================================
+
+Creative Commons Corporation ("Creative Commons") is not a law firm and
+does not provide legal services or legal advice. Distribution of
+Creative Commons public licenses does not create
+end 2026-10-23T00:18:43Z

@@ -132,7 +132,8 @@ def g10():
     want(f"text Likely scam + gambling link: level {r['level']}, wanted 2 (the floor never lowers)", r["level"] == 2)
     r = run_pair("Welcome back, see your balance here: " + URL_GAMBLING, 0.1, {URL_GAMBLING: 2})
     l = r["links"][0]
-    want(f"URL model at 2 on a gambling domain: level {r['level']} verdict {l['verdict']!r}; wanted 2 / 'Likely scam'", r["level"] == 2 and l["verdict"] == "Likely scam")
+    want(f"URL model at 2 on a gambling domain: level {r['level']} verdict {l['verdict']!r} model_level {l['model_level']}; wanted 1 / 'Suspicious' (C2: the model alone stops at Suspicious), model_level 2",
+         r["level"] == 1 and l["verdict"] == "Suspicious" and l["model_level"] == 2)
     r = run_pair("Free bonus here https://bit.ly/bet365", 0.1, {})
     want(f"a shortener is never looked up: gambling {r['links'][0]['gambling']}, level {r['level']}", r["links"][0]["gambling"] is None and r["level"] == 0)
     r = run_pair("Hello, how are you today my friend", 0.1, {})

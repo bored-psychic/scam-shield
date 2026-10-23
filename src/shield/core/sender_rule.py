@@ -34,6 +34,8 @@ PAYMENT_DEMAND_CUES = frozenset({"processing fee", "registration fee", "customs 
 #   pin_to_receive  r["pin_to_receive"]    rule R2 (rules.pin_to_receive)
 #   phishing_link   a link the URL model rates at its scam level: kind "model", base_level 2 (Likely scam, the model's threshold_high); since D23
 #                   not a link with a positive background check (P1 / P2: its known owner overrides the model's guess from the host string)
+#                   read from l["model_level"], the model's own level before the C2 cap (2026-10-23: the URL model alone now stops at Suspicious in the
+#                   verdict), so a P-sender message with such a link is still not softened, as before C2
 #   link_red_flag   D23: a link with a red flag R1-R9 (on a phishing list, Safe Browsing, look-alike letters, a brand lookalike name, a raw IP,
 #                   a server shared with listed scam hosts, registered < 30 days ago, a first certificate < 7 days old)
 #   lookalike_link  a free-hosted link with a brand or scam word in its name: kind "free", base_level 1 (platforms.assess_link). Free-hosted links
@@ -67,7 +69,7 @@ def hard_risks(text, r):
     return [key for key, hit in (
         ("otp_request", bool(r["cred_request"])),
         ("pin_to_receive", bool(r["pin_to_receive"])),
-        ("phishing_link", any(l["kind"] == "model" and l["base_level"] == 2 and l.get("positive") not in ("p1", "p2") for l in links)),
+        ("phishing_link", any(l["kind"] == "model" and l.get("model_level", l["base_level"]) == 2 and l.get("positive") not in ("p1", "p2") for l in links)),
         ("link_red_flag", any(l.get("flags") for l in links)),
         ("lookalike_link", any(l["kind"] == "free" and l["base_level"] == 1 for l in links)),
         ("gambling", any(l["gambling"] for l in links)),

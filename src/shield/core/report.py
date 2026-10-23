@@ -31,6 +31,8 @@ _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The
 _TEXT_TITLE_CAPPED = "Wording partly resembles scam messages, but it contains standard safety advice"
 _URL_TITLES = {2: "The link looks like known phishing links", 1: "The link looks somewhat like phishing links",
                0: "The link does not look like known phishing links"}
+# C2 (b): the URL model rated the link higher, but nothing else (no list, registry or certificate check) agreed, so it stops at Suspicious
+_URL_CAPPED = "The website-name check rates this link higher, but no other check agreed, so it is shown as Suspicious."
 # Promotional (D22): the wording score stays visible, as neutral, with a title that says why it did not decide the verdict (like the capped title above)
 _TEXT_TITLE_PROMO = "The wording resembles scam messages, as many genuine offers do"
 
@@ -85,7 +87,7 @@ def _link_report(l, text, flagged, hard_free):
     elif kind == "model" and level is not None and l.get("positive_applied"):
         e = ev("model.url", Effect.NEUTRAL, _URL_TITLE_OVERRIDDEN if level else _URL_TITLES[0])
     elif kind == "model" and level is not None:
-        e = ev("model.url", _BY_LEVEL[level], _URL_TITLES[level])
+        e = ev("model.url", _BY_LEVEL[level], _URL_TITLES[level], _URL_CAPPED if l.get("url_capped") else None)
     elif kind == "model":   # a link with no parseable host: the URL model dropped it
         e = ev("link.unscored", Effect.UNKNOWN, "The link could not be read, so it was not checked")
     else:

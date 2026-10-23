@@ -2,6 +2,8 @@
 Edition 1 (231db07) measured only. Edition 2 (2026-10-23, decision C1) re-scores the SAME sample offline after the list changes (platforms.py, gambling.py,
 crt.sh off by default) and adds the URL-model rule variants and a before/after section; the "before" numbers are read from the results CSV committed in
 231db07, so the cached replies are never re-pulled. Re-runnable on a new date.
+Edition 3 (2026-10-23, decision C2): variant (b) is now the app's rule (config.URL_ALONE_MAX_LEVEL = 1), so this script scores the pre-C2 rule (a) by setting it to 2;
+adds the age-gate variant (d), the validation-threshold variant (e) and (d)+(e), all on top of (b) and NOT applied to the app; and lists the scams each loses.
 
     .venv/bin/python src/update_link_lists.py --only openphish urlhaus     # 1. fresh feed (the sanctioned list download, rule 8)
     .venv/bin/python scripts/eval_live_links.py                            # 2. sample + network pass (rate-limited) + report
@@ -46,7 +48,7 @@ from shield.links.gambling import GAMBLING_VERDICT, load_gambling
 from shield.links.lexical import load_url_model
 from shield.links.lists import LinkLists, load_lists, warm as warm_lists
 from shield.links.lookalike import link_domain, raw_ip
-from shield.links.platforms import FREE_HOSTING, SHORTENERS, USER_CONTENT, platform_of, suffix_match
+from shield.links.platforms import DOWNLOADED_SHORTENERS, FREE_HOSTING, SHORTENERS, USER_CONTENT, platform_of, suffix_match
 from shield.messages.text_head import load_text_model
 from url_features import tld_ext      # TLDExtract(suffix_list_urls=()): the bundled suffix list, never the network
 
@@ -67,28 +69,72 @@ SETTINGS = [("all_on", "All signals ON", dict(blocklists=True, tranco=True), "re
             ("honest", "OpenPhish + URLhaus + Tranco OFF (honest headline)", dict(blocklists=False, tranco=False), "retry"),
             ("honest_first", "Honest setting, first attempt only (no retries: as the app answers)", dict(blocklists=False, tranco=False), "first")]
 
-# URL-model rule variants (decision C2 proposal), each scored in the honest setting. They are applied by wrapping router.assess_background, so the app code
-# is not changed: after the link's background checks have run, a link the URL model scored whose checks raised no red flag is re-levelled:
+# URL-model rule variants (decision C2), each scored in the honest setting. (c), (d) and (e) are applied by wrapping router.assess_background / setting the
+# model's threshold in this script, so the app code is not changed: after the link's background checks have run, a link the URL model scored whose checks raised no red flag is re-levelled:
 #   (a) current        nothing changes: the URL model alone can give Suspicious or Likely scam
 #   (b) cap            the URL model alone gives at most Suspicious (a red flag keeps the original level, so flag + model can still reach Likely scam)
 #   (c) weight only    the URL model alone gives nothing; with a red flag it keeps its weight (flag + a high model level still reaches Likely scam)
 # A gambling-list hit keeps its own Suspicious floor in all three. Free-hosting and shortener links are not scored by the URL model and are untouched.
-EXTRA_SETTINGS = [("honest_b", "Honest setting, variant (b): URL model alone at most Suspicious", dict(blocklists=False, tranco=False), "retry", "b"),
-                  ("honest_c", "Honest setting, variant (c): URL model alone cannot raise the verdict", dict(blocklists=False, tranco=False), "retry", "c")]
-VARIANT_ROWS = [("(a) current", "honest"), ("(b) URL model alone: at most Suspicious", "honest_b"), ("(c) URL model alone: no effect, weight only with a red flag", "honest_c")]
+#   (d) age gate      on top of (b): the URL model alone may flag only if the domain is under 365 days old or its age is unknown (RDAP gave no date, failed, or the
+#                     link has no registry look-up); RDAP >= 365 days -> the URL model alone cannot flag (a gambling-list hit keeps its Suspicious floor)
+#   (e) threshold     on top of (b): the URL model's flag threshold is raised to the lowest value at which the URL head's OWN validation split has <= 5% benign
+#                     flagged (url_val_threshold: data/final/url_preds.csv, task phishing_vs_benign, split val; no test row, nothing from this sample)
+#   (d)+(e)           both
+# Since decision C2 the app itself applies (b); (a) is reproduced by setting config.URL_ALONE_MAX_LEVEL = 2, which is the pre-C2 behaviour.
+HONEST = dict(blocklists=False, tranco=False)
+EXTRA_SETTINGS = [("honest_b", "Honest setting, variant (b): URL model alone at most Suspicious (the app since C2)", HONEST, "retry", "b"),
+                  ("honest_c", "Honest setting, variant (c): URL model alone cannot raise the verdict", HONEST, "retry", "c"),
+                  ("honest_d", "Honest setting, variant (d): (b) + age gate", HONEST, "retry", "d"),
+                  ("honest_e", "Honest setting, variant (e): (b) + validation-split threshold", HONEST, "retry", "e"),
+                  ("honest_de", "Honest setting, variant (d)+(e)", HONEST, "retry", "de")]
+VARIANT_ROWS = [("(b) URL model alone: at most Suspicious [app]", "honest_b"), ("(d) (b) + age gate (< 365 d or unknown)", "honest_d"),
+                ("(e) (b) + threshold at 5% val FPR", "honest_e"), ("(d)+(e)", "honest_de")]
+REFERENCE_ROWS = [("(a) pre-C2: URL model alone up to Likely scam", "honest"), ("(c) URL model alone: no effect", "honest_c")]
+AGE_GATE_DAYS, TARGET_VAL_FPR = 365, 0.05
+C2_PREV_COMMIT = "d34b734"     # edition 2 (decision C1): hand-written lists only; the "before" of the shortener-list effect
 BEFORE_COMMIT = "231db07"      # the first edition of this evaluation: its results CSV is the "before"
 
-def variant_hook(real, variant):
+def age_days_of(live, today):
+    """Days since the registry's creation date, or None (no look-up, failed, or no date): the same reading as signals_of."""
+    rd = ((live or {}).get("registration") or {}).get("rdap") or {}
+    return (today - rd["created"]).days if rd.get("status") == "ok" and rd.get("created") else None
+
+def variant_hook(real, variant, today):
     def hooked(l, lists, live=None, state="pending", now=None):
         c = real(l, lists, live, state, now)
-        if variant != "a" and l["kind"] == "model" and not (c and c["flags"]):
-            if variant == "b" and (l["level"] or 0) > 1:
-                l["base_level"], l["level"], l["verdict"] = min(l["base_level"] or 0, 1), 1, LEVELS[1]
-            elif variant == "c":
-                l["base_level"] = 0
-                l["level"], l["verdict"] = (1, GAMBLING_VERDICT) if l["gambling"] else (0, "not flagged")
+        if variant in ("a", "b", "e") or l["kind"] != "model" or (c and c["flags"]):   # (a), (b), (e) need no hook: the router's cap / the threshold do it
+            return c
+        gone = None
+        if variant == "c":
+            gone = True
+        elif "d" in variant and (l["base_level"] or 0) > 0:
+            age = age_days_of(live, today)
+            gone = age is not None and age >= AGE_GATE_DAYS
+        if gone:
+            l["base_level"] = 0
+            l["level"], l["verdict"] = (1, GAMBLING_VERDICT) if l["gambling"] else (0, "not flagged")
         return c
     return hooked
+
+def url_val_threshold(url_model, target=TARGET_VAL_FPR):
+    """The lowest flag threshold at which <= target of the URL head's validation benign URLs score at or above it. Validation rows only
+    (data/final/url_preds.csv written by url_head.py: task phishing_vs_benign, split val); scores rounded to 3 decimals as the app compares them.
+    Also checks that the file belongs to the deployed model (300 val URLs re-scored) and returns the val FPR / recall at this and at the current threshold."""
+    p = pd.read_csv(ROOT / "data" / "final" / "url_preds.csv")
+    v = p[(p["split"] == "val") & (p["task"] == "phishing_vs_benign")].reset_index(drop=True)
+    sub = v.sample(300, random_state=0)
+    rescored, _ = url_model.score_many(sub["url"].tolist())
+    got = dict(zip(rescored["url"], rescored["score"]))
+    diff = max(abs(got[u] - sc) for u, sc in zip(sub["url"], sub["score_host"]) if u in got)
+    assert diff < 2e-3, f"data/final/url_preds.csv does not match the deployed URL model (max score difference {diff:.4f})"
+    y, sc = (v["label"] != "benign").to_numpy(), np.round(v["score_host"].to_numpy(), 3)
+    ben = np.sort(sc[~y])
+    fpr = lambda t: float((ben >= t).mean())
+    rec = lambda t: float((sc[y] >= t).mean())
+    t = next(float(x) for x in np.unique(ben) if fpr(float(x)) <= target)
+    cur = url_model.t_flag
+    return {"threshold": t, "fpr": fpr(t), "recall": rec(t), "current": cur, "fpr_current": fpr(cur), "recall_current": rec(cur),
+            "n_val": int(len(v)), "n_benign": int((~y).sum()), "n_bad": int(y.sum()), "rescore_diff": diff}
 
 # Regression group (gambling / spam-ad). The exact link of the reported miss ("a spam-ad link that led to a gambling site was rated safe") was never
 # supplied (BUGS.md, gambling entry), so this group is built from what the repo documents:
@@ -394,8 +440,8 @@ def signals_of(item, res, live, base, today):
     return out
 
 
-def run_all(items, text_model, url_model, harness, base, today, log):
-    """items x SETTINGS -> {setting: {item_id: record}}"""
+def run_all(items, text_model, url_model, harness, base, today, log, t_e):
+    """items x SETTINGS -> {setting: {item_id: record}}. t_e: the (e) flag threshold. The settings before EXTRA_SETTINGS run the pre-C2 rule (a)."""
     capture = {}
     orig_run = live_checks.run
     def run_wrapped(urls, lists, expand_urls=(), deadline_s=live_checks.MESSAGE_DEADLINE):
@@ -404,12 +450,14 @@ def run_all(items, text_model, url_model, harness, base, today, log):
         return out
     live_checks.run = run_wrapped
     results = {}
-    real_assess = router.assess_background
+    real_assess, real_cap, real_t = router.assess_background, config.URL_ALONE_MAX_LEVEL, url_model.t_flag
     try:
         for sid, title, opts, mode, variant in [(*x, "a") for x in SETTINGS] + EXTRA_SETTINGS:
             lists_view = view(base, **opts)
             router.load_lists = lambda lv=lists_view: lv
-            router.assess_background = variant_hook(real_assess, variant)
+            router.assess_background = variant_hook(real_assess, variant, today)
+            config.URL_ALONE_MAX_LEVEL = 2 if variant == "a" else 1
+            url_model.t_flag = max(real_t, t_e) if "e" in variant else real_t
             harness.mode = mode
             results[sid] = {}
             t0 = time.time()
@@ -429,7 +477,7 @@ def run_all(items, text_model, url_model, harness, base, today, log):
     finally:
         live_checks.run = orig_run
         router.load_lists = load_lists
-        router.assess_background = real_assess
+        router.assess_background, config.URL_ALONE_MAX_LEVEL, url_model.t_flag = real_assess, real_cap, real_t
     return results
 
 
@@ -500,11 +548,13 @@ def build_report(args, ctx):
     gam = lambda sid: [S[sid][i["id"]]["verdict"] for i in sets["regression_domain"] if i["group"] == "gambling_unlisted"]
     gu_all, gu_h = gam("all_on"), gam("honest")
     w("# Live link checks on a fresh OpenPhish sample\n")
-    w(f"*Eval date {args.date}. Generated by `scripts/eval_live_links.py`. **Edition 2 (2026-10-23, decision C1):** the same sample and the same cached replies were re-scored "
+    w(f"*Eval date {args.date}. Generated by `scripts/eval_live_links.py`. **Edition 3 (2026-10-23, decision C2):** variant (b) is now the app's rule, the maintained shortener list is "
+      f"merged in, and the age-gate and threshold variants (d), (e), (d)+(e) are scored (section 10, not applied to the app). Edition 2 (decision C1) re-scored the same sample and cached replies "
       f"offline after the platform lists, the gambling additions and the crt.sh switch changed; edition 1 (commit {BEFORE_COMMIT}) is the \"before\" of section 9. "
       f"Sample and cached replies: `data/eval_live/`. Re-run: `.venv/bin/python scripts/eval_live_links.py --date {args.date} --offline`.*\n")
     w(f"> **Read this first.** The \"after\" numbers were tuned on this same 96 + 200 + 22 link sample, so they are optimistic and must be confirmed on a fresh pull "
-      f"(a separate task). The URL-model variants of section 10 are also scored on it.\n")
+      f"(a separate task). The URL-model variants of section 10 (including the age gate and the threshold) are also scored on it, and the age gate was designed after looking at this sample's "
+      f"ages, so its numbers are the most optimistic of all. Only the threshold of (e) comes from outside it (the URL head's validation split).\n")
     w("## Summary\n")
     w(f"1. **Phishing, honest setting** (OpenPhish, URLhaus and Tranco switched off): of {len(phish)} fresh OpenPhish links (one per registered domain; the feed held "
       f"only {info['phish']['unique_regs']} such domains, not 200) the app flagged {nflag} ({pct(nflag, len(phish), True)}), {nlikely} of them as Likely scam; "
@@ -703,7 +753,8 @@ def build_report(args, ctx):
     # ---- before / after, variants
     for line in before_after(args, ctx, S, phish, b10, b100, benign, sets, h):
         w(line)
-    for line in variants_section(S, phish, own, b10, b100, benign):
+    ug = [i for i in sets['regression_domain'] if i['group'] == 'gambling_unlisted']
+    for line in variants_section(S, phish, own, b10, b100, benign, ctx['t_e'], ug):
         w(line)
 
     # ---- checks
@@ -731,15 +782,17 @@ def build_report(args, ctx):
       f"({sum(names.values())} lookups, summed over the runs that filled the cache): " + ", ".join(f"`{k}` {v}" for k, v in sorted(names.items())) +
       f". Sampled hosts among them: **{sum(1 for k in names if k in sampled_hosts)}**.\n")
     w("Lists were refreshed before the run with `src/update_link_lists.py --only openphish urlhaus` (a separate process, so not in the log above: hosts `openphish.com` -> its GitHub mirror `raw.githubusercontent.com`, and `urlhaus-api.abuse.ch`, per `net.UPDATE_HOSTS`).\n")
+    w("**Shortener list (decision C2)** was downloaded in a separate run, not by this script: `src/update_link_lists.py --only shorteners` (host `raw.githubusercontent.com`, from `net.UPDATE_HOSTS`; "
+      "the log is `data/eval_live/run_log_shorteners_update_2026-10-23.txt`: 1 list request plus 1 request for the repository's LICENSE file, CC BY-SA 4.0). This script, run with `--offline`, makes no such call.\n")
     w(f"Lists as read by the app: " + "; ".join(f"{n} {base.manifest[n]['downloaded_utc'][:16]}Z ({base.manifest[n]['rows']:,} rows)" for n in ("openphish", "urlhaus", "tranco") if n in base.manifest) + ".\n")
     w("Files hold only defanged URLs (`hxxp`, `[.]`): " + ", ".join(f"`{p}`" for p in ctx["written"]) + ".\n")
     return "\n".join(L) + "\n"
 
 
 # ------------------------------------------------------------------------------------------------ before / after, variants
-def load_before(date):
-    """{setting: {id: row}} from the results CSV committed in BEFORE_COMMIT (edition 1)."""
-    txt = subprocess.run(["git", "show", f"{BEFORE_COMMIT}:data/eval_live/results_{date}.csv"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+def load_before(date, commit=BEFORE_COMMIT):
+    """{setting: {id: row}} from the results CSV committed in `commit` (default BEFORE_COMMIT, edition 1)."""
+    txt = subprocess.run(["git", "show", f"{commit}:data/eval_live/results_{date}.csv"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     df = pd.read_csv(io.StringIO(txt), keep_default_na=False)
     out = collections.defaultdict(dict)
     for r in df.to_dict("records"):
@@ -763,9 +816,9 @@ def before_after(args, ctx, S, phish, b10, b100, benign, sets, h):
     lk = lambda vs: sum(v == "Likely scam" for v in vs)
     ug = [i for i in sets["regression_domain"] if i["group"] == "gambling_unlisted"]
     own = [i for i in phish if i["kind"] == "own_domain"]
-    w("## 9. Before vs after (decision C1)\n")
+    w("## 9. Before vs after (decision C1, plus the shortener list of C2)\n")
     w(f"*Before* = edition 1, read from `data/eval_live/results_{args.date}.csv` as committed in `{BEFORE_COMMIT}` (replies from the same cache). *After* = this run. Same links, same cached "
-      "replies, same honest setting (OpenPhish, URLhaus and Tranco off, variant (a) = the app's rule). What changed in the code: the platform lists (short links, dynamic DNS, site builders: "
+      "replies, same honest setting (OpenPhish, URLhaus and Tranco off) with the pre-C2 URL rule (a), so only the list changes show here (the app has used (b) since C2: section 10). What changed in the code: the platform lists (short links, dynamic DNS, site builders: "
       "`platforms.py`), the 8 gambling additions (`gambling.py`), the crt.sh check off by default. **The \"after\" numbers were tuned on this same sample and must be confirmed on a fresh pull "
       "(a separate task); they are an upper bound on what the changes will do on new links.** The sample's `kind` column (own domain / free hosting) is the one saved at sampling time, so the groups "
       "do not move between before and after.\n")
@@ -825,31 +878,74 @@ def before_after(args, ctx, S, phish, b10, b100, benign, sets, h):
     ctx["changes_other"] = sum(int(c.split()[-1]) for r in rows for c in r[3].split(", ") if c.startswith("other"))
     ao = [S["all_on"][i["id"]]["verdict"] for i in benign]
     w(f"All-signals-ON run, benign (n = {len(benign)}): flagged {flag(bv('all_on', benign))} before, {flag(ao)} after.\n")
+    # the shortener list of C2 (edition 2 = commit C2_PREV_COMMIT had only the hand-written lists)
+    P = load_before(args.date, C2_PREV_COMMIT)
+    ch = [(i, P[h][i["id"]]["verdict"], S[h][i["id"]]["verdict"]) for i in items if P[h][i["id"]]["verdict"] != S[h][i["id"]]["verdict"]]
+    w(f"**Effect of the downloaded shortener list (decision C2).** Honest setting, rule (a), this run against edition 2 (`{C2_PREV_COMMIT}`, hand-written lists only): "
+      f"**{len(ch)} of {len(items)} items changed verdict**" + (": " + "; ".join(f"`{defang(i['url'])}` ({i['set']}) {b_} -> {a_}" for i, b_, a_ in ch) if ch else "") + ". "
+      f"The list merged {len(DOWNLOADED_SHORTENERS)} domains (the 9 platform hosts and 2 whole websites it contains are excluded, `platforms.SHORTENERS_EXCLUDED`).\n")
     return L
 
-def variants_section(S, phish, own, b10, b100, benign):
+def variants_section(S, phish, own, b10, b100, benign, t_e, ug=()):
     L = []
     w = L.append
+    V = lambda sid, its: [S[sid][i["id"]]["verdict"] for i in its]
+    fl = lambda vs: sum(v in ("Likely scam", "Suspicious") for v in vs)
+    lk = lambda vs: sum(v == "Likely scam" for v in vs)
+    isflag = lambda sid, i: S[sid][i["id"]]["verdict"] in ("Likely scam", "Suspicious")
     w("## 10. URL-model rule variants (honest setting)\n")
-    w("The host-only URL model is the only thing that fired on 27 of the 29 benign false alarms of edition 1. Three rules for it are scored on the same links with the same cached replies "
-      "(OpenPhish, URLhaus and Tranco off, current lists). **The app still uses (a); nothing changes until the choice is made.** Applied by wrapping `router.assess_background` in this script: "
-      "a link the URL model scored and whose link checks raised no red flag is re-levelled. (b) caps its level at Suspicious; (c) sets it to nothing. With a red flag (R1-R9) the original level "
-      "is kept, so a flag plus a high model score can still reach Likely scam. A gambling-list hit keeps its Suspicious floor in all three. Free-hosting and short links are not scored by the URL model, so no variant touches them.\n")
+    w("> **Same-sample warning.** These numbers come from the same 96 + 200 links that the changes of C1 and C2 were looked at on, and the age gate (d) was chosen after seeing this sample's domain ages. "
+      "They must be confirmed on a fresh pull (a separate task). Differences of 1-3 links are inside the noise of 96 / 100 links.\n")
+    w("The host-only URL model was the only thing that fired on 27 of the 29 benign false alarms of edition 1. **Variant (b) is the app's rule since decision C2** (`config.URL_ALONE_MAX_LEVEL = 1`, "
+      "`router.analyse`): a link the URL model scored whose link checks raised no red flag (R1-R9) is shown as Suspicious at most; with a red flag its level is kept, so flag + a high model score can still reach Likely scam. "
+      "The other variants are scored on top of (b), by wrapping `router.assess_background` / setting the model threshold in this script, **and are not applied to the app**: "
+      f"(d) the URL model alone may flag only if the domain is under {AGE_GATE_DAYS} days old or its age is unknown (RDAP failed, gave no date, or there is no registry look-up); a domain RDAP says is {AGE_GATE_DAYS}+ days old "
+      "cannot be flagged by the model alone. (e) the model's flag threshold is raised to the lowest value at which the URL head's own validation split has at most "
+      f"{TARGET_VAL_FPR:.0%} benign URLs flagged. A gambling-list hit keeps its Suspicious floor in all variants; free-hosting and short links are not scored by the URL model.\n")
+    w(f"**Threshold of (e): {t_e['threshold']:.3f}**, picked on the URL head's own validation split (`data/final/url_preds.csv`, task phishing_vs_benign, split val; {t_e['n_val']:,} URLs: {t_e['n_benign']:,} benign, "
+      f"{t_e['n_bad']:,} phishing; no test row and nothing from this eval sample was used). At {t_e['threshold']:.3f} the val false-positive rate is **{t_e['fpr']:.2%}** (val recall {t_e['recall']:.1%}); "
+      f"the deployed flag threshold {t_e['current']:.3f} has val FPR {t_e['fpr_current']:.2%} and recall {t_e['recall_current']:.1%}. (`url_preds.csv` was checked against the deployed model: 300 val URLs re-scored, "
+      f"largest score difference {t_e['rescore_diff']:.4f}.) Note the eval benign sample is Tranco domains, not the URL head's validation benign set, so the false-alarm rate here need not be {TARGET_VAL_FPR:.0%}.\n")
+    lost = {sid: [i for i in phish if isflag("honest_b", i) and not isflag(sid, i)] for _, sid in VARIANT_ROWS}
+    n = len(phish)
     rows = []
     for name, sid in VARIANT_ROWS:
-        ph, p_own = [S[sid][i["id"]]["verdict"] for i in phish], [S[sid][i["id"]]["verdict"] for i in own]
-        f10, f100, fall = [S[sid][i["id"]]["verdict"] for i in b10], [S[sid][i["id"]]["verdict"] for i in b100], [S[sid][i["id"]]["verdict"] for i in benign]
-        fl = lambda vs: sum(v in ("Likely scam", "Suspicious") for v in vs)
-        lk = lambda vs: sum(v == "Likely scam" for v in vs)
-        rows.append([name, fa_cell(fl(ph), len(ph)), lk(ph), fa_cell(fl(p_own), len(p_own)), fa_cell(fl(f10), len(f10)), lk(f10), fa_cell(fl(f100), len(f100)), lk(f100), fa_cell(fl(fall), len(fall)), lk(fall)])
-    w(md_table(["Variant", "Phishing recall, all (96)", "Likely only", "Recall, ordinary domains (83)", "False alarms, top 10k (100)", "Likely only", "False alarms, 100k-1M (100)", "Likely only",
-                "False alarms, all benign (200)", "Likely only"], rows) + "\n")
+        ph, f10, f100 = V(sid, phish), V(sid, b10), V(sid, b100)
+        rows.append([name, fa_cell(fl(ph), n), lk(ph), fa_cell(fl(f10), len(f10)), fa_cell(fl(f100), len(f100)), len(lost[sid])])
+    w(md_table(["Variant", f"Phishing recall (of {n})", "Likely scam (phishing)", "False alarms, top 10k (of 100)", "False alarms, 100k-1M (of 100)", "Scams lost vs (b)"], rows) + "\n")
+    rows = []
+    for name, sid in VARIANT_ROWS + REFERENCE_ROWS:
+        ph, p_own, fall = V(sid, phish), V(sid, own), V(sid, benign)
+        rows.append([name, fa_cell(fl(p_own), len(p_own)), fa_cell(fl(fall), len(fall)), lk(V(sid, benign)), sum(v == "No warning signs" for v in ph), sum(v == CJ for v in ph)])
+    w("More columns, and (a) and (c) for reference. Likely scam on benign = benign domains the app would call Likely scam:\n")
+    w(md_table(["Variant", f"Recall, ordinary domains ({len(own)})", "False alarms, all benign (200)", "Likely scam on benign", "Phishing: No warning signs", "Phishing: Can't judge"], rows) + "\n")
+
+    def age_txt(i):
+        r = S["honest_b"][i["id"]]
+        return f"{r['age_days']} d" if r["age_days"] is not None else "unknown (no registry look-up)" if r["rdap"] == "n/a" else f"unknown ({r['rdap']})"
+    b_flag = [i for i in phish if isflag("honest_b", i)]
+    known = [i for i in b_flag if S["honest_b"][i["id"]]["age_days"] is not None]
+    old = [i for i in known if S["honest_b"][i["id"]]["age_days"] >= AGE_GATE_DAYS]
+    fa_b = [i for i in benign if isflag("honest_b", i)]
+    fa_known = [i for i in fa_b if S["honest_b"][i["id"]]["age_days"] is not None]
+    fa_old = [i for i in fa_known if S["honest_b"][i["id"]]["age_days"] >= AGE_GATE_DAYS]
+    w(f"**Why (d) does what it does.** Of the {len(b_flag)} phishing links flagged under (b), the registration age is known for {len(known)} and {len(old)} of those are {AGE_GATE_DAYS}+ days old (the gate removes the model's vote on them). "
+      f"Of the {len(fa_b)} benign domains flagged under (b), the age is known for {len(fa_known)} and {len(fa_old)} are {AGE_GATE_DAYS}+ days old. "
+      "Age is only known for ordinary domains the registry answered for; platform-hosted links, raw IPs and RDAP failures count as unknown and keep the model's vote. "
+      "A compromised old site looks old, which is the honest weakness of any age rule.\n")
+
+    for name, sid in VARIANT_ROWS[1:]:
+        ls = lost[sid]
+        w(f"**Phishing links lost by {name}** (flagged under (b), not flagged here): **{len(ls)}** of {len(b_flag)}.\n")
+        if ls:
+            rows = [[k + 1, f"`{defang(i['url'])[:100]}`", i["kind"], age_txt(i), "-" if S["honest_b"][i["id"]]["url_score"] is None else f"{S['honest_b'][i['id']]['url_score']:.3f}",
+                     S["honest_b"][i["id"]]["verdict"], S[sid][i["id"]]["verdict"]] for k, i in enumerate(ls)]
+            w(md_table(["#", "Link (defanged)", "Kind", "Domain age (RDAP)", "URL-model score", "Verdict under (b)", f"Verdict under {name.split(' ')[0]}"], rows) + "\n")
     a = {i["id"]: S["honest"][i["id"]]["verdict"] for i in phish}
     c = {i["id"]: S["honest_c"][i["id"]]["verdict"] for i in phish}
     only_model = [k for k in a if a[k] in ("Likely scam", "Suspicious") and c[k] not in ("Likely scam", "Suspicious")]
-    w(f"Phishing links flagged in (a) and not in (c), i.e. caught by the URL model alone: **{len(only_model)} of {len(phish)}**. "
-      f"Benign domains flagged in (a) and not in (c): **{sum(S['honest'][i['id']]['verdict'] in ('Likely scam', 'Suspicious') and S['honest_c'][i['id']]['verdict'] not in ('Likely scam', 'Suspicious') for i in benign)} of {len(benign)}**. "
-      "Recall, false alarms and the same figures with the intervals are computed from the same rows, so a difference of 1-2 links is inside the noise of 96 / 100 links.\n")
+    w(f"For reference, phishing links flagged in (a) and not in (c), i.e. caught by the URL model alone: **{len(only_model)} of {len(phish)}**. Unlisted gambling sites (8) still flagged under every variant: "
+      f"{', '.join(f'{name.split(chr(32))[0]} {fl(V(sid, ug))}' for name, sid in VARIANT_ROWS)}.\n")
     return L
 
 
@@ -949,7 +1045,9 @@ def main():
     harness.forbidden_hosts = sampled_hosts
     net.request = harness.request
 
-    results = run_all(items, text_model, url_model, harness, base, today, log)
+    t_e = url_val_threshold(url_model)
+    log(f"(e) threshold {t_e['threshold']} (val FPR {t_e['fpr']:.4f}; current {t_e['current']} has {t_e['fpr_current']:.4f})")
+    results = run_all(items, text_model, url_model, harness, base, today, log, t_e["threshold"])
     if args.offline:
         assert harness.misses == 0, f"{harness.misses} requests were not in the cache"
 
@@ -976,7 +1074,7 @@ def main():
     # ---- report
     for it in items:
         it.setdefault("note", "")
-    ctx = dict(items=items, results=results, resolved=resolved, harness=harness, info=info, guard=guard, base=base, text_model=text_model, written=written)
+    ctx = dict(items=items, results=results, resolved=resolved, harness=harness, info=info, guard=guard, base=base, text_model=text_model, written=written, t_e=t_e)
     md = build_report(args, ctx)
     Path(args.report).write_text(md)
     assert not re.search(r"https?://", md, re.I), f"the report holds a live URL: {re.findall(r'https?://[^ ]{0,40}', md, re.I)[:3]}"

@@ -110,7 +110,7 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
     # assessment (URL model or free-hosting rule, saved as base_level) and floors its level at Suspicious.
     lookup = load_gambling()
     for l in r["links"]:
-        l["base_level"] = l["level"]
+        l["base_level"] = l["model_level"] = l["level"]   # model_level: the URL model's own level; the C2 cap below lowers base_level, the sender rule still reads this
         l["gambling"] = None if l["kind"] == "shortener" else lookup.match(l["url"])
         if l["gambling"] and (l["level"] or 0) < 1:
             l["level"], l["verdict"] = 1, GAMBLING_VERDICT
@@ -123,6 +123,9 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
         c = l["checks"] = assess_background(l, lists, results.get(l["url"]), state)
         l["flags"] = [f["code"] for f in c["flags"]] if c else []
         l["positive"] = c["positive"]["kind"] if c and c["positive"] else None
+        if l["kind"] == "model" and not l["flags"] and (l["base_level"] or 0) > config.URL_ALONE_MAX_LEVEL:   # C2 (b): the URL model alone stops at Suspicious
+            l["base_level"] = l["level"] = config.URL_ALONE_MAX_LEVEL
+            l["verdict"], l["url_capped"] = LEVELS[l["level"]], True
         floor = c["floor"] if c else None
         l["risk_level"] = l["base_level"] if floor is None else max(l["base_level"] or 0, floor)
         if floor is not None and (l["level"] or 0) < floor:
