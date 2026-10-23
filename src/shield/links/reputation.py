@@ -1,7 +1,7 @@
 import datetime as dt, os
 
 from shield.links.lists import BLOCKLISTS, TOP_POPULAR
-from shield.links.lookalike import abuse_tld, brand_tld, homograph, link_domain, lookalike, raw_ip, restricted_zone, unicode_host
+from shield.links.lookalike import abuse_tld, brand_tld, exact_brand, homograph, link_domain, lookalike, raw_ip, restricted_zone, unicode_host
 from shield.links.platforms import SHORTENERS, platform_of, suffix_match
 
 # One link's background checks -> the decision D23 table (docs/decisions/D23_link_checks.md §2). Pure: the lists and the live results are
@@ -12,15 +12,16 @@ from shield.links.platforms import SHORTENERS, platform_of, suffix_match
 #   R1 on OpenPhish / URLhaus -> Likely scam        R2 Google Safe Browsing match -> Likely scam     R3 IDN homograph -> Likely scam
 #   R4 brand lookalike -> Suspicious                R5 raw IP host -> Suspicious                     R6 shares a server with listed IPs -> Suspicious
 #   R7 registered < 30 days ago -> Suspicious       R8 first certificate < 7 days (only when R7 cannot be checked) -> Suspicious
-#   R9 two or more of R4-R8 on the same link -> Likely scam
+#   R9 two or more of R4-R8, R10 on the same link -> Likely scam
+#   R10 the registered domain is exactly a brand's name but not one of its official domains (roblox.com.am) -> Suspicious (decision C3)
 # Positive, only without any hard-risk signal in the message and never against a red flag on the same link (router.apply_positives):
 #   P1 a verified .brand TLD or a .bank.in address -> link No warning signs; the message Likely scam -> Suspicious when every link is P1 / P2
 #      and the text has no Indian mobile number           P2 Tranco top 10k, not a platform / shortener / gambling site -> link No warning signs
 # Display only (never a level): .gov.in / .nic.in, abuse TLD, age 30-179 days, registration length, registrar, RDAP status, provider,
 # country, popularity outside the top 10k, a plain international (IDN) address.
 NEW_DOMAIN_DAYS, YOUNG_DOMAIN_DAYS, NEW_CERT_DAYS = 30, 180, 7
-FLOOR = {"R1": 2, "R2": 2, "R3": 2, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1}
-CAUTION_FLAGS = ("R4", "R5", "R6", "R7", "R8")
+FLOOR = {"R1": 2, "R2": 2, "R3": 2, "R4": 1, "R5": 1, "R6": 1, "R7": 1, "R8": 1, "R10": 1}
+CAUTION_FLAGS = ("R4", "R5", "R6", "R7", "R8", "R10")
 # Networks where one IP serves thousands of unrelated sites (CDNs, big clouds' front ends, shared web hosting): sharing one of their IPs with a
 # listed host means nothing, so R6 is not raised. VPS providers (OVH, Hetzner, DigitalOcean ...) are NOT here: there one IP is usually one customer.
 CDN_ASNS = {13335: "Cloudflare", 209242: "Cloudflare", 20940: "Akamai", 16625: "Akamai", 32787: "Akamai", 54113: "Fastly", 15169: "Google",
@@ -103,6 +104,10 @@ def _names(url, host, reg, lists, gambling, now):
         why = f"{look['brand']}'s own sites are {own}. Scammers put a brand's name in their own web address."
         flags.append(_flag("R4", "link.lookalike", f"Uses {how} {look['brand']}, but the site isn't {look['brand']}'s", why, "Brand lookalike"))
         facts.append(_fact("owner", "Owner", f"Not {look['brand']} ('{look['token']}' in {reg})", "caution", why))
+    elif (exact := exact_brand(host, reg)):   # R10; R4 above already covers a brand name in the same address, so the two never both fire
+        why = f"{exact['brand']}'s own sites are {', '.join(exact['official'][:3])}{' and others' if len(exact['official']) > 3 else ''}. Scammers register the same name under another domain ending."
+        flags.append(_flag("R10", "link.brand_name", f"Uses the name {exact['brand']} but is not {exact['brand']}'s official website.", why, "Brand name, wrong site"))
+        facts.append(_fact("owner", "Owner", f"Not {exact['brand']} ('{exact['label']}' in {reg})", "caution", why))
     # lists (R1)
     hits, problems = lists.listed(url, host), lists.blocklist_problems()
     checked = [shown for n, shown in BLOCKLISTS.items() if shown not in problems]

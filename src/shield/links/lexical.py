@@ -2,6 +2,7 @@ import re
 import joblib
 import numpy as np, pandas as pd
 from url_features import BRANDS, SUSPICIOUS, parse_url, host_row
+from shield import config
 from shield.config import URL_MODEL_PATH
 from shield.core.verdict import r3, level_of
 
@@ -24,7 +25,9 @@ FEATURE_HELP = {
 class UrlScorer:
     def __init__(self, bundle):
         self.model, self.features, self.top_tld = bundle["model"], bundle["features"], bundle["top_tld"]
-        self.t_flag, self.t_high, self.reference = r3(bundle["threshold"]), r3(bundle["threshold_high"]), bundle["reference"]
+        self.t_bundle = r3(bundle["threshold"])   # the model file's own flag threshold (val-picked, 0.537)
+        self.t_flag = self.t_bundle if config.URL_FLAG_THRESHOLD is None else r3(config.URL_FLAG_THRESHOLD)   # decision C3: 0.662 unless SHIELD_URL_FLAG says otherwise
+        self.t_high, self.reference = r3(bundle["threshold_high"]), bundle["reference"]
 
     def level(self, score):
         return level_of(r3(score), self.t_flag, self.t_high)

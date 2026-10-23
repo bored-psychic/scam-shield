@@ -1,7 +1,7 @@
 import ipaddress, json, re, unicodedata
 from functools import lru_cache
 
-from shield.config import ABUSE_TLDS_PATH, BRAND_TLDS_PATH, BRANDS_INDIA_PATH, RESTRICTED_ZONES_PATH
+from shield.config import ABUSE_TLDS_PATH, BRAND_TLDS_PATH, BRANDS_INDIA_PATH, EXACT_BRANDS_PATH, RESTRICTED_ZONES_PATH
 from shield.links.platforms import FREE_HOSTING, SHORTENERS, platform_of, suffix_match
 from url_features import parse_url
 
@@ -9,6 +9,7 @@ from url_features import parse_url
 #   brand_tld()        signal 1 / P1: the TLD is a verified .brand TLD (brand_tlds.json, checked against ICANN + IANA by update_link_lists.py)
 #   restricted_zone()  .bank.in (P1), .gov.in / .nic.in (display only)                                     restricted_zones.json
 #   lookalike()        signal 5 / R4: an Indian brand's name in a domain the brand does not own            brands_india.json
+#   exact_brand()      R10: the registered domain's label IS a brand's name, on a domain the brand does not own   exact_brands.json
 #   homograph()        signal 6 / R3: letters from another alphabet that imitate a brand or a top-10k site
 #   raw_ip()           signal 6 / R5: the host is an IP address (dotted, integer, hex or IPv6)
 #   abuse_tld()        signal 2: a cited high-abuse TLD (display only)                                     abuse_tlds.json
@@ -25,7 +26,8 @@ def reference():
     zones = {z["zone"]: z for z in _json(RESTRICTED_ZONES_PATH)["zones"]}
     abuse = _json(ABUSE_TLDS_PATH)
     tokens = frozenset(t for b in brands for t in b["tokens"])
-    return {"brands": brands, "tlds": tlds, "zones": zones, "abuse": abuse, "tokens": tokens}
+    exact = {lab: b for b in _json(EXACT_BRANDS_PATH)["brands"] for lab in b["labels"]}
+    return {"brands": brands, "tlds": tlds, "zones": zones, "abuse": abuse, "tokens": tokens, "exact": exact}
 
 
 def restricted_zone(host):
@@ -139,6 +141,20 @@ def lookalike(host, reg, tranco_rank=None):
                 if how:
                     return {"brand": b["brand"], "token": tok, "how": how, "owned": b["owned"][:2] + [f"anything under .{t}" for t in b["tlds"][:1]]}
     return None
+
+
+# ------------------------------------------------------------ R10: the exact brand name on someone else's domain
+def exact_brand(host, reg):
+    """{"brand", "label", "official": [the brand's registered domains]} when the registered domain's first label equals a brand label from
+    exact_brands.json exactly and the registered domain is not one of that brand's official domains (roblox.com.am, roblox.ly: yes; roblox.com,
+    robloxfans.com, pineapple.com: no). No substring and no fuzzy match. Not for IPs, brand TLDs, the restricted zones, shorteners or hosting
+    platforms (there the registered domain is the platform's, and the part the user picks is R4's business). Switched off by
+    config.EXACT_BRAND_CHECK."""
+    from shield import config
+    if not config.EXACT_BRAND_CHECK or not host or not reg or raw_ip(host) or brand_tld(host) or restricted_zone(host) or platform_of(host):
+        return None
+    b = reference()["exact"].get(reg.split(".", 1)[0])
+    return None if b is None or reg in b["official"] else {"brand": b["brand"], "label": reg.split(".", 1)[0], "official": b["official"]}
 
 
 # ------------------------------------------------------------ R3: IDN homograph

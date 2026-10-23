@@ -543,6 +543,86 @@ def l17(m):
             bad.append(f"{host} must not be a shortener")
     return bad
 
+def l18(m):
+    """C3: R10, the exact-brand-name rule. roblox.ly fires; roblox.com, robloxfans.com, pineapple.com, amazon.in do not (exact label only; official domains
+    are listed; no substring or fuzzy match). The flag's sentence is the one users read; R10 never doubles R4; R10 + R7 -> R9; the switch turns it off."""
+    from shield import config
+    from shield.links.lookalike import exact_brand, link_domain
+    bad = []
+    def flags_of(url):
+        r = analyse(f"See {url}", *m)
+        return r, r["links"][0]["flags"]
+    for url in ("https://roblox.ly/users/2303337964/profile", "https://www.roblox.com.am/games/1/x", "https://roblox.et/", "https://www.roblox.com.pt/games/1",
+                "https://www.roblox.com.bi/games/2", "https://www.roblox.com.ml/users/3/profile"):
+        r, f = flags_of(url)
+        if "R10" not in f or r["links"][0]["risk_level"] < 1:
+            bad.append(f"{url}: flags {f}, risk {r['links'][0]['risk_level']} (R10 must fire, at least Suspicious)")
+    for url in ("https://amazon.co.nz/", "https://hdfcbank.co.uk/"):   # a brand with an R4 entry: R4 (substring rule) already flags it, and R10 stays out of its way
+        r, f = flags_of(url)
+        if f != ["R4"]:
+            bad.append(f"{url}: flags {f}, wanted ['R4'] only")
+    for url in ("https://www.roblox.com/games/1/x", "https://roblox.com/", "https://robloxfans.com/", "https://pineapple.com/", "https://amazon.in/dp/B0", "https://www.amazon.co.uk/",
+                "https://amazon.com.au/", "https://sbi.co.in/", "https://sbi.bank.in/", "https://onlinesbi.sbi/", "https://roblox.github.io/", "https://not-roblox.com/",
+                "https://roblox-fans.net/", "https://rbxrobloxx.com/", "https://amazonia.com/", "https://login.roblox.com.evil-example.top/"):
+        r, f = flags_of(url)
+        if "R10" in f:
+            bad.append(f"{url}: R10 fired, flags {f}")
+    r, f = flags_of("https://paytm.xyz/")   # a brand-name host is R4's: the two rules never both fire on one link
+    if f != ["R4"]:
+        bad.append(f"paytm.xyz: flags {f}, wanted ['R4'] only")
+    rep = to_report("See https://roblox.ly/x", analyse("See https://roblox.ly/x", *m))
+    ev = [e for c in rep.children for e in c.evidence if e.id == "link.brand_name"]
+    if len(ev) != 1 or ev[0].title != "Uses the name Roblox but is not Roblox's official website." or rep.children[0].level != Level.SUSPICIOUS:
+        bad.append(f"report: evidence {[(e.id, e.title) for e in ev]}, link level {rep.children[0].level.value}")
+    h, rg = link_domain("https://www.roblox.com.am/")
+    if rg != "roblox.com.am" or not exact_brand(h, rg) or exact_brand(*link_domain("https://pineapple.com/")):
+        bad.append(f"registered-domain label: {rg}")
+    config.EXACT_BRAND_CHECK = False
+    try:
+        r, f = flags_of("https://roblox.ly/")
+    finally:
+        config.EXACT_BRAND_CHECK = True
+    if "R10" in f:
+        bad.append("EXACT_BRAND_CHECK=False must switch R10 off")
+    with fixture(Net(created={"roblox.top": days_ago(2)}, ips={"roblox.top": ["192.0.2.9"]})):
+        r = analyse("See https://roblox.top/x", *m, live=True)
+    l = r["links"][0]
+    if sorted(l["flags"]) != ["R10", "R7", "R9"] or l["risk_level"] != 2:
+        bad.append(f"R10 + a 2-day-old domain: flags {l['flags']}, risk {l['risk_level']}; wanted R10, R7, R9 and Likely scam")
+    return bad
+
+def l19(m):
+    """C3 (e) and the platforms: the app's URL flag threshold is 0.662 (the model file's own is 0.537, SHIELD_URL_FLAG=0.537 or bundle restores it); the nine
+    platforms of platforms.py are free hosting / user content."""
+    import joblib
+    from shield import config
+    from shield.config import URL_MODEL_PATH
+    from shield.links.lexical import UrlScorer
+    from shield.links.platforms import PLATFORMS_C3_FREE_HOSTING, PLATFORMS_C3_USER_CONTENT, platform_of
+    bad = []
+    if m[1].t_flag != 0.662 or m[1].t_bundle != 0.537:
+        bad.append(f"URL flag threshold {m[1].t_flag} (wanted 0.662), model file {m[1].t_bundle} (wanted 0.537)")
+    bundle = joblib.load(URL_MODEL_PATH)
+    saved = config.URL_FLAG_THRESHOLD
+    try:
+        config.URL_FLAG_THRESHOLD = 0.537
+        a = UrlScorer(bundle).t_flag
+        config.URL_FLAG_THRESHOLD = None
+        b = UrlScorer(bundle).t_flag
+    finally:
+        config.URL_FLAG_THRESHOLD = saved
+    if (a, b) != (0.537, 0.537):
+        bad.append(f"restoring the model file's threshold: {a}, {b}")
+    if len(PLATFORMS_C3_FREE_HOSTING) != 8 or len(PLATFORMS_C3_USER_CONTENT) != 1:
+        bad.append("expected 8 free-hosting + 1 user-content platforms")
+    for d in sorted(PLATFORMS_C3_FREE_HOSTING):
+        a = assess_link(f"https://some-name.{d}/")
+        if not a or a["kind"] != "free" or a["level"] is not None:
+            bad.append(f"{d}: {a and a['kind']}, wanted free hosting / Can't judge")
+    if platform_of("f005.backblazeb2.com") != "backblazeb2.com" or assess_link("https://f005.backblazeb2.com/file/b/x.html") is not None:
+        bad.append("backblazeb2.com must be user content (URL model still scores it)")
+    return bad
+
 
 CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; mobile number / OTP keep Likely scam", l2),
           ("L3", "offline flags R3 / R5, abuse TLD note only, .bank.in P1", l3), ("L4", "blocklists R1, page-only on platforms, stale / no key", l4),
@@ -552,7 +632,8 @@ CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; m
           ("L10", "API live / expand fields and validation", l10), ("L11", "no domain / URL / IP / key in logs", l11),
           ("L12", "in-memory cache", l12), ("L14", "offline call: no requests, pending marked", l14),
           ("L15", "C1 list additions: eval misses are shortener / free hosting; PSL sources", l15),
-          ("L16", "C2 (b): URL model alone stops at Suspicious; a red flag keeps Likely scam", l16), ("L17", "C2: downloaded shortener list merged, exclusions", l17)]
+          ("L16", "C2 (b): URL model alone stops at Suspicious; a red flag keeps Likely scam", l16), ("L17", "C2: downloaded shortener list merged, exclusions", l17),
+          ("L18", "C3 R10: exact brand label on a non-official domain", l18), ("L19", "C3: URL flag threshold 0.662 (restorable), nine platforms", l19)]
 
 
 @contextlib.contextmanager

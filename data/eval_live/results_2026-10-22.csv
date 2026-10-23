@@ -2888,3 +2888,966 @@ honest_de,regression_domain,reg22,gambling_control,hxxps://aurealmoneycasino[.]c
 honest_de,regression_message,msg-listed,gambling_message,hxxps://bet365[.]com/,own_domain,,Likely scam,,,list,,0.175,date,9941,not needed,ok
 honest_de,regression_message,msg-short,gambling_message,hxxps://bit[.]ly/3Xk9Qp,shortener,,Likely scam,,,,,,n/a,,n/a,n/a
 honest_de,regression_message,msg-unlisted,gambling_message,hxxps://sportpesa[.]com/,own_domain,,Likely scam,,,list,,0.258,date,5306,not needed,ok
+honest_el,phish,p001,phishing,hxxp://tokinix-cdn21-hk21[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_el,phish,p002,phishing,hxxps://mydpd[.]audjd[.]cc/track-ch,own_domain,,Suspicious,R7,,,OpenPhish,0.885,date,3,not needed,nxdomain
+honest_el,phish,p003,phishing,hxxps://allegrolokalnie[.]nr-h2n-8sn4-sn23[.]sbs/oferta/gigabyte-aero-geforce-rtx-4060-8gb-white-3x-oc/RE8fLQ62,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,1,not needed,ok
+honest_el,phish,p004,phishing,hxxp://repairing[.]game-en[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.898,date,243,not needed,ok
+honest_el,phish,p005,phishing,hxxps://geminii-logen[.]gitbook[.]io/sign-in,own_domain,3490,Suspicious,,,,OpenPhish,0.885,unsupported,,not needed,ok
+honest_el,phish,p006,phishing,hxxps://www[.]roblox[.]et/games/89725522375970/an-insane-roblox-game?privateServerLinkCode=91660200462430984472412001152778,own_domain,,Suspicious,R10,,,OpenPhish,0.584,unsupported,,not needed,ok
+honest_el,phish,p007,phishing,hxxp://share-edge-og1u[.]p-4bpdi3hp[.]workers[.]dev/,free_hosting,79,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p008,phishing,hxxps://jvillalobos[.]com/pic/media/2026/music/abos/205578005848502584878de8402208518151d8ed0d88f0sj858/,own_domain,,No warning signs,,,,OpenPhish,0.392,date,7921,not needed,ok
+honest_el,phish,p009,phishing,hxxps://scp-comunicaciones[.]com/,own_domain,,Suspicious,R7,,,OpenPhish,0.379,date,2,not needed,ok
+honest_el,phish,p010,phishing,hxxps://velunoraglobalcartmarket3[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_el,phish,p011,phishing,hxxps://zd[.]lc/roblox-profile-4545543,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p012,phishing,hxxps://metamask[.]walletportal[.]app/verify,own_domain,,Suspicious,R7,,,OpenPhish,0.896,date,1,not needed,nxdomain
+honest_el,phish,p013,phishing,hxxps://es-empresas[.]cc/adobe[.]products-lista[.]cc/,own_domain,,Suspicious,R7,,,OpenPhish,0.627,date,1,not needed,failed:bad_response
+honest_el,phish,p014,phishing,hxxps://www[.]tenant-data[.]help/,own_domain,,Suspicious,,,,OpenPhish,0.927,date,49,not needed,ok
+honest_el,phish,p015,phishing,hxxps://premium[.]spotfi[.]eu/open[.]me[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.709,unsupported,,not needed,ok
+honest_el,phish,p016,phishing,hxxp://tokanim-cdn16-hk16[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_el,phish,p017,phishing,hxxps://3658993[.]cc/?shareName=3658friy59233[.]cc,own_domain,,Suspicious,,,,OpenPhish,0.989,date,96,not needed,ok
+honest_el,phish,p018,phishing,hxxps://webmail-oauth[.]lygrunfeng[.]com/yuin/auth22053149/cpsesvlmvqlqakz#eXZvbm5lLmNvZmZleUBiZWxsZXZpbGxlYm9vdC5jb20=,own_domain,,Suspicious,,,,OpenPhish,0.725,date,6812,not needed,ok
+honest_el,phish,p019,phishing,hxxp://strong-auth[.]cyou/,own_domain,,Suspicious,R7,,,OpenPhish,0.871,date,3,not needed,ok
+honest_el,phish,p020,phishing,hxxps://www[.]elbrushome[.]hostel[.]town/,own_domain,,Suspicious,,,,OpenPhish,0.955,date,184,not needed,ok
+honest_el,phish,p021,phishing,hxxp://infobcl[.]site/,own_domain,,Suspicious,R7,,,OpenPhish,0.437,date,9,not needed,nxdomain
+honest_el,phish,p022,phishing,hxxps://9dp7mj[.]7773653[.]com/247102306,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_el,phish,p023,phishing,hxxp://tokinim-cdn41-hk41[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_el,phish,p024,phishing,hxxps://tokanim-cdn35-hk08[.]homes/,own_domain,,Likely scam,R7,,,OpenPhish,0.983,date,6,not needed,ok
+honest_el,phish,p025,phishing,hxxp://www[.]my-account-netfilx[.]com/pages/info[.]php,own_domain,,Suspicious,,,,OpenPhish,0.957,date,80,not needed,ok
+honest_el,phish,p026,phishing,hxxps://validacion2026[.]yzz[.]me/?i=1,own_domain,,Suspicious,,,,OpenPhish,0.957,unsupported,,not needed,ok
+honest_el,phish,p027,phishing,hxxps://velunoraglobalcartmarket2[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_el,phish,p028,phishing,hxxp://comcastmaileroauthes[.]weebly[.]com/,free_hosting,335,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p029,phishing,hxxps://uq6189[.]craftum[.]io/,own_domain,65396,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p030,phishing,hxxp://velunoraglobalcartmarket4[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_el,phish,p031,phishing,hxxps://taskerx[.]800876[.]xyz/features/sync,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1478,not needed,ok
+honest_el,phish,p032,phishing,hxxps://aminu-gal-expenses[.]netlify[.]app/,free_hosting,870,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p033,phishing,hxxps://lk[.]1x-bet[.]mobi/,own_domain,21723,Suspicious,,,list,OpenPhish,0.875,date,1193,not needed,ok
+honest_el,phish,p034,phishing,hxxps://milevwinery[.]com/Design-Consulting-Project-Planning-General-Contracting-Powered-by-Procore,own_domain,,No warning signs,,,,OpenPhish,0.373,date,1338,not needed,ok
+honest_el,phish,p035,phishing,hxxps://pyuqk5[.]id8954388[.]shop/223037158,own_domain,,Likely scam,R7,,,OpenPhish,0.999,date,1,not needed,ok
+honest_el,phish,p036,phishing,hxxps://www-chase-com[.]csy-launcher[.]com/digital/resources/js-disabled,own_domain,,Suspicious,,,,OpenPhish,0.74,date,72,not needed,ok
+honest_el,phish,p037,phishing,hxxps://r[.]oblox[.]com[.]et/users/7318921578/profile,own_domain,,Suspicious,,,,OpenPhish,0.736,unsupported,,not needed,ok
+honest_el,phish,p038,phishing,hxxp://skinsaway[.]lol/,own_domain,,No warning signs,,,,OpenPhish,0.55,date,60,not needed,ok
+honest_el,phish,p039,phishing,hxxps://kaushaltiwariweb[.]github[.]io/spotify-clone,free_hosting,131,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p040,phishing,hxxp://correors[.]qpon/,own_domain,,Suspicious,R7,,,OpenPhish,0.527,date,1,not needed,ok
+honest_el,phish,p041,phishing,hxxps://quitarhojecomdesconto[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.963,date,75,not needed,ok
+honest_el,phish,p042,phishing,hxxps://g5[.]lu/ztcyv,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p043,phishing,hxxps://detaillogs[.]servicecostumenr-8998we7hr[.]crabdance[.]com/,own_domain,33148,Suspicious,,,,OpenPhish,0.994,date,7639,not needed,ok
+honest_el,phish,p044,phishing,hxxps://confiraachadodalu[.]com/produto/1375521,own_domain,,Suspicious,R7,,,OpenPhish,0.554,date,1,not needed,ok
+honest_el,phish,p045,phishing,hxxp://www[.]user-fabiof[.]flazio[.]online/,own_domain,,Suspicious,,,,OpenPhish,0.983,date,2592,not needed,ok
+honest_el,phish,p046,phishing,hxxps://f005[.]backblazeb2[.]com/file/kreial/vx/index[.]html,own_domain,4117,Suspicious,,,,OpenPhish,0.91,date,3753,not needed,ok
+honest_el,phish,p047,phishing,hxxps://www[.]roblox[.]com[.]am/games/119413010689131/Bubble-Gum-Clicker?privateServerLinkCode=123142513246344254994143211520,own_domain,984745,Suspicious,R10,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_el,phish,p048,phishing,hxxp://kukcoin-jlogi6[.]godaddysites[.]com/,free_hosting,6243,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p049,phishing,hxxps://credits-community[.]xyz/,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_el,phish,p050,phishing,hxxps://poderema[.]teye[.]xyz/service/app/,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1843,not needed,ok
+honest_el,phish,p051,phishing,hxxps://www[.]roblox[.]ly/users/2303337964/profile,own_domain,,Suspicious,R10,,,OpenPhish,0.602,failed:timeout,,not needed,ok
+honest_el,phish,p052,phishing,hxxp://tokemim-cdn34-hk34[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_el,phish,p053,phishing,hxxps://mydpd[.]jdevr[.]xyz/track-ch,own_domain,,Likely scam,R7,,,OpenPhish,0.995,date,0,not needed,nxdomain
+honest_el,phish,p054,phishing,hxxps://kleinanzeigen-verify[.]website/,own_domain,,Likely scam,R7,,,OpenPhish,0.981,date,1,not needed,ok
+honest_el,phish,p055,phishing,hxxp://www[.]sopping-17[.]blogspot[.]com/,free_hosting,93,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p056,phishing,hxxp://seller[.]wefe[.]cc/,own_domain,,Suspicious,,,,OpenPhish,0.849,date,175,not needed,ok
+honest_el,phish,p057,phishing,hxxps://www[.]roblox[.]com[.]pt/games/106198175232796/UPDATE-2-5-Anime-Legacy-Simulator?privateServerLinkCode=33904598587074146790476626474920&game_id=106198175232796&game_name=UPDATE-2-5-Anime-Legacy-Simulator,own_domain,,Suspicious,R10,,,OpenPhish,0.642,unsupported,,not needed,ok
+honest_el,phish,p058,phishing,hxxp://central-crimson-l5ks1k8d[.]edgeone[.]dev/?request=arissys@75675b8285963a94abf393cb002ddb1eebae[.]net,own_domain,105119,Suspicious,,,,OpenPhish,0.997,date,500,not needed,ok
+honest_el,phish,p059,phishing,hxxps://hight2210-tfjnutpk[.]4everland[.]app/,own_domain,944760,Suspicious,,,,OpenPhish,0.998,date,1932,not needed,ok
+honest_el,phish,p060,phishing,hxxp://securityawareness[.]office-teams[.]net/i/afce01f701bf94d789808dd4048b474f8,own_domain,,Suspicious,,,,OpenPhish,0.858,date,1520,not needed,ok
+honest_el,phish,p061,phishing,hxxps://lnk[.]ink/condoserver,own_domain,863953,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p062,phishing,hxxp://overview--en--trzer-en[.]typedream[.]app/,own_domain,219790,Suspicious,,,,OpenPhish,0.986,date,2099,not needed,ok
+honest_el,phish,p063,phishing,hxxps://f76[.]hkwordpress[.]com/wp-includes/XC/wp[.]html#janor@110bbeab727a5f140f666a64893f43ace39e[.]net,own_domain,,Suspicious,,,,OpenPhish,0.944,date,3313,not needed,ok
+honest_el,phish,p064,phishing,hxxps://steamcommvnlty[.]com/id/7656193595737567,own_domain,,Suspicious,R7,,,OpenPhish,0.422,date,10,not needed,ok
+honest_el,phish,p065,phishing,hxxps://gemini[.]anzerio[.]ddns[.]net/,own_domain,989,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p066,phishing,hxxps://qkjwejkqwq1231[.]duckdns[.]org/,own_domain,171,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p067,phishing,hxxps://9000-firebase-mneeee-1780309173719[.]cluster-l2bgochoazbomqgfmlhuvdvgiy[.]cloudworkstations[.]dev/#alorsys@cd42e1ee29b5807d852dda7395386261d14b[.]net/,own_domain,41968,Suspicious,,,,OpenPhish,0.999,date,1742,not needed,ok
+honest_el,phish,p068,phishing,hxxp://edevlet[.]vatandasgiris[.]org/,own_domain,,Suspicious,R7,,,OpenPhish,0.402,date,2,not needed,nxdomain
+honest_el,phish,p069,phishing,hxxp://descontosdesenrolar26[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.987,date,74,not needed,nxdomain
+honest_el,phish,p070,phishing,hxxps://www[.]ritzcarltonmilleniasingapore[.]spahotel[.]guru/,own_domain,,Suspicious,,,,OpenPhish,0.962,date,811,not needed,ok
+honest_el,phish,p071,phishing,hxxps://upload[.]thenxtsmp[.]net/AP/backup[.]html,own_domain,,No warning signs,,,,OpenPhish,0.415,date,238,not needed,ok
+honest_el,phish,p072,phishing,hxxps://yay[.]snj[.]mycrazydomains[.]me/a/pt/,own_domain,211495,Suspicious,,,,OpenPhish,0.899,unsupported,,not needed,ok
+honest_el,phish,p073,phishing,hxxp://sleepdynamics-9sd7f2n[.]web[.]app/,free_hosting,2745,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p074,phishing,hxxp://webdisket-g7dvffckcxbxgsfq[.]westus3-01[.]azurewebsites[.]net/,free_hosting,166,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p075,phishing,hxxp://steamcommuminty[.]cam/tradeoffer/new/path-HG14/nK-951244-29,own_domain,,Suspicious,,,,OpenPhish,0.839,date,59,not needed,ok
+honest_el,phish,p076,phishing,hxxp://www[.]indexxjjo[.]vercel[.]app/,free_hosting,610,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p077,phishing,hxxp://vip-spinradar[.]click/,own_domain,,Suspicious,,,,OpenPhish,0.881,date,276,not needed,ok
+honest_el,phish,p078,phishing,hxxps://ar24security-3920b0[.]gitlab[.]io/,free_hosting,4299,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p079,phishing,hxxp://www[.]sso-uphouldcdn[.]teleporthq[.]app/,own_domain,,Suspicious,,,,OpenPhish,0.976,date,2514,not needed,ok
+honest_el,phish,p080,phishing,hxxps://dbs[.]swis[.]blog/dbs/app/id[.]php?sessionId=ad8ad124cca8&userId=126092&scope=all&valid=true,own_domain,,Suspicious,R7,,,OpenPhish,0.746,date,9,not needed,ok
+honest_el,phish,p081,phishing,hxxps://digital-assets[.]top/nexuschain[.]html,own_domain,,Likely scam,R7,,,OpenPhish,0.92,date,17,not needed,nxdomain
+honest_el,phish,p082,phishing,hxxps://my-top-juno-webmail-site[.]webflow[.]io/,free_hosting,3000,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p083,phishing,hxxp://trezorbridge[.]framer[.]website/,free_hosting,14427,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p084,phishing,hxxps://proboss[.]be/[.]well/,own_domain,,No warning signs,,,,OpenPhish,0.577,unsupported,,not needed,ok
+honest_el,phish,p085,phishing,hxxps://www[.]roblox[.]com[.]ml/users/155654793242/profile,own_domain,614834,Suspicious,R10,,,OpenPhish,0.595,date,394,not needed,ok
+honest_el,phish,p086,phishing,hxxps://tusmo[.]so/rjmather/RJM-document[.]php,own_domain,,No warning signs,,,,OpenPhish,0.384,unsupported,,not needed,ok
+honest_el,phish,p087,phishing,hxxp://sp30ct-tazul-biz-rovex-nalik[.]pages[.]dev/,free_hosting,194,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p088,phishing,hxxps://vwwv-roblox[.]co/login?returnUrl=1041215277,own_domain,,Suspicious,,,,OpenPhish,0.735,unsupported,,not needed,ok
+honest_el,phish,p089,phishing,hxxps://www[.]grade[.]us/intolerancelab/,own_domain,261872,Suspicious,,,,OpenPhish,0.706,unsupported,,not needed,ok
+honest_el,phish,p090,phishing,hxxp://spf777[.]com[.]mx/,own_domain,,Suspicious,,,,OpenPhish,0.668,unsupported,,not needed,ok
+honest_el,phish,p091,phishing,hxxps://www[.]roblox[.]com[.]bi/games/5407396567/MOM-LIFESeaboard-City-RP?privateServerLinkCode=00739129325506098636355984327537,own_domain,647968,Suspicious,R10,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_el,phish,p092,phishing,hxxp://cerruiops[.]click/,own_domain,,Suspicious,R7,,,OpenPhish,0.497,date,3,not needed,nxdomain
+honest_el,phish,p093,phishing,hxxp://gray-beach-0fc576a03[.]4[.]azurestaticapps[.]net/,own_domain,11284,Suspicious,,,,OpenPhish,0.999,date,2388,not needed,ok
+honest_el,phish,p094,phishing,hxxps://gemini[.]alybot[.]dpdns[.]org/,own_domain,8480,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_el,phish,p095,phishing,hxxps://schwarzteam[.]eu/2agp00l9aucqzfct,own_domain,,No warning signs,,,,OpenPhish,0.574,unsupported,,not needed,ok
+honest_el,phish,p096,phishing,hxxps://www[.]roblox[.]ss/users/8177702111/profile,own_domain,,Likely scam,"R10,R7,R9",,,OpenPhish,0.602,date,14,not needed,ok
+honest_el,benign_top10k,b001,benign,hxxps://yandex[.]net/,own_domain,84,No warning signs,,,,,0.145,date,9473,not needed,ok
+honest_el,benign_top10k,b002,benign,hxxps://hubspot[.]com/,own_domain,256,No warning signs,,,,,0.197,date,7928,not needed,ok
+honest_el,benign_top10k,b003,benign,hxxps://ggpht[.]com/,own_domain,284,No warning signs,,,,,0.119,date,6854,not needed,ok
+honest_el,benign_top10k,b004,benign,hxxps://capcut[.]com/,own_domain,542,No warning signs,,,,,0.165,date,10799,not needed,ok
+honest_el,benign_top10k,b005,benign,hxxps://featureassets[.]org/,own_domain,617,No warning signs,,,,,0.356,date,916,not needed,ok
+honest_el,benign_top10k,b006,benign,hxxps://eeroup[.]com/,own_domain,780,No warning signs,,,,,0.147,date,4031,not needed,ok
+honest_el,benign_top10k,b007,benign,hxxps://zpath[.]net/,own_domain,872,No warning signs,,,,,0.15,date,9612,not needed,ok
+honest_el,benign_top10k,b008,benign,hxxps://vk-analytics[.]ru/,own_domain,1045,Suspicious,,,,,0.791,unsupported,,not needed,ok
+honest_el,benign_top10k,b009,benign,hxxps://starlink[.]com/,own_domain,1244,No warning signs,,,,,0.24,date,11367,not needed,ok
+honest_el,benign_top10k,b010,benign,hxxps://lookmovie2[.]to/,own_domain,1324,No warning signs,,,,,0.633,date,1685,not needed,ok
+honest_el,benign_top10k,b011,benign,hxxps://cmoa[.]jp/,own_domain,1405,No warning signs,,,,,0.129,unsupported,,not needed,ok
+honest_el,benign_top10k,b012,benign,hxxps://iltalehti[.]fi/,own_domain,1411,No warning signs,,,,,0.456,date,13079,not needed,ok
+honest_el,benign_top10k,b013,benign,hxxps://nya2[.]com/,own_domain,1594,No warning signs,,,,,0.125,date,3186,not needed,ok
+honest_el,benign_top10k,b014,benign,hxxps://xvideos-ar[.]com/,own_domain,1623,No warning signs,,,,,0.398,date,871,not needed,ok
+honest_el,benign_top10k,b015,benign,hxxps://xpaja[.]net/,own_domain,1667,No warning signs,,,,,0.271,date,4896,not needed,ok
+honest_el,benign_top10k,b016,benign,hxxps://annunci69[.]it/,own_domain,1725,No warning signs,,,,,0.366,unsupported,,not needed,ok
+honest_el,benign_top10k,b017,benign,hxxps://va[.]gov/,own_domain,1857,No warning signs,,,,,0.001,date,10612,not needed,ok
+honest_el,benign_top10k,b018,benign,hxxps://usgs[.]gov/,own_domain,1866,No warning signs,,,,,0.004,date,10612,not needed,ok
+honest_el,benign_top10k,b019,benign,hxxps://apple[.]news/,own_domain,2044,Can't judge,,,,,,n/a,,n/a,n/a
+honest_el,benign_top10k,b020,benign,hxxps://infocyte[.]com/,own_domain,2135,No warning signs,,,,,0.275,date,4805,not needed,ok
+honest_el,benign_top10k,b021,benign,hxxps://kasserver[.]com/,own_domain,2275,No warning signs,,,,,0.271,date,9012,not needed,ok
+honest_el,benign_top10k,b022,benign,hxxps://useinsider[.]com/,own_domain,2285,No warning signs,,,,,0.274,date,4570,not needed,ok
+honest_el,benign_top10k,b023,benign,hxxps://vtb[.]ru/,own_domain,2314,No warning signs,,,,,0.034,unsupported,,not needed,ok
+honest_el,benign_top10k,b024,benign,hxxps://tvsquared[.]com/,own_domain,2676,No warning signs,,,,,0.26,date,5431,not needed,ok
+honest_el,benign_top10k,b025,benign,hxxps://icloud[.]com[.]cn/,own_domain,2801,No warning signs,,,,,0.205,unsupported,,not needed,ok
+honest_el,benign_top10k,b026,benign,hxxps://capitalone[.]com/,own_domain,2822,No warning signs,,,,,0.323,date,11546,not needed,ok
+honest_el,benign_top10k,b027,benign,hxxps://cnnbrasil[.]com[.]br/,own_domain,2931,No warning signs,,,,,0.609,date,8798,not needed,ok
+honest_el,benign_top10k,b028,benign,hxxps://sedoparking[.]com/,own_domain,2984,No warning signs,,,,,0.306,date,9165,not needed,ok
+honest_el,benign_top10k,b029,benign,hxxps://faqs[.]org/,own_domain,3110,No warning signs,,,,,0.062,date,10817,not needed,ok
+honest_el,benign_top10k,b030,benign,hxxps://nianticlabs[.]com/,own_domain,3271,No warning signs,,,,,0.389,date,5317,not needed,ok
+honest_el,benign_top10k,b031,benign,hxxps://backblaze[.]com/,own_domain,3382,No warning signs,,,,,0.258,date,7143,not needed,ok
+honest_el,benign_top10k,b032,benign,hxxps://ibytedtos[.]com/,own_domain,3433,No warning signs,,,,,0.449,date,3230,not needed,ok
+honest_el,benign_top10k,b033,benign,hxxps://code[.]org/,own_domain,3493,No warning signs,,,,,0.037,date,9886,not needed,ok
+honest_el,benign_top10k,b034,benign,hxxps://unl[.]edu/,own_domain,3606,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_el,benign_top10k,b035,benign,hxxps://uidapi[.]com/,own_domain,3656,Suspicious,R4,,,,0.229,date,2208,not needed,ok
+honest_el,benign_top10k,b036,benign,hxxps://bayern[.]de/,own_domain,3860,No warning signs,,,,,0.073,unsupported,,not needed,ok
+honest_el,benign_top10k,b037,benign,hxxps://google[.]com[.]my/,own_domain,3985,No warning signs,,,,,0.01,unsupported,,not needed,ok
+honest_el,benign_top10k,b038,benign,hxxps://g2[.]com/,own_domain,4032,No warning signs,,,,,0.011,date,11537,not needed,ok
+honest_el,benign_top10k,b039,benign,hxxps://usf[.]edu/,own_domain,4276,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_el,benign_top10k,b040,benign,hxxps://merchant-center-analytics[.]goog/,own_domain,4311,Suspicious,,,,,0.966,date,1553,not needed,ok
+honest_el,benign_top10k,b041,benign,hxxps://just-eat[.]co[.]uk/,own_domain,4363,No warning signs,,,,,0.227,date,8241,not needed,ok
+honest_el,benign_top10k,b042,benign,hxxps://sway[.]com/,own_domain,4473,No warning signs,,,,,0.036,date,11314,not needed,ok
+honest_el,benign_top10k,b043,benign,hxxps://miibeian[.]gov[.]cn/,own_domain,4548,No warning signs,,,,,0.557,unsupported,,not needed,failed:timeout
+honest_el,benign_top10k,b044,benign,hxxps://caissedesdepots[.]fr/,own_domain,4591,No warning signs,,,,,0.262,date,11161,not needed,ok
+honest_el,benign_top10k,b045,benign,hxxps://boredpanda[.]com/,own_domain,4778,No warning signs,,,,,0.302,date,6300,not needed,ok
+honest_el,benign_top10k,b046,benign,hxxps://fastpanel[.]direct/,own_domain,4882,No warning signs,,,,,0.555,date,3803,not needed,ok
+honest_el,benign_top10k,b047,benign,hxxps://bose[.]io/,own_domain,4970,No warning signs,,,,,0.04,unsupported,,not needed,ok
+honest_el,benign_top10k,b048,benign,hxxps://myportfolio[.]com/,own_domain,5010,No warning signs,,,,,0.377,date,10677,not needed,ok
+honest_el,benign_top10k,b049,benign,hxxps://samsara[.]com/,own_domain,5198,No warning signs,,,,,0.215,date,10752,not needed,ok
+honest_el,benign_top10k,b050,benign,hxxps://audiomack[.]com/,own_domain,5206,No warning signs,,,,,0.308,date,6097,not needed,ok
+honest_el,benign_top10k,b051,benign,hxxps://appfolio[.]com/,own_domain,5434,No warning signs,,,,,0.241,date,7351,not needed,ok
+honest_el,benign_top10k,b052,benign,hxxps://loggly[.]com/,own_domain,5617,No warning signs,,,,,0.138,date,6359,not needed,ok
+honest_el,benign_top10k,b053,benign,hxxps://xxx[.]com/,own_domain,5836,No warning signs,,,,,0.004,date,11788,not needed,ok
+honest_el,benign_top10k,b054,benign,hxxps://cqloud[.]com/,own_domain,5960,No warning signs,,,,,0.156,date,4074,not needed,ok
+honest_el,benign_top10k,b055,benign,hxxps://thescore[.]com/,own_domain,6023,No warning signs,,,,,0.261,date,8982,not needed,ok
+honest_el,benign_top10k,b056,benign,hxxps://homeoffice[.]gov[.]uk/,own_domain,6027,No warning signs,,,,,0.269,failed:http_301,,not needed,ok
+honest_el,benign_top10k,b057,benign,hxxps://gpo[.]gov/,own_domain,6279,No warning signs,,,,,0.002,date,10612,not needed,ok
+honest_el,benign_top10k,b058,benign,hxxps://hostpapa[.]com/,own_domain,6353,No warning signs,,,,,0.218,date,7674,not needed,ok
+honest_el,benign_top10k,b059,benign,hxxps://n11[.]com/,own_domain,6356,No warning signs,,,,,0.017,date,9670,not needed,ok
+honest_el,benign_top10k,b060,benign,hxxps://wistia[.]net/,own_domain,6755,No warning signs,,,,,0.195,date,6624,not needed,ok
+honest_el,benign_top10k,b061,benign,hxxps://maze[.]co/,own_domain,6799,No warning signs,,,,,0.151,unsupported,,not needed,ok
+honest_el,benign_top10k,b062,benign,hxxps://aidcgroup[.]net/,own_domain,6832,No warning signs,,,,,0.269,date,1245,not needed,ok
+honest_el,benign_top10k,b063,benign,hxxps://theplanet[.]com/,own_domain,6894,No warning signs,,,,,0.31,date,10087,not needed,ok
+honest_el,benign_top10k,b064,benign,hxxps://rtesvc[.]com/,own_domain,6991,No warning signs,,,,,0.146,date,1004,not needed,ok
+honest_el,benign_top10k,b065,benign,hxxps://poolbinance[.]com/,own_domain,7122,No warning signs,,,,,0.378,date,2432,not needed,ok
+honest_el,benign_top10k,b066,benign,hxxps://playbattlegrounds[.]com/,own_domain,7185,No warning signs,,,,,0.335,date,3768,not needed,ok
+honest_el,benign_top10k,b067,benign,hxxps://lgappstv[.]com/,own_domain,7322,No warning signs,,,,,0.23,date,5725,not needed,ok
+honest_el,benign_top10k,b068,benign,hxxps://wtr-lab[.]com/,own_domain,7336,No warning signs,,,,,0.42,date,2890,not needed,ok
+honest_el,benign_top10k,b069,benign,hxxps://bling[.]com[.]br/,own_domain,7459,No warning signs,,,,,0.361,date,7946,not needed,ok
+honest_el,benign_top10k,b070,benign,hxxps://palmettostatearmory[.]com/,own_domain,7547,No warning signs,,,,,0.526,date,6834,not needed,ok
+honest_el,benign_top10k,b071,benign,hxxps://pokemondb[.]net/,own_domain,7612,No warning signs,,,,,0.267,date,6268,not needed,ok
+honest_el,benign_top10k,b072,benign,hxxps://tvpixel[.]com/,own_domain,7817,No warning signs,,,,,0.175,date,7629,not needed,ok
+honest_el,benign_top10k,b073,benign,hxxps://papy[.]co[.]jp/,own_domain,7839,No warning signs,,,,,0.053,unsupported,,not needed,ok
+honest_el,benign_top10k,b074,benign,hxxps://profesia[.]sk/,own_domain,8011,No warning signs,,,,,0.493,unsupported,,not needed,ok
+honest_el,benign_top10k,b075,benign,hxxps://intersport[.]fr/,own_domain,8139,No warning signs,,,,,0.161,date,11313,not needed,ok
+honest_el,benign_top10k,b076,benign,hxxps://runsignup[.]com/,own_domain,8179,No warning signs,,,,,0.31,date,6342,not needed,ok
+honest_el,benign_top10k,b077,benign,hxxps://livecamrips[.]to/,own_domain,8257,Suspicious,,,,,0.687,date,442,not needed,ok
+honest_el,benign_top10k,b078,benign,hxxps://darknessporn[.]com/,own_domain,8299,No warning signs,,,,,0.391,date,2541,not needed,ok
+honest_el,benign_top10k,b079,benign,hxxps://fortunebusinessinsights[.]com/,own_domain,8445,No warning signs,,,,,0.64,date,2947,not needed,ok
+honest_el,benign_top10k,b080,benign,hxxps://freeporno[.]xxx/,own_domain,8569,No warning signs,,,,,0.517,date,3126,not needed,ok
+honest_el,benign_top10k,b081,benign,hxxps://whatwg[.]org/,own_domain,8592,No warning signs,,,,,0.203,date,8262,not needed,ok
+honest_el,benign_top10k,b082,benign,hxxps://njav[.]com/,own_domain,8602,No warning signs,,,,,0.036,date,7318,not needed,ok
+honest_el,benign_top10k,b083,benign,hxxps://ads-tinyorbit[.]com/,own_domain,8765,No warning signs,,,,,0.372,date,518,not needed,ok
+honest_el,benign_top10k,b084,benign,hxxps://gnezdo[.]ru/,own_domain,8775,No warning signs,,,,,0.271,unsupported,,not needed,ok
+honest_el,benign_top10k,b085,benign,hxxps://unstop[.]com/,own_domain,8785,No warning signs,,,,,0.146,date,6380,not needed,ok
+honest_el,benign_top10k,b086,benign,hxxps://mintmanga[.]com/,own_domain,8861,No warning signs,,,,,0.258,date,6435,not needed,ok
+honest_el,benign_top10k,b087,benign,hxxps://sportal[.]bg/,own_domain,8882,No warning signs,,,,,0.484,unsupported,,not needed,ok
+honest_el,benign_top10k,b088,benign,hxxps://sfile[.]co/,own_domain,8906,No warning signs,,,,,0.202,unsupported,,not needed,ok
+honest_el,benign_top10k,b089,benign,hxxps://digmawifi[.]com/,own_domain,8917,No warning signs,,,,,0.271,date,203,not needed,ok
+honest_el,benign_top10k,b090,benign,hxxps://lsgkerala[.]gov[.]in/,own_domain,8988,No warning signs,,display,,,0.26,date,6166,not needed,ok
+honest_el,benign_top10k,b091,benign,hxxps://toomics[.]com/,own_domain,9077,No warning signs,,,,,0.253,date,4131,not needed,ok
+honest_el,benign_top10k,b092,benign,hxxps://aafp[.]org/,own_domain,9152,No warning signs,,,,,0.027,date,11405,not needed,ok
+honest_el,benign_top10k,b093,benign,hxxps://umingle[.]com/,own_domain,9269,No warning signs,,,,,0.197,date,8602,not needed,ok
+honest_el,benign_top10k,b094,benign,hxxps://komikindo[.]ch/,own_domain,9329,No warning signs,,,,,0.515,unsupported,,not needed,ok
+honest_el,benign_top10k,b095,benign,hxxps://pscube[.]jp/,own_domain,9539,No warning signs,,,,,0.16,unsupported,,not needed,ok
+honest_el,benign_top10k,b096,benign,hxxps://infopanel[.]jp/,own_domain,9667,No warning signs,,,,,0.267,unsupported,,not needed,ok
+honest_el,benign_top10k,b097,benign,hxxps://locanto[.]org/,own_domain,9690,No warning signs,,,,,0.165,date,7706,not needed,ok
+honest_el,benign_top10k,b098,benign,hxxps://theweek[.]com/,own_domain,9729,No warning signs,,,,,0.215,date,10401,not needed,ok
+honest_el,benign_top10k,b099,benign,hxxps://videy[.]design/,own_domain,9816,No warning signs,,,,,0.347,date,349,not needed,ok
+honest_el,benign_top10k,b100,benign,hxxps://yenibeygir[.]com/,own_domain,10000,No warning signs,,,,,0.274,date,3264,not needed,ok
+honest_el,benign_100k_1m,b101,benign,hxxps://totalfootballanalysis[.]com/,own_domain,103502,No warning signs,,,,,0.571,date,3107,not needed,ok
+honest_el,benign_100k_1m,b102,benign,hxxps://gridwise[.]com[.]cn/,own_domain,124344,No warning signs,,,,,0.631,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b103,benign,hxxps://mkvcinemas[.]as/,own_domain,129326,No warning signs,,,,,0.542,date,99,not needed,ok
+honest_el,benign_100k_1m,b104,benign,hxxps://toto123resmi[.]cyou/,own_domain,129813,Suspicious,,,,,0.891,date,156,not needed,ok
+honest_el,benign_100k_1m,b105,benign,hxxps://tnews[.]co[.]th/,own_domain,134758,No warning signs,,,,,0.39,date,6698,not needed,ok
+honest_el,benign_100k_1m,b106,benign,hxxps://digimon[.]net/,own_domain,145007,No warning signs,,,,,0.263,date,10586,not needed,ok
+honest_el,benign_100k_1m,b107,benign,hxxps://shespeaks[.]com/,own_domain,148406,No warning signs,,,,,0.275,date,9065,not needed,ok
+honest_el,benign_100k_1m,b108,benign,hxxps://dnsup[.]net/,own_domain,162939,No warning signs,,,,,0.15,date,3821,not needed,ok
+honest_el,benign_100k_1m,b109,benign,hxxps://gorodperm[.]ru/,own_domain,166925,No warning signs,,,,,0.467,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b110,benign,hxxps://agro-ukraine[.]com/,own_domain,175212,No warning signs,,,,,0.5,date,7203,not needed,ok
+honest_el,benign_100k_1m,b111,benign,hxxps://observatoriodosfamosos[.]com[.]br/,own_domain,192553,Suspicious,,,,,0.952,date,3605,not needed,ok
+honest_el,benign_100k_1m,b112,benign,hxxps://webmail[.]ee/,own_domain,194752,No warning signs,,,,,0.348,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b113,benign,hxxps://affiliated-business[.]com/,own_domain,208869,No warning signs,,,,,0.607,date,7859,not needed,ok
+honest_el,benign_100k_1m,b114,benign,hxxps://casinofreak[.]com/,own_domain,211389,Suspicious,,,list,,0.377,date,10304,not needed,ok
+honest_el,benign_100k_1m,b115,benign,hxxps://letsdatascience[.]com/,own_domain,212505,No warning signs,,,,,0.479,date,2112,not needed,ok
+honest_el,benign_100k_1m,b116,benign,hxxps://trivago[.]com[.]co/,own_domain,219447,No warning signs,,,,,0.343,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b117,benign,hxxps://689pgwin[.]com/,own_domain,223144,No warning signs,,,,,0.247,date,37,not needed,ok
+honest_el,benign_100k_1m,b118,benign,hxxps://textline[.]com/,own_domain,241543,No warning signs,,,,,0.249,date,7754,not needed,ok
+honest_el,benign_100k_1m,b119,benign,hxxps://dokonlin[.]online/,own_domain,252943,No warning signs,,,,,0.412,date,1513,not needed,ok
+honest_el,benign_100k_1m,b120,benign,hxxps://bestrevie[.]ws/,own_domain,265245,No warning signs,,,,,0.445,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b121,benign,hxxps://wiiwii[.]co/,own_domain,272691,No warning signs,,,,,0.532,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b122,benign,hxxps://peachandlily[.]com/,own_domain,301138,No warning signs,,,,,0.408,date,5168,not needed,ok
+honest_el,benign_100k_1m,b123,benign,hxxps://cirquent[.]de/,own_domain,313565,No warning signs,,,,,0.14,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b124,benign,hxxps://communitycoffee[.]com/,own_domain,315072,No warning signs,,,,,0.442,date,11276,not needed,ok
+honest_el,benign_100k_1m,b125,benign,hxxps://96590[.]net/,own_domain,326315,No warning signs,,,,,0.509,date,8724,not needed,ok
+honest_el,benign_100k_1m,b126,benign,hxxps://maxracing[.]co/,own_domain,342389,No warning signs,,,,,0.518,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b127,benign,hxxps://rcservidores[.]com/,own_domain,353834,No warning signs,,,,,0.411,date,714,not needed,ok
+honest_el,benign_100k_1m,b128,benign,hxxps://inwebproservers[.]com/,own_domain,357317,No warning signs,,,,,0.501,date,5491,not needed,failed:timeout
+honest_el,benign_100k_1m,b129,benign,hxxps://interwijs[.]nl/,own_domain,360614,No warning signs,,,,,0.234,date,10242,not needed,ok
+honest_el,benign_100k_1m,b130,benign,hxxps://span[.]app/,own_domain,374862,No warning signs,,,,,0.267,date,3089,not needed,ok
+honest_el,benign_100k_1m,b131,benign,hxxps://macworldexpo[.]com/,own_domain,377970,No warning signs,,,,,0.31,date,11153,not needed,ok
+honest_el,benign_100k_1m,b132,benign,hxxps://5series[.]net/,own_domain,389968,No warning signs,,,,,0.235,date,6379,not needed,ok
+honest_el,benign_100k_1m,b133,benign,hxxps://ziyouz[.]com/,own_domain,391587,No warning signs,,,,,0.147,date,7437,not needed,ok
+honest_el,benign_100k_1m,b134,benign,hxxps://freesoft-board[.]de/,own_domain,409122,No warning signs,,,,,0.644,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b135,benign,hxxps://3ecompany[.]com/,own_domain,412222,No warning signs,,,,,0.256,date,10173,not needed,ok
+honest_el,benign_100k_1m,b136,benign,hxxps://forendors[.]cz/,own_domain,416233,No warning signs,,,,,0.366,date,1148,not needed,ok
+honest_el,benign_100k_1m,b137,benign,hxxps://slamwrestling[.]net/,own_domain,419098,No warning signs,,,,,0.301,date,2348,not needed,ok
+honest_el,benign_100k_1m,b138,benign,hxxps://satincrystals[.]com/,own_domain,425466,No warning signs,,,,,0.445,date,8269,not needed,ok
+honest_el,benign_100k_1m,b139,benign,hxxps://romanticai[.]com/,own_domain,428823,No warning signs,,,,,0.326,date,1745,not needed,ok
+honest_el,benign_100k_1m,b140,benign,hxxps://xxxsex[.]best/,own_domain,429716,No warning signs,,,,,0.457,date,1766,not needed,ok
+honest_el,benign_100k_1m,b141,benign,hxxps://actiondns[.]it/,own_domain,468310,No warning signs,,,,,0.304,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b142,benign,hxxps://plus[.]es/,own_domain,474646,No warning signs,,,,,0.066,unsupported,,not needed,failed:timeout
+honest_el,benign_100k_1m,b143,benign,hxxps://roomservice360[.]com/,own_domain,492192,No warning signs,,,,,0.374,date,5853,not needed,ok
+honest_el,benign_100k_1m,b144,benign,hxxps://raos[.]com/,own_domain,499497,No warning signs,,,,,0.029,date,10789,not needed,ok
+honest_el,benign_100k_1m,b145,benign,hxxps://radiatetheworld[.]com/,own_domain,505952,No warning signs,,,,,0.476,date,4234,not needed,ok
+honest_el,benign_100k_1m,b146,benign,hxxps://getbuddy[.]com/,own_domain,516927,No warning signs,,,,,0.23,date,8527,not needed,ok
+honest_el,benign_100k_1m,b147,benign,hxxps://autoparts[.]expert/,own_domain,523906,No warning signs,,,,,0.611,date,243,not needed,ok
+honest_el,benign_100k_1m,b148,benign,hxxps://brodownload[.]site/,own_domain,536784,Suspicious,,,,,0.737,date,160,not needed,ok
+honest_el,benign_100k_1m,b149,benign,hxxps://qxvsoftwarecompany[.]com/,own_domain,551596,No warning signs,,,,,0.392,date,580,not needed,ok
+honest_el,benign_100k_1m,b150,benign,hxxps://artistbooks[.]de/,own_domain,554702,No warning signs,,,,,0.166,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b151,benign,hxxps://franklyflawless[.]org/,own_domain,567321,No warning signs,,,,,0.308,date,1236,not needed,ok
+honest_el,benign_100k_1m,b152,benign,hxxps://maxbmw[.]com/,own_domain,568311,No warning signs,,,,,0.165,date,9666,not needed,ok
+honest_el,benign_100k_1m,b153,benign,hxxps://cbsnorthstar[.]com/,own_domain,582505,No warning signs,,,,,0.396,date,5845,not needed,ok
+honest_el,benign_100k_1m,b154,benign,hxxps://actaport[.]de/,own_domain,594033,No warning signs,,,,,0.158,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b155,benign,hxxps://dakym[.]com/,own_domain,598017,No warning signs,,,,,0.118,date,1009,not needed,ok
+honest_el,benign_100k_1m,b156,benign,hxxps://mrcrack[.]xyz/,own_domain,598782,Suspicious,,,,,0.888,date,2685,not needed,ok
+honest_el,benign_100k_1m,b157,benign,hxxps://enerset-shop[.]rs/,own_domain,606576,Suspicious,,,,,0.799,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b158,benign,hxxps://horances[.]com/,own_domain,628403,No warning signs,,,,,0.275,date,471,not needed,ok
+honest_el,benign_100k_1m,b159,benign,hxxps://nolabels[.]org/,own_domain,640998,No warning signs,,,,,0.293,date,6155,not needed,ok
+honest_el,benign_100k_1m,b160,benign,hxxps://legionsdk[.]com/,own_domain,652496,No warning signs,,,,,0.25,date,301,not needed,ok
+honest_el,benign_100k_1m,b161,benign,hxxps://leisurelands[.]nl/,own_domain,655220,No warning signs,,,,,0.303,date,4471,not needed,ok
+honest_el,benign_100k_1m,b162,benign,hxxps://timex[.]cz/,own_domain,659730,No warning signs,,,,,0.111,date,10188,not needed,ok
+honest_el,benign_100k_1m,b163,benign,hxxps://nishohi[.]com/,own_domain,695306,No warning signs,,,,,0.211,date,3151,not needed,ok
+honest_el,benign_100k_1m,b164,benign,hxxps://dyestatpro[.]com/,own_domain,700525,No warning signs,,,,,0.298,date,3960,not needed,ok
+honest_el,benign_100k_1m,b165,benign,hxxps://arcdyn[.]com/,own_domain,708084,No warning signs,,,,,0.146,date,3698,not needed,ok
+honest_el,benign_100k_1m,b166,benign,hxxps://transid[.]org/,own_domain,711071,No warning signs,,,,,0.22,date,1517,not needed,ok
+honest_el,benign_100k_1m,b167,benign,hxxps://kosgos[.]ru/,own_domain,721147,No warning signs,,,,,0.196,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b168,benign,hxxps://wwcom[.]ch/,own_domain,728077,No warning signs,,,,,0.513,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b169,benign,hxxps://hypesneakerid[.]com/,own_domain,731927,No warning signs,,,,,0.502,date,2024,not needed,ok
+honest_el,benign_100k_1m,b170,benign,hxxps://norma[.]ch/,own_domain,745499,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b171,benign,hxxps://daailynews[.]com/,own_domain,746307,No warning signs,,,,,0.291,date,2807,not needed,ok
+honest_el,benign_100k_1m,b172,benign,hxxps://flygo[.]com/,own_domain,786579,No warning signs,,,,,0.118,date,10034,not needed,ok
+honest_el,benign_100k_1m,b173,benign,hxxps://givav[.]fr/,own_domain,789628,No warning signs,,,,,0.248,date,4590,not needed,ok
+honest_el,benign_100k_1m,b174,benign,hxxps://izidok[.]id/,own_domain,797488,No warning signs,,,,,0.446,date,2549,not needed,ok
+honest_el,benign_100k_1m,b175,benign,hxxps://jankariupdate[.]in/,own_domain,797923,No warning signs,,,,,0.593,date,583,not needed,ok
+honest_el,benign_100k_1m,b176,benign,hxxps://javoak[.]com/,own_domain,798040,No warning signs,,,,,0.147,date,1000,not needed,ok
+honest_el,benign_100k_1m,b177,benign,hxxps://kaskus800[.]biz/,own_domain,800479,Suspicious,,,,,0.847,date,317,not needed,ok
+honest_el,benign_100k_1m,b178,benign,hxxps://kec[.]ac[.]in/,own_domain,800734,No warning signs,,,,,0.042,date,7255,not needed,ok
+honest_el,benign_100k_1m,b179,benign,hxxps://mombelli[.]org/,own_domain,811418,No warning signs,,,,,0.393,date,6106,not needed,ok
+honest_el,benign_100k_1m,b180,benign,hxxps://pizzacooc[.]com/,own_domain,821501,No warning signs,,,,,0.27,date,8885,not needed,ok
+honest_el,benign_100k_1m,b181,benign,hxxps://sabadogol[.]com[.]ar/,own_domain,828756,No warning signs,,,,,0.661,date,1315,not needed,ok
+honest_el,benign_100k_1m,b182,benign,hxxps://sieuthinama[.]com/,own_domain,832173,No warning signs,,,,,0.373,date,374,not needed,ok
+honest_el,benign_100k_1m,b183,benign,hxxps://t5j9[.]com/,own_domain,837111,No warning signs,,,,,0.224,date,317,not needed,ok
+honest_el,benign_100k_1m,b184,benign,hxxps://vip888laos[.]online/,own_domain,845638,Suspicious,,,,,0.807,date,69,not needed,ok
+honest_el,benign_100k_1m,b185,benign,hxxps://xmeta[.]vn/,own_domain,868760,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b186,benign,hxxps://meat-profi[.]ru/,own_domain,869334,Suspicious,,,,,0.691,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b187,benign,hxxps://annamatari[.]ru/,own_domain,873417,No warning signs,,,,,0.451,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b188,benign,hxxps://lifeinthefastlane[.]com/,own_domain,883452,No warning signs,,,,,0.505,date,9318,not needed,ok
+honest_el,benign_100k_1m,b189,benign,hxxps://robertet[.]com/,own_domain,893119,No warning signs,,,,,0.237,date,9780,not needed,ok
+honest_el,benign_100k_1m,b190,benign,hxxps://blogbuzzecho[.]com/,own_domain,896439,No warning signs,,,,,0.396,date,383,not needed,ok
+honest_el,benign_100k_1m,b191,benign,hxxps://vyvod-iz-zapoya-v-novorossijske3[.]ru/,own_domain,915280,Suspicious,,,,,0.852,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b192,benign,hxxps://plantanimalmineral[.]com/,own_domain,919880,No warning signs,,,,,0.48,date,894,not needed,ok
+honest_el,benign_100k_1m,b193,benign,hxxps://amatore[.]nl/,own_domain,920707,No warning signs,,,,,0.103,date,1132,not needed,ok
+honest_el,benign_100k_1m,b194,benign,hxxps://plugged[.]host/,own_domain,928071,No warning signs,,,,,0.429,date,64,not needed,ok
+honest_el,benign_100k_1m,b195,benign,hxxps://totolink[.]vn/,own_domain,932492,No warning signs,,,,,0.411,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b196,benign,hxxps://josephatelier[.]de/,own_domain,942560,No warning signs,,,,,0.334,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b197,benign,hxxps://dailytrailvista[.]com/,own_domain,942951,No warning signs,,,,,0.486,date,383,not needed,ok
+honest_el,benign_100k_1m,b198,benign,hxxps://fedplus[.]be/,own_domain,975442,No warning signs,,,,,0.461,unsupported,,not needed,ok
+honest_el,benign_100k_1m,b199,benign,hxxps://turbospin138login11[.]shop/,own_domain,987960,Suspicious,,,,,0.99,date,255,not needed,ok
+honest_el,benign_100k_1m,b200,benign,hxxps://win9999[.]store/,own_domain,989214,Suspicious,,,,,0.716,date,1241,not needed,ok
+honest_el,regression_domain,reg01,gambling_unlisted,hxxps://sportpesa[.]com/,own_domain,8210,Suspicious,,,list,,0.258,date,5306,not needed,ok
+honest_el,regression_domain,reg02,gambling_unlisted,hxxps://msport[.]com/,own_domain,7713,Suspicious,,,list,,0.156,date,10145,not needed,ok
+honest_el,regression_domain,reg03,gambling_unlisted,hxxps://bingoplus[.]com/,own_domain,1615,Suspicious,,,list,,0.25,date,8601,not needed,ok
+honest_el,regression_domain,reg04,gambling_unlisted,hxxps://tippmix[.]hu/,own_domain,9857,Suspicious,,,list,,0.491,unsupported,,not needed,ok
+honest_el,regression_domain,reg05,gambling_unlisted,hxxps://skyvegas[.]com/,own_domain,3669,Suspicious,,,list,,0.23,date,9368,not needed,ok
+honest_el,regression_domain,reg06,gambling_unlisted,hxxps://pocketoption[.]com/,own_domain,7924,Suspicious,,,list,,0.411,date,3745,not needed,ok
+honest_el,regression_domain,reg07,gambling_unlisted,hxxps://szerencsejatek[.]hu/,own_domain,9168,Suspicious,,,list,,0.863,unsupported,,not needed,ok
+honest_el,regression_domain,reg08,gambling_unlisted,hxxps://juan365[.]com/,own_domain,9716,Suspicious,,,list,,0.211,date,623,not needed,ok
+honest_el,regression_domain,reg09,gambling_unconfirmed,hxxps://betonuzzz[.]ru/,own_domain,,No warning signs,,,,,0.451,unsupported,,not needed,nxdomain
+honest_el,regression_domain,reg10,gambling_unconfirmed,hxxps://casino50[.]com/,own_domain,18017,No warning signs,,,,,0.237,date,3572,not needed,nxdomain
+honest_el,regression_domain,reg11,gambling_unconfirmed,hxxps://metabet[.]tv/,own_domain,10092,No warning signs,,,,,0.087,date,1818,not needed,ok
+honest_el,regression_domain,reg12,gambling_unconfirmed,hxxps://parimatchs123[.]com/,own_domain,13353,No warning signs,,,,,0.396,date,524,not needed,ok
+honest_el,regression_domain,reg13,gambling_control,hxxps://bet365[.]com/,own_domain,2780,Suspicious,,,list,,0.175,date,9941,not needed,ok
+honest_el,regression_domain,reg14,gambling_control,hxxps://1xbet[.]com/,own_domain,11904,Suspicious,,,list,,0.158,date,7356,not needed,ok
+honest_el,regression_domain,reg15,gambling_control,hxxps://stake[.]com/,own_domain,5405,Suspicious,,,list,,0.139,date,10310,not needed,ok
+honest_el,regression_domain,reg16,gambling_control,hxxps://dpboss[.]tax/,own_domain,1742,Suspicious,,,list,,0.358,date,56,not needed,ok
+honest_el,regression_domain,reg17,gambling_control,hxxps://betika[.]com/,own_domain,1598,Suspicious,,,list,,0.156,date,8067,not needed,ok
+honest_el,regression_domain,reg18,gambling_control,hxxps://sportybet[.]com/,own_domain,1382,Suspicious,,,list,,0.449,date,8667,not needed,ok
+honest_el,regression_domain,reg19,gambling_control,hxxps://ultrabet852[.]com/,own_domain,,Suspicious,,,list,,0.48,date,430,not needed,nxdomain
+honest_el,regression_domain,reg20,gambling_control,hxxps://casinocashvault[.]com/,own_domain,,Suspicious,,,list,,0.488,date,893,not needed,ok
+honest_el,regression_domain,reg21,gambling_control,hxxps://elroyalecasinobonuses[.]com/,own_domain,,Suspicious,,,list,,0.491,date,2346,not needed,ok
+honest_el,regression_domain,reg22,gambling_control,hxxps://aurealmoneycasino[.]com/,own_domain,,Suspicious,,,list,,0.493,date,135,not needed,ok
+honest_el,regression_message,msg-listed,gambling_message,hxxps://bet365[.]com/,own_domain,,Likely scam,,,list,,0.175,date,9941,not needed,ok
+honest_el,regression_message,msg-short,gambling_message,hxxps://bit[.]ly/3Xk9Qp,shortener,,Likely scam,,,,,,n/a,,n/a,n/a
+honest_el,regression_message,msg-unlisted,gambling_message,hxxps://sportpesa[.]com/,own_domain,,Likely scam,,,list,,0.258,date,5306,not needed,ok
+honest_ep,phish,p001,phishing,hxxp://tokinix-cdn21-hk21[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_ep,phish,p002,phishing,hxxps://mydpd[.]audjd[.]cc/track-ch,own_domain,,Suspicious,R7,,,OpenPhish,0.885,date,3,not needed,nxdomain
+honest_ep,phish,p003,phishing,hxxps://allegrolokalnie[.]nr-h2n-8sn4-sn23[.]sbs/oferta/gigabyte-aero-geforce-rtx-4060-8gb-white-3x-oc/RE8fLQ62,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,1,not needed,ok
+honest_ep,phish,p004,phishing,hxxp://repairing[.]game-en[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.898,date,243,not needed,ok
+honest_ep,phish,p005,phishing,hxxps://geminii-logen[.]gitbook[.]io/sign-in,own_domain,3490,Suspicious,,,,OpenPhish,0.885,unsupported,,not needed,ok
+honest_ep,phish,p006,phishing,hxxps://www[.]roblox[.]et/games/89725522375970/an-insane-roblox-game?privateServerLinkCode=91660200462430984472412001152778,own_domain,,No warning signs,,,,OpenPhish,0.584,unsupported,,not needed,ok
+honest_ep,phish,p007,phishing,hxxp://share-edge-og1u[.]p-4bpdi3hp[.]workers[.]dev/,free_hosting,79,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p008,phishing,hxxps://jvillalobos[.]com/pic/media/2026/music/abos/205578005848502584878de8402208518151d8ed0d88f0sj858/,own_domain,,No warning signs,,,,OpenPhish,0.392,date,7921,not needed,ok
+honest_ep,phish,p009,phishing,hxxps://scp-comunicaciones[.]com/,own_domain,,Suspicious,R7,,,OpenPhish,0.379,date,2,not needed,ok
+honest_ep,phish,p010,phishing,hxxps://velunoraglobalcartmarket3[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_ep,phish,p011,phishing,hxxps://zd[.]lc/roblox-profile-4545543,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p012,phishing,hxxps://metamask[.]walletportal[.]app/verify,own_domain,,Suspicious,R7,,,OpenPhish,0.896,date,1,not needed,nxdomain
+honest_ep,phish,p013,phishing,hxxps://es-empresas[.]cc/adobe[.]products-lista[.]cc/,own_domain,,Suspicious,R7,,,OpenPhish,0.627,date,1,not needed,failed:bad_response
+honest_ep,phish,p014,phishing,hxxps://www[.]tenant-data[.]help/,own_domain,,Suspicious,,,,OpenPhish,0.927,date,49,not needed,ok
+honest_ep,phish,p015,phishing,hxxps://premium[.]spotfi[.]eu/open[.]me[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.709,unsupported,,not needed,ok
+honest_ep,phish,p016,phishing,hxxp://tokanim-cdn16-hk16[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_ep,phish,p017,phishing,hxxps://3658993[.]cc/?shareName=3658friy59233[.]cc,own_domain,,Suspicious,,,,OpenPhish,0.989,date,96,not needed,ok
+honest_ep,phish,p018,phishing,hxxps://webmail-oauth[.]lygrunfeng[.]com/yuin/auth22053149/cpsesvlmvqlqakz#eXZvbm5lLmNvZmZleUBiZWxsZXZpbGxlYm9vdC5jb20=,own_domain,,Suspicious,,,,OpenPhish,0.725,date,6812,not needed,ok
+honest_ep,phish,p019,phishing,hxxp://strong-auth[.]cyou/,own_domain,,Suspicious,R7,,,OpenPhish,0.871,date,3,not needed,ok
+honest_ep,phish,p020,phishing,hxxps://www[.]elbrushome[.]hostel[.]town/,own_domain,,Suspicious,,,,OpenPhish,0.955,date,184,not needed,ok
+honest_ep,phish,p021,phishing,hxxp://infobcl[.]site/,own_domain,,Suspicious,R7,,,OpenPhish,0.437,date,9,not needed,nxdomain
+honest_ep,phish,p022,phishing,hxxps://9dp7mj[.]7773653[.]com/247102306,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_ep,phish,p023,phishing,hxxp://tokinim-cdn41-hk41[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_ep,phish,p024,phishing,hxxps://tokanim-cdn35-hk08[.]homes/,own_domain,,Likely scam,R7,,,OpenPhish,0.983,date,6,not needed,ok
+honest_ep,phish,p025,phishing,hxxp://www[.]my-account-netfilx[.]com/pages/info[.]php,own_domain,,Suspicious,,,,OpenPhish,0.957,date,80,not needed,ok
+honest_ep,phish,p026,phishing,hxxps://validacion2026[.]yzz[.]me/?i=1,own_domain,,Suspicious,,,,OpenPhish,0.957,unsupported,,not needed,ok
+honest_ep,phish,p027,phishing,hxxps://velunoraglobalcartmarket2[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_ep,phish,p028,phishing,hxxp://comcastmaileroauthes[.]weebly[.]com/,free_hosting,335,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p029,phishing,hxxps://uq6189[.]craftum[.]io/,own_domain,65396,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p030,phishing,hxxp://velunoraglobalcartmarket4[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_ep,phish,p031,phishing,hxxps://taskerx[.]800876[.]xyz/features/sync,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1478,not needed,ok
+honest_ep,phish,p032,phishing,hxxps://aminu-gal-expenses[.]netlify[.]app/,free_hosting,870,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p033,phishing,hxxps://lk[.]1x-bet[.]mobi/,own_domain,21723,Suspicious,,,list,OpenPhish,0.875,date,1193,not needed,ok
+honest_ep,phish,p034,phishing,hxxps://milevwinery[.]com/Design-Consulting-Project-Planning-General-Contracting-Powered-by-Procore,own_domain,,No warning signs,,,,OpenPhish,0.373,date,1338,not needed,ok
+honest_ep,phish,p035,phishing,hxxps://pyuqk5[.]id8954388[.]shop/223037158,own_domain,,Likely scam,R7,,,OpenPhish,0.999,date,1,not needed,ok
+honest_ep,phish,p036,phishing,hxxps://www-chase-com[.]csy-launcher[.]com/digital/resources/js-disabled,own_domain,,Suspicious,,,,OpenPhish,0.74,date,72,not needed,ok
+honest_ep,phish,p037,phishing,hxxps://r[.]oblox[.]com[.]et/users/7318921578/profile,own_domain,,Suspicious,,,,OpenPhish,0.736,unsupported,,not needed,ok
+honest_ep,phish,p038,phishing,hxxp://skinsaway[.]lol/,own_domain,,No warning signs,,,,OpenPhish,0.55,date,60,not needed,ok
+honest_ep,phish,p039,phishing,hxxps://kaushaltiwariweb[.]github[.]io/spotify-clone,free_hosting,131,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p040,phishing,hxxp://correors[.]qpon/,own_domain,,Suspicious,R7,,,OpenPhish,0.527,date,1,not needed,ok
+honest_ep,phish,p041,phishing,hxxps://quitarhojecomdesconto[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.963,date,75,not needed,ok
+honest_ep,phish,p042,phishing,hxxps://g5[.]lu/ztcyv,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p043,phishing,hxxps://detaillogs[.]servicecostumenr-8998we7hr[.]crabdance[.]com/,own_domain,33148,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p044,phishing,hxxps://confiraachadodalu[.]com/produto/1375521,own_domain,,Suspicious,R7,,,OpenPhish,0.554,date,1,not needed,ok
+honest_ep,phish,p045,phishing,hxxp://www[.]user-fabiof[.]flazio[.]online/,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p046,phishing,hxxps://f005[.]backblazeb2[.]com/file/kreial/vx/index[.]html,own_domain,4117,Suspicious,,,,OpenPhish,0.91,n/a,,n/a,n/a
+honest_ep,phish,p047,phishing,hxxps://www[.]roblox[.]com[.]am/games/119413010689131/Bubble-Gum-Clicker?privateServerLinkCode=123142513246344254994143211520,own_domain,984745,No warning signs,,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_ep,phish,p048,phishing,hxxp://kukcoin-jlogi6[.]godaddysites[.]com/,free_hosting,6243,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p049,phishing,hxxps://credits-community[.]xyz/,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_ep,phish,p050,phishing,hxxps://poderema[.]teye[.]xyz/service/app/,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1843,not needed,ok
+honest_ep,phish,p051,phishing,hxxps://www[.]roblox[.]ly/users/2303337964/profile,own_domain,,No warning signs,,,,OpenPhish,0.602,failed:timeout,,not needed,ok
+honest_ep,phish,p052,phishing,hxxp://tokemim-cdn34-hk34[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_ep,phish,p053,phishing,hxxps://mydpd[.]jdevr[.]xyz/track-ch,own_domain,,Likely scam,R7,,,OpenPhish,0.995,date,0,not needed,nxdomain
+honest_ep,phish,p054,phishing,hxxps://kleinanzeigen-verify[.]website/,own_domain,,Likely scam,R7,,,OpenPhish,0.981,date,1,not needed,ok
+honest_ep,phish,p055,phishing,hxxp://www[.]sopping-17[.]blogspot[.]com/,free_hosting,93,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p056,phishing,hxxp://seller[.]wefe[.]cc/,own_domain,,Suspicious,,,,OpenPhish,0.849,date,175,not needed,ok
+honest_ep,phish,p057,phishing,hxxps://www[.]roblox[.]com[.]pt/games/106198175232796/UPDATE-2-5-Anime-Legacy-Simulator?privateServerLinkCode=33904598587074146790476626474920&game_id=106198175232796&game_name=UPDATE-2-5-Anime-Legacy-Simulator,own_domain,,No warning signs,,,,OpenPhish,0.642,unsupported,,not needed,ok
+honest_ep,phish,p058,phishing,hxxp://central-crimson-l5ks1k8d[.]edgeone[.]dev/?request=arissys@75675b8285963a94abf393cb002ddb1eebae[.]net,own_domain,105119,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p059,phishing,hxxps://hight2210-tfjnutpk[.]4everland[.]app/,own_domain,944760,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p060,phishing,hxxp://securityawareness[.]office-teams[.]net/i/afce01f701bf94d789808dd4048b474f8,own_domain,,Suspicious,,,,OpenPhish,0.858,date,1520,not needed,ok
+honest_ep,phish,p061,phishing,hxxps://lnk[.]ink/condoserver,own_domain,863953,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p062,phishing,hxxp://overview--en--trzer-en[.]typedream[.]app/,own_domain,219790,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p063,phishing,hxxps://f76[.]hkwordpress[.]com/wp-includes/XC/wp[.]html#janor@110bbeab727a5f140f666a64893f43ace39e[.]net,own_domain,,Suspicious,,,,OpenPhish,0.944,date,3313,not needed,ok
+honest_ep,phish,p064,phishing,hxxps://steamcommvnlty[.]com/id/7656193595737567,own_domain,,Suspicious,R7,,,OpenPhish,0.422,date,10,not needed,ok
+honest_ep,phish,p065,phishing,hxxps://gemini[.]anzerio[.]ddns[.]net/,own_domain,989,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p066,phishing,hxxps://qkjwejkqwq1231[.]duckdns[.]org/,own_domain,171,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p067,phishing,hxxps://9000-firebase-mneeee-1780309173719[.]cluster-l2bgochoazbomqgfmlhuvdvgiy[.]cloudworkstations[.]dev/#alorsys@cd42e1ee29b5807d852dda7395386261d14b[.]net/,own_domain,41968,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p068,phishing,hxxp://edevlet[.]vatandasgiris[.]org/,own_domain,,Suspicious,R7,,,OpenPhish,0.402,date,2,not needed,nxdomain
+honest_ep,phish,p069,phishing,hxxp://descontosdesenrolar26[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.987,date,74,not needed,nxdomain
+honest_ep,phish,p070,phishing,hxxps://www[.]ritzcarltonmilleniasingapore[.]spahotel[.]guru/,own_domain,,Suspicious,,,,OpenPhish,0.962,date,811,not needed,ok
+honest_ep,phish,p071,phishing,hxxps://upload[.]thenxtsmp[.]net/AP/backup[.]html,own_domain,,No warning signs,,,,OpenPhish,0.415,date,238,not needed,ok
+honest_ep,phish,p072,phishing,hxxps://yay[.]snj[.]mycrazydomains[.]me/a/pt/,own_domain,211495,Suspicious,,,,OpenPhish,0.899,unsupported,,not needed,ok
+honest_ep,phish,p073,phishing,hxxp://sleepdynamics-9sd7f2n[.]web[.]app/,free_hosting,2745,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p074,phishing,hxxp://webdisket-g7dvffckcxbxgsfq[.]westus3-01[.]azurewebsites[.]net/,free_hosting,166,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p075,phishing,hxxp://steamcommuminty[.]cam/tradeoffer/new/path-HG14/nK-951244-29,own_domain,,Suspicious,,,,OpenPhish,0.839,date,59,not needed,ok
+honest_ep,phish,p076,phishing,hxxp://www[.]indexxjjo[.]vercel[.]app/,free_hosting,610,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p077,phishing,hxxp://vip-spinradar[.]click/,own_domain,,Suspicious,,,,OpenPhish,0.881,date,276,not needed,ok
+honest_ep,phish,p078,phishing,hxxps://ar24security-3920b0[.]gitlab[.]io/,free_hosting,4299,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p079,phishing,hxxp://www[.]sso-uphouldcdn[.]teleporthq[.]app/,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p080,phishing,hxxps://dbs[.]swis[.]blog/dbs/app/id[.]php?sessionId=ad8ad124cca8&userId=126092&scope=all&valid=true,own_domain,,Suspicious,R7,,,OpenPhish,0.746,date,9,not needed,ok
+honest_ep,phish,p081,phishing,hxxps://digital-assets[.]top/nexuschain[.]html,own_domain,,Likely scam,R7,,,OpenPhish,0.92,date,17,not needed,nxdomain
+honest_ep,phish,p082,phishing,hxxps://my-top-juno-webmail-site[.]webflow[.]io/,free_hosting,3000,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p083,phishing,hxxp://trezorbridge[.]framer[.]website/,free_hosting,14427,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p084,phishing,hxxps://proboss[.]be/[.]well/,own_domain,,No warning signs,,,,OpenPhish,0.577,unsupported,,not needed,ok
+honest_ep,phish,p085,phishing,hxxps://www[.]roblox[.]com[.]ml/users/155654793242/profile,own_domain,614834,No warning signs,,,,OpenPhish,0.595,date,394,not needed,ok
+honest_ep,phish,p086,phishing,hxxps://tusmo[.]so/rjmather/RJM-document[.]php,own_domain,,No warning signs,,,,OpenPhish,0.384,unsupported,,not needed,ok
+honest_ep,phish,p087,phishing,hxxp://sp30ct-tazul-biz-rovex-nalik[.]pages[.]dev/,free_hosting,194,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p088,phishing,hxxps://vwwv-roblox[.]co/login?returnUrl=1041215277,own_domain,,Suspicious,,,,OpenPhish,0.735,unsupported,,not needed,ok
+honest_ep,phish,p089,phishing,hxxps://www[.]grade[.]us/intolerancelab/,own_domain,261872,Suspicious,,,,OpenPhish,0.706,unsupported,,not needed,ok
+honest_ep,phish,p090,phishing,hxxp://spf777[.]com[.]mx/,own_domain,,Suspicious,,,,OpenPhish,0.668,unsupported,,not needed,ok
+honest_ep,phish,p091,phishing,hxxps://www[.]roblox[.]com[.]bi/games/5407396567/MOM-LIFESeaboard-City-RP?privateServerLinkCode=00739129325506098636355984327537,own_domain,647968,No warning signs,,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_ep,phish,p092,phishing,hxxp://cerruiops[.]click/,own_domain,,Suspicious,R7,,,OpenPhish,0.497,date,3,not needed,nxdomain
+honest_ep,phish,p093,phishing,hxxp://gray-beach-0fc576a03[.]4[.]azurestaticapps[.]net/,own_domain,11284,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p094,phishing,hxxps://gemini[.]alybot[.]dpdns[.]org/,own_domain,8480,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_ep,phish,p095,phishing,hxxps://schwarzteam[.]eu/2agp00l9aucqzfct,own_domain,,No warning signs,,,,OpenPhish,0.574,unsupported,,not needed,ok
+honest_ep,phish,p096,phishing,hxxps://www[.]roblox[.]ss/users/8177702111/profile,own_domain,,Suspicious,R7,,,OpenPhish,0.602,date,14,not needed,ok
+honest_ep,benign_top10k,b001,benign,hxxps://yandex[.]net/,own_domain,84,No warning signs,,,,,0.145,date,9473,not needed,ok
+honest_ep,benign_top10k,b002,benign,hxxps://hubspot[.]com/,own_domain,256,No warning signs,,,,,0.197,date,7928,not needed,ok
+honest_ep,benign_top10k,b003,benign,hxxps://ggpht[.]com/,own_domain,284,No warning signs,,,,,0.119,date,6854,not needed,ok
+honest_ep,benign_top10k,b004,benign,hxxps://capcut[.]com/,own_domain,542,No warning signs,,,,,0.165,date,10799,not needed,ok
+honest_ep,benign_top10k,b005,benign,hxxps://featureassets[.]org/,own_domain,617,No warning signs,,,,,0.356,date,916,not needed,ok
+honest_ep,benign_top10k,b006,benign,hxxps://eeroup[.]com/,own_domain,780,No warning signs,,,,,0.147,date,4031,not needed,ok
+honest_ep,benign_top10k,b007,benign,hxxps://zpath[.]net/,own_domain,872,No warning signs,,,,,0.15,date,9612,not needed,ok
+honest_ep,benign_top10k,b008,benign,hxxps://vk-analytics[.]ru/,own_domain,1045,Suspicious,,,,,0.791,unsupported,,not needed,ok
+honest_ep,benign_top10k,b009,benign,hxxps://starlink[.]com/,own_domain,1244,No warning signs,,,,,0.24,date,11367,not needed,ok
+honest_ep,benign_top10k,b010,benign,hxxps://lookmovie2[.]to/,own_domain,1324,No warning signs,,,,,0.633,date,1685,not needed,ok
+honest_ep,benign_top10k,b011,benign,hxxps://cmoa[.]jp/,own_domain,1405,No warning signs,,,,,0.129,unsupported,,not needed,ok
+honest_ep,benign_top10k,b012,benign,hxxps://iltalehti[.]fi/,own_domain,1411,No warning signs,,,,,0.456,date,13079,not needed,ok
+honest_ep,benign_top10k,b013,benign,hxxps://nya2[.]com/,own_domain,1594,No warning signs,,,,,0.125,date,3186,not needed,ok
+honest_ep,benign_top10k,b014,benign,hxxps://xvideos-ar[.]com/,own_domain,1623,No warning signs,,,,,0.398,date,871,not needed,ok
+honest_ep,benign_top10k,b015,benign,hxxps://xpaja[.]net/,own_domain,1667,No warning signs,,,,,0.271,date,4896,not needed,ok
+honest_ep,benign_top10k,b016,benign,hxxps://annunci69[.]it/,own_domain,1725,No warning signs,,,,,0.366,unsupported,,not needed,ok
+honest_ep,benign_top10k,b017,benign,hxxps://va[.]gov/,own_domain,1857,No warning signs,,,,,0.001,date,10612,not needed,ok
+honest_ep,benign_top10k,b018,benign,hxxps://usgs[.]gov/,own_domain,1866,No warning signs,,,,,0.004,date,10612,not needed,ok
+honest_ep,benign_top10k,b019,benign,hxxps://apple[.]news/,own_domain,2044,Can't judge,,,,,,n/a,,n/a,n/a
+honest_ep,benign_top10k,b020,benign,hxxps://infocyte[.]com/,own_domain,2135,No warning signs,,,,,0.275,date,4805,not needed,ok
+honest_ep,benign_top10k,b021,benign,hxxps://kasserver[.]com/,own_domain,2275,No warning signs,,,,,0.271,date,9012,not needed,ok
+honest_ep,benign_top10k,b022,benign,hxxps://useinsider[.]com/,own_domain,2285,No warning signs,,,,,0.274,date,4570,not needed,ok
+honest_ep,benign_top10k,b023,benign,hxxps://vtb[.]ru/,own_domain,2314,No warning signs,,,,,0.034,unsupported,,not needed,ok
+honest_ep,benign_top10k,b024,benign,hxxps://tvsquared[.]com/,own_domain,2676,No warning signs,,,,,0.26,date,5431,not needed,ok
+honest_ep,benign_top10k,b025,benign,hxxps://icloud[.]com[.]cn/,own_domain,2801,No warning signs,,,,,0.205,unsupported,,not needed,ok
+honest_ep,benign_top10k,b026,benign,hxxps://capitalone[.]com/,own_domain,2822,No warning signs,,,,,0.323,date,11546,not needed,ok
+honest_ep,benign_top10k,b027,benign,hxxps://cnnbrasil[.]com[.]br/,own_domain,2931,No warning signs,,,,,0.609,date,8798,not needed,ok
+honest_ep,benign_top10k,b028,benign,hxxps://sedoparking[.]com/,own_domain,2984,No warning signs,,,,,0.306,date,9165,not needed,ok
+honest_ep,benign_top10k,b029,benign,hxxps://faqs[.]org/,own_domain,3110,No warning signs,,,,,0.062,date,10817,not needed,ok
+honest_ep,benign_top10k,b030,benign,hxxps://nianticlabs[.]com/,own_domain,3271,No warning signs,,,,,0.389,date,5317,not needed,ok
+honest_ep,benign_top10k,b031,benign,hxxps://backblaze[.]com/,own_domain,3382,No warning signs,,,,,0.258,date,7143,not needed,ok
+honest_ep,benign_top10k,b032,benign,hxxps://ibytedtos[.]com/,own_domain,3433,No warning signs,,,,,0.449,date,3230,not needed,ok
+honest_ep,benign_top10k,b033,benign,hxxps://code[.]org/,own_domain,3493,No warning signs,,,,,0.037,date,9886,not needed,ok
+honest_ep,benign_top10k,b034,benign,hxxps://unl[.]edu/,own_domain,3606,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_ep,benign_top10k,b035,benign,hxxps://uidapi[.]com/,own_domain,3656,Suspicious,R4,,,,0.229,date,2208,not needed,ok
+honest_ep,benign_top10k,b036,benign,hxxps://bayern[.]de/,own_domain,3860,No warning signs,,,,,0.073,unsupported,,not needed,ok
+honest_ep,benign_top10k,b037,benign,hxxps://google[.]com[.]my/,own_domain,3985,No warning signs,,,,,0.01,unsupported,,not needed,ok
+honest_ep,benign_top10k,b038,benign,hxxps://g2[.]com/,own_domain,4032,No warning signs,,,,,0.011,date,11537,not needed,ok
+honest_ep,benign_top10k,b039,benign,hxxps://usf[.]edu/,own_domain,4276,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_ep,benign_top10k,b040,benign,hxxps://merchant-center-analytics[.]goog/,own_domain,4311,Suspicious,,,,,0.966,date,1553,not needed,ok
+honest_ep,benign_top10k,b041,benign,hxxps://just-eat[.]co[.]uk/,own_domain,4363,No warning signs,,,,,0.227,date,8241,not needed,ok
+honest_ep,benign_top10k,b042,benign,hxxps://sway[.]com/,own_domain,4473,No warning signs,,,,,0.036,date,11314,not needed,ok
+honest_ep,benign_top10k,b043,benign,hxxps://miibeian[.]gov[.]cn/,own_domain,4548,No warning signs,,,,,0.557,unsupported,,not needed,failed:timeout
+honest_ep,benign_top10k,b044,benign,hxxps://caissedesdepots[.]fr/,own_domain,4591,No warning signs,,,,,0.262,date,11161,not needed,ok
+honest_ep,benign_top10k,b045,benign,hxxps://boredpanda[.]com/,own_domain,4778,No warning signs,,,,,0.302,date,6300,not needed,ok
+honest_ep,benign_top10k,b046,benign,hxxps://fastpanel[.]direct/,own_domain,4882,No warning signs,,,,,0.555,date,3803,not needed,ok
+honest_ep,benign_top10k,b047,benign,hxxps://bose[.]io/,own_domain,4970,No warning signs,,,,,0.04,unsupported,,not needed,ok
+honest_ep,benign_top10k,b048,benign,hxxps://myportfolio[.]com/,own_domain,5010,No warning signs,,,,,0.377,date,10677,not needed,ok
+honest_ep,benign_top10k,b049,benign,hxxps://samsara[.]com/,own_domain,5198,No warning signs,,,,,0.215,date,10752,not needed,ok
+honest_ep,benign_top10k,b050,benign,hxxps://audiomack[.]com/,own_domain,5206,No warning signs,,,,,0.308,date,6097,not needed,ok
+honest_ep,benign_top10k,b051,benign,hxxps://appfolio[.]com/,own_domain,5434,No warning signs,,,,,0.241,date,7351,not needed,ok
+honest_ep,benign_top10k,b052,benign,hxxps://loggly[.]com/,own_domain,5617,No warning signs,,,,,0.138,date,6359,not needed,ok
+honest_ep,benign_top10k,b053,benign,hxxps://xxx[.]com/,own_domain,5836,No warning signs,,,,,0.004,date,11788,not needed,ok
+honest_ep,benign_top10k,b054,benign,hxxps://cqloud[.]com/,own_domain,5960,No warning signs,,,,,0.156,date,4074,not needed,ok
+honest_ep,benign_top10k,b055,benign,hxxps://thescore[.]com/,own_domain,6023,No warning signs,,,,,0.261,date,8982,not needed,ok
+honest_ep,benign_top10k,b056,benign,hxxps://homeoffice[.]gov[.]uk/,own_domain,6027,No warning signs,,,,,0.269,failed:http_301,,not needed,ok
+honest_ep,benign_top10k,b057,benign,hxxps://gpo[.]gov/,own_domain,6279,No warning signs,,,,,0.002,date,10612,not needed,ok
+honest_ep,benign_top10k,b058,benign,hxxps://hostpapa[.]com/,own_domain,6353,No warning signs,,,,,0.218,date,7674,not needed,ok
+honest_ep,benign_top10k,b059,benign,hxxps://n11[.]com/,own_domain,6356,No warning signs,,,,,0.017,date,9670,not needed,ok
+honest_ep,benign_top10k,b060,benign,hxxps://wistia[.]net/,own_domain,6755,No warning signs,,,,,0.195,date,6624,not needed,ok
+honest_ep,benign_top10k,b061,benign,hxxps://maze[.]co/,own_domain,6799,No warning signs,,,,,0.151,unsupported,,not needed,ok
+honest_ep,benign_top10k,b062,benign,hxxps://aidcgroup[.]net/,own_domain,6832,No warning signs,,,,,0.269,date,1245,not needed,ok
+honest_ep,benign_top10k,b063,benign,hxxps://theplanet[.]com/,own_domain,6894,No warning signs,,,,,0.31,date,10087,not needed,ok
+honest_ep,benign_top10k,b064,benign,hxxps://rtesvc[.]com/,own_domain,6991,No warning signs,,,,,0.146,date,1004,not needed,ok
+honest_ep,benign_top10k,b065,benign,hxxps://poolbinance[.]com/,own_domain,7122,No warning signs,,,,,0.378,date,2432,not needed,ok
+honest_ep,benign_top10k,b066,benign,hxxps://playbattlegrounds[.]com/,own_domain,7185,No warning signs,,,,,0.335,date,3768,not needed,ok
+honest_ep,benign_top10k,b067,benign,hxxps://lgappstv[.]com/,own_domain,7322,No warning signs,,,,,0.23,date,5725,not needed,ok
+honest_ep,benign_top10k,b068,benign,hxxps://wtr-lab[.]com/,own_domain,7336,No warning signs,,,,,0.42,date,2890,not needed,ok
+honest_ep,benign_top10k,b069,benign,hxxps://bling[.]com[.]br/,own_domain,7459,No warning signs,,,,,0.361,date,7946,not needed,ok
+honest_ep,benign_top10k,b070,benign,hxxps://palmettostatearmory[.]com/,own_domain,7547,No warning signs,,,,,0.526,date,6834,not needed,ok
+honest_ep,benign_top10k,b071,benign,hxxps://pokemondb[.]net/,own_domain,7612,No warning signs,,,,,0.267,date,6268,not needed,ok
+honest_ep,benign_top10k,b072,benign,hxxps://tvpixel[.]com/,own_domain,7817,No warning signs,,,,,0.175,date,7629,not needed,ok
+honest_ep,benign_top10k,b073,benign,hxxps://papy[.]co[.]jp/,own_domain,7839,No warning signs,,,,,0.053,unsupported,,not needed,ok
+honest_ep,benign_top10k,b074,benign,hxxps://profesia[.]sk/,own_domain,8011,No warning signs,,,,,0.493,unsupported,,not needed,ok
+honest_ep,benign_top10k,b075,benign,hxxps://intersport[.]fr/,own_domain,8139,No warning signs,,,,,0.161,date,11313,not needed,ok
+honest_ep,benign_top10k,b076,benign,hxxps://runsignup[.]com/,own_domain,8179,No warning signs,,,,,0.31,date,6342,not needed,ok
+honest_ep,benign_top10k,b077,benign,hxxps://livecamrips[.]to/,own_domain,8257,Suspicious,,,,,0.687,date,442,not needed,ok
+honest_ep,benign_top10k,b078,benign,hxxps://darknessporn[.]com/,own_domain,8299,No warning signs,,,,,0.391,date,2541,not needed,ok
+honest_ep,benign_top10k,b079,benign,hxxps://fortunebusinessinsights[.]com/,own_domain,8445,No warning signs,,,,,0.64,date,2947,not needed,ok
+honest_ep,benign_top10k,b080,benign,hxxps://freeporno[.]xxx/,own_domain,8569,No warning signs,,,,,0.517,date,3126,not needed,ok
+honest_ep,benign_top10k,b081,benign,hxxps://whatwg[.]org/,own_domain,8592,No warning signs,,,,,0.203,date,8262,not needed,ok
+honest_ep,benign_top10k,b082,benign,hxxps://njav[.]com/,own_domain,8602,No warning signs,,,,,0.036,date,7318,not needed,ok
+honest_ep,benign_top10k,b083,benign,hxxps://ads-tinyorbit[.]com/,own_domain,8765,No warning signs,,,,,0.372,date,518,not needed,ok
+honest_ep,benign_top10k,b084,benign,hxxps://gnezdo[.]ru/,own_domain,8775,No warning signs,,,,,0.271,unsupported,,not needed,ok
+honest_ep,benign_top10k,b085,benign,hxxps://unstop[.]com/,own_domain,8785,No warning signs,,,,,0.146,date,6380,not needed,ok
+honest_ep,benign_top10k,b086,benign,hxxps://mintmanga[.]com/,own_domain,8861,No warning signs,,,,,0.258,date,6435,not needed,ok
+honest_ep,benign_top10k,b087,benign,hxxps://sportal[.]bg/,own_domain,8882,No warning signs,,,,,0.484,unsupported,,not needed,ok
+honest_ep,benign_top10k,b088,benign,hxxps://sfile[.]co/,own_domain,8906,No warning signs,,,,,0.202,unsupported,,not needed,ok
+honest_ep,benign_top10k,b089,benign,hxxps://digmawifi[.]com/,own_domain,8917,No warning signs,,,,,0.271,date,203,not needed,ok
+honest_ep,benign_top10k,b090,benign,hxxps://lsgkerala[.]gov[.]in/,own_domain,8988,No warning signs,,display,,,0.26,date,6166,not needed,ok
+honest_ep,benign_top10k,b091,benign,hxxps://toomics[.]com/,own_domain,9077,No warning signs,,,,,0.253,date,4131,not needed,ok
+honest_ep,benign_top10k,b092,benign,hxxps://aafp[.]org/,own_domain,9152,No warning signs,,,,,0.027,date,11405,not needed,ok
+honest_ep,benign_top10k,b093,benign,hxxps://umingle[.]com/,own_domain,9269,No warning signs,,,,,0.197,date,8602,not needed,ok
+honest_ep,benign_top10k,b094,benign,hxxps://komikindo[.]ch/,own_domain,9329,No warning signs,,,,,0.515,unsupported,,not needed,ok
+honest_ep,benign_top10k,b095,benign,hxxps://pscube[.]jp/,own_domain,9539,No warning signs,,,,,0.16,unsupported,,not needed,ok
+honest_ep,benign_top10k,b096,benign,hxxps://infopanel[.]jp/,own_domain,9667,No warning signs,,,,,0.267,unsupported,,not needed,ok
+honest_ep,benign_top10k,b097,benign,hxxps://locanto[.]org/,own_domain,9690,No warning signs,,,,,0.165,date,7706,not needed,ok
+honest_ep,benign_top10k,b098,benign,hxxps://theweek[.]com/,own_domain,9729,No warning signs,,,,,0.215,date,10401,not needed,ok
+honest_ep,benign_top10k,b099,benign,hxxps://videy[.]design/,own_domain,9816,No warning signs,,,,,0.347,date,349,not needed,ok
+honest_ep,benign_top10k,b100,benign,hxxps://yenibeygir[.]com/,own_domain,10000,No warning signs,,,,,0.274,date,3264,not needed,ok
+honest_ep,benign_100k_1m,b101,benign,hxxps://totalfootballanalysis[.]com/,own_domain,103502,No warning signs,,,,,0.571,date,3107,not needed,ok
+honest_ep,benign_100k_1m,b102,benign,hxxps://gridwise[.]com[.]cn/,own_domain,124344,No warning signs,,,,,0.631,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b103,benign,hxxps://mkvcinemas[.]as/,own_domain,129326,No warning signs,,,,,0.542,date,99,not needed,ok
+honest_ep,benign_100k_1m,b104,benign,hxxps://toto123resmi[.]cyou/,own_domain,129813,Suspicious,,,,,0.891,date,156,not needed,ok
+honest_ep,benign_100k_1m,b105,benign,hxxps://tnews[.]co[.]th/,own_domain,134758,No warning signs,,,,,0.39,date,6698,not needed,ok
+honest_ep,benign_100k_1m,b106,benign,hxxps://digimon[.]net/,own_domain,145007,No warning signs,,,,,0.263,date,10586,not needed,ok
+honest_ep,benign_100k_1m,b107,benign,hxxps://shespeaks[.]com/,own_domain,148406,No warning signs,,,,,0.275,date,9065,not needed,ok
+honest_ep,benign_100k_1m,b108,benign,hxxps://dnsup[.]net/,own_domain,162939,No warning signs,,,,,0.15,date,3821,not needed,ok
+honest_ep,benign_100k_1m,b109,benign,hxxps://gorodperm[.]ru/,own_domain,166925,No warning signs,,,,,0.467,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b110,benign,hxxps://agro-ukraine[.]com/,own_domain,175212,No warning signs,,,,,0.5,date,7203,not needed,ok
+honest_ep,benign_100k_1m,b111,benign,hxxps://observatoriodosfamosos[.]com[.]br/,own_domain,192553,Suspicious,,,,,0.952,date,3605,not needed,ok
+honest_ep,benign_100k_1m,b112,benign,hxxps://webmail[.]ee/,own_domain,194752,No warning signs,,,,,0.348,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b113,benign,hxxps://affiliated-business[.]com/,own_domain,208869,No warning signs,,,,,0.607,date,7859,not needed,ok
+honest_ep,benign_100k_1m,b114,benign,hxxps://casinofreak[.]com/,own_domain,211389,Suspicious,,,list,,0.377,date,10304,not needed,ok
+honest_ep,benign_100k_1m,b115,benign,hxxps://letsdatascience[.]com/,own_domain,212505,No warning signs,,,,,0.479,date,2112,not needed,ok
+honest_ep,benign_100k_1m,b116,benign,hxxps://trivago[.]com[.]co/,own_domain,219447,No warning signs,,,,,0.343,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b117,benign,hxxps://689pgwin[.]com/,own_domain,223144,No warning signs,,,,,0.247,date,37,not needed,ok
+honest_ep,benign_100k_1m,b118,benign,hxxps://textline[.]com/,own_domain,241543,No warning signs,,,,,0.249,date,7754,not needed,ok
+honest_ep,benign_100k_1m,b119,benign,hxxps://dokonlin[.]online/,own_domain,252943,No warning signs,,,,,0.412,date,1513,not needed,ok
+honest_ep,benign_100k_1m,b120,benign,hxxps://bestrevie[.]ws/,own_domain,265245,No warning signs,,,,,0.445,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b121,benign,hxxps://wiiwii[.]co/,own_domain,272691,No warning signs,,,,,0.532,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b122,benign,hxxps://peachandlily[.]com/,own_domain,301138,No warning signs,,,,,0.408,date,5168,not needed,ok
+honest_ep,benign_100k_1m,b123,benign,hxxps://cirquent[.]de/,own_domain,313565,No warning signs,,,,,0.14,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b124,benign,hxxps://communitycoffee[.]com/,own_domain,315072,No warning signs,,,,,0.442,date,11276,not needed,ok
+honest_ep,benign_100k_1m,b125,benign,hxxps://96590[.]net/,own_domain,326315,No warning signs,,,,,0.509,date,8724,not needed,ok
+honest_ep,benign_100k_1m,b126,benign,hxxps://maxracing[.]co/,own_domain,342389,No warning signs,,,,,0.518,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b127,benign,hxxps://rcservidores[.]com/,own_domain,353834,No warning signs,,,,,0.411,date,714,not needed,ok
+honest_ep,benign_100k_1m,b128,benign,hxxps://inwebproservers[.]com/,own_domain,357317,No warning signs,,,,,0.501,date,5491,not needed,failed:timeout
+honest_ep,benign_100k_1m,b129,benign,hxxps://interwijs[.]nl/,own_domain,360614,No warning signs,,,,,0.234,date,10242,not needed,ok
+honest_ep,benign_100k_1m,b130,benign,hxxps://span[.]app/,own_domain,374862,No warning signs,,,,,0.267,date,3089,not needed,ok
+honest_ep,benign_100k_1m,b131,benign,hxxps://macworldexpo[.]com/,own_domain,377970,No warning signs,,,,,0.31,date,11153,not needed,ok
+honest_ep,benign_100k_1m,b132,benign,hxxps://5series[.]net/,own_domain,389968,No warning signs,,,,,0.235,date,6379,not needed,ok
+honest_ep,benign_100k_1m,b133,benign,hxxps://ziyouz[.]com/,own_domain,391587,No warning signs,,,,,0.147,date,7437,not needed,ok
+honest_ep,benign_100k_1m,b134,benign,hxxps://freesoft-board[.]de/,own_domain,409122,No warning signs,,,,,0.644,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b135,benign,hxxps://3ecompany[.]com/,own_domain,412222,No warning signs,,,,,0.256,date,10173,not needed,ok
+honest_ep,benign_100k_1m,b136,benign,hxxps://forendors[.]cz/,own_domain,416233,No warning signs,,,,,0.366,date,1148,not needed,ok
+honest_ep,benign_100k_1m,b137,benign,hxxps://slamwrestling[.]net/,own_domain,419098,No warning signs,,,,,0.301,date,2348,not needed,ok
+honest_ep,benign_100k_1m,b138,benign,hxxps://satincrystals[.]com/,own_domain,425466,No warning signs,,,,,0.445,date,8269,not needed,ok
+honest_ep,benign_100k_1m,b139,benign,hxxps://romanticai[.]com/,own_domain,428823,No warning signs,,,,,0.326,date,1745,not needed,ok
+honest_ep,benign_100k_1m,b140,benign,hxxps://xxxsex[.]best/,own_domain,429716,No warning signs,,,,,0.457,date,1766,not needed,ok
+honest_ep,benign_100k_1m,b141,benign,hxxps://actiondns[.]it/,own_domain,468310,No warning signs,,,,,0.304,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b142,benign,hxxps://plus[.]es/,own_domain,474646,No warning signs,,,,,0.066,unsupported,,not needed,failed:timeout
+honest_ep,benign_100k_1m,b143,benign,hxxps://roomservice360[.]com/,own_domain,492192,No warning signs,,,,,0.374,date,5853,not needed,ok
+honest_ep,benign_100k_1m,b144,benign,hxxps://raos[.]com/,own_domain,499497,No warning signs,,,,,0.029,date,10789,not needed,ok
+honest_ep,benign_100k_1m,b145,benign,hxxps://radiatetheworld[.]com/,own_domain,505952,No warning signs,,,,,0.476,date,4234,not needed,ok
+honest_ep,benign_100k_1m,b146,benign,hxxps://getbuddy[.]com/,own_domain,516927,No warning signs,,,,,0.23,date,8527,not needed,ok
+honest_ep,benign_100k_1m,b147,benign,hxxps://autoparts[.]expert/,own_domain,523906,No warning signs,,,,,0.611,date,243,not needed,ok
+honest_ep,benign_100k_1m,b148,benign,hxxps://brodownload[.]site/,own_domain,536784,Suspicious,,,,,0.737,date,160,not needed,ok
+honest_ep,benign_100k_1m,b149,benign,hxxps://qxvsoftwarecompany[.]com/,own_domain,551596,No warning signs,,,,,0.392,date,580,not needed,ok
+honest_ep,benign_100k_1m,b150,benign,hxxps://artistbooks[.]de/,own_domain,554702,No warning signs,,,,,0.166,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b151,benign,hxxps://franklyflawless[.]org/,own_domain,567321,No warning signs,,,,,0.308,date,1236,not needed,ok
+honest_ep,benign_100k_1m,b152,benign,hxxps://maxbmw[.]com/,own_domain,568311,No warning signs,,,,,0.165,date,9666,not needed,ok
+honest_ep,benign_100k_1m,b153,benign,hxxps://cbsnorthstar[.]com/,own_domain,582505,No warning signs,,,,,0.396,date,5845,not needed,ok
+honest_ep,benign_100k_1m,b154,benign,hxxps://actaport[.]de/,own_domain,594033,No warning signs,,,,,0.158,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b155,benign,hxxps://dakym[.]com/,own_domain,598017,No warning signs,,,,,0.118,date,1009,not needed,ok
+honest_ep,benign_100k_1m,b156,benign,hxxps://mrcrack[.]xyz/,own_domain,598782,Suspicious,,,,,0.888,date,2685,not needed,ok
+honest_ep,benign_100k_1m,b157,benign,hxxps://enerset-shop[.]rs/,own_domain,606576,Suspicious,,,,,0.799,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b158,benign,hxxps://horances[.]com/,own_domain,628403,No warning signs,,,,,0.275,date,471,not needed,ok
+honest_ep,benign_100k_1m,b159,benign,hxxps://nolabels[.]org/,own_domain,640998,No warning signs,,,,,0.293,date,6155,not needed,ok
+honest_ep,benign_100k_1m,b160,benign,hxxps://legionsdk[.]com/,own_domain,652496,No warning signs,,,,,0.25,date,301,not needed,ok
+honest_ep,benign_100k_1m,b161,benign,hxxps://leisurelands[.]nl/,own_domain,655220,No warning signs,,,,,0.303,date,4471,not needed,ok
+honest_ep,benign_100k_1m,b162,benign,hxxps://timex[.]cz/,own_domain,659730,No warning signs,,,,,0.111,date,10188,not needed,ok
+honest_ep,benign_100k_1m,b163,benign,hxxps://nishohi[.]com/,own_domain,695306,No warning signs,,,,,0.211,date,3151,not needed,ok
+honest_ep,benign_100k_1m,b164,benign,hxxps://dyestatpro[.]com/,own_domain,700525,No warning signs,,,,,0.298,date,3960,not needed,ok
+honest_ep,benign_100k_1m,b165,benign,hxxps://arcdyn[.]com/,own_domain,708084,No warning signs,,,,,0.146,date,3698,not needed,ok
+honest_ep,benign_100k_1m,b166,benign,hxxps://transid[.]org/,own_domain,711071,No warning signs,,,,,0.22,date,1517,not needed,ok
+honest_ep,benign_100k_1m,b167,benign,hxxps://kosgos[.]ru/,own_domain,721147,No warning signs,,,,,0.196,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b168,benign,hxxps://wwcom[.]ch/,own_domain,728077,No warning signs,,,,,0.513,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b169,benign,hxxps://hypesneakerid[.]com/,own_domain,731927,No warning signs,,,,,0.502,date,2024,not needed,ok
+honest_ep,benign_100k_1m,b170,benign,hxxps://norma[.]ch/,own_domain,745499,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b171,benign,hxxps://daailynews[.]com/,own_domain,746307,No warning signs,,,,,0.291,date,2807,not needed,ok
+honest_ep,benign_100k_1m,b172,benign,hxxps://flygo[.]com/,own_domain,786579,No warning signs,,,,,0.118,date,10034,not needed,ok
+honest_ep,benign_100k_1m,b173,benign,hxxps://givav[.]fr/,own_domain,789628,No warning signs,,,,,0.248,date,4590,not needed,ok
+honest_ep,benign_100k_1m,b174,benign,hxxps://izidok[.]id/,own_domain,797488,No warning signs,,,,,0.446,date,2549,not needed,ok
+honest_ep,benign_100k_1m,b175,benign,hxxps://jankariupdate[.]in/,own_domain,797923,No warning signs,,,,,0.593,date,583,not needed,ok
+honest_ep,benign_100k_1m,b176,benign,hxxps://javoak[.]com/,own_domain,798040,No warning signs,,,,,0.147,date,1000,not needed,ok
+honest_ep,benign_100k_1m,b177,benign,hxxps://kaskus800[.]biz/,own_domain,800479,Suspicious,,,,,0.847,date,317,not needed,ok
+honest_ep,benign_100k_1m,b178,benign,hxxps://kec[.]ac[.]in/,own_domain,800734,No warning signs,,,,,0.042,date,7255,not needed,ok
+honest_ep,benign_100k_1m,b179,benign,hxxps://mombelli[.]org/,own_domain,811418,No warning signs,,,,,0.393,date,6106,not needed,ok
+honest_ep,benign_100k_1m,b180,benign,hxxps://pizzacooc[.]com/,own_domain,821501,No warning signs,,,,,0.27,date,8885,not needed,ok
+honest_ep,benign_100k_1m,b181,benign,hxxps://sabadogol[.]com[.]ar/,own_domain,828756,No warning signs,,,,,0.661,date,1315,not needed,ok
+honest_ep,benign_100k_1m,b182,benign,hxxps://sieuthinama[.]com/,own_domain,832173,No warning signs,,,,,0.373,date,374,not needed,ok
+honest_ep,benign_100k_1m,b183,benign,hxxps://t5j9[.]com/,own_domain,837111,No warning signs,,,,,0.224,date,317,not needed,ok
+honest_ep,benign_100k_1m,b184,benign,hxxps://vip888laos[.]online/,own_domain,845638,Suspicious,,,,,0.807,date,69,not needed,ok
+honest_ep,benign_100k_1m,b185,benign,hxxps://xmeta[.]vn/,own_domain,868760,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b186,benign,hxxps://meat-profi[.]ru/,own_domain,869334,Suspicious,,,,,0.691,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b187,benign,hxxps://annamatari[.]ru/,own_domain,873417,No warning signs,,,,,0.451,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b188,benign,hxxps://lifeinthefastlane[.]com/,own_domain,883452,No warning signs,,,,,0.505,date,9318,not needed,ok
+honest_ep,benign_100k_1m,b189,benign,hxxps://robertet[.]com/,own_domain,893119,No warning signs,,,,,0.237,date,9780,not needed,ok
+honest_ep,benign_100k_1m,b190,benign,hxxps://blogbuzzecho[.]com/,own_domain,896439,No warning signs,,,,,0.396,date,383,not needed,ok
+honest_ep,benign_100k_1m,b191,benign,hxxps://vyvod-iz-zapoya-v-novorossijske3[.]ru/,own_domain,915280,Suspicious,,,,,0.852,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b192,benign,hxxps://plantanimalmineral[.]com/,own_domain,919880,No warning signs,,,,,0.48,date,894,not needed,ok
+honest_ep,benign_100k_1m,b193,benign,hxxps://amatore[.]nl/,own_domain,920707,No warning signs,,,,,0.103,date,1132,not needed,ok
+honest_ep,benign_100k_1m,b194,benign,hxxps://plugged[.]host/,own_domain,928071,No warning signs,,,,,0.429,date,64,not needed,ok
+honest_ep,benign_100k_1m,b195,benign,hxxps://totolink[.]vn/,own_domain,932492,No warning signs,,,,,0.411,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b196,benign,hxxps://josephatelier[.]de/,own_domain,942560,No warning signs,,,,,0.334,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b197,benign,hxxps://dailytrailvista[.]com/,own_domain,942951,No warning signs,,,,,0.486,date,383,not needed,ok
+honest_ep,benign_100k_1m,b198,benign,hxxps://fedplus[.]be/,own_domain,975442,No warning signs,,,,,0.461,unsupported,,not needed,ok
+honest_ep,benign_100k_1m,b199,benign,hxxps://turbospin138login11[.]shop/,own_domain,987960,Suspicious,,,,,0.99,date,255,not needed,ok
+honest_ep,benign_100k_1m,b200,benign,hxxps://win9999[.]store/,own_domain,989214,Suspicious,,,,,0.716,date,1241,not needed,ok
+honest_ep,regression_domain,reg01,gambling_unlisted,hxxps://sportpesa[.]com/,own_domain,8210,Suspicious,,,list,,0.258,date,5306,not needed,ok
+honest_ep,regression_domain,reg02,gambling_unlisted,hxxps://msport[.]com/,own_domain,7713,Suspicious,,,list,,0.156,date,10145,not needed,ok
+honest_ep,regression_domain,reg03,gambling_unlisted,hxxps://bingoplus[.]com/,own_domain,1615,Suspicious,,,list,,0.25,date,8601,not needed,ok
+honest_ep,regression_domain,reg04,gambling_unlisted,hxxps://tippmix[.]hu/,own_domain,9857,Suspicious,,,list,,0.491,unsupported,,not needed,ok
+honest_ep,regression_domain,reg05,gambling_unlisted,hxxps://skyvegas[.]com/,own_domain,3669,Suspicious,,,list,,0.23,date,9368,not needed,ok
+honest_ep,regression_domain,reg06,gambling_unlisted,hxxps://pocketoption[.]com/,own_domain,7924,Suspicious,,,list,,0.411,date,3745,not needed,ok
+honest_ep,regression_domain,reg07,gambling_unlisted,hxxps://szerencsejatek[.]hu/,own_domain,9168,Suspicious,,,list,,0.863,unsupported,,not needed,ok
+honest_ep,regression_domain,reg08,gambling_unlisted,hxxps://juan365[.]com/,own_domain,9716,Suspicious,,,list,,0.211,date,623,not needed,ok
+honest_ep,regression_domain,reg09,gambling_unconfirmed,hxxps://betonuzzz[.]ru/,own_domain,,No warning signs,,,,,0.451,unsupported,,not needed,nxdomain
+honest_ep,regression_domain,reg10,gambling_unconfirmed,hxxps://casino50[.]com/,own_domain,18017,No warning signs,,,,,0.237,date,3572,not needed,nxdomain
+honest_ep,regression_domain,reg11,gambling_unconfirmed,hxxps://metabet[.]tv/,own_domain,10092,No warning signs,,,,,0.087,date,1818,not needed,ok
+honest_ep,regression_domain,reg12,gambling_unconfirmed,hxxps://parimatchs123[.]com/,own_domain,13353,No warning signs,,,,,0.396,date,524,not needed,ok
+honest_ep,regression_domain,reg13,gambling_control,hxxps://bet365[.]com/,own_domain,2780,Suspicious,,,list,,0.175,date,9941,not needed,ok
+honest_ep,regression_domain,reg14,gambling_control,hxxps://1xbet[.]com/,own_domain,11904,Suspicious,,,list,,0.158,date,7356,not needed,ok
+honest_ep,regression_domain,reg15,gambling_control,hxxps://stake[.]com/,own_domain,5405,Suspicious,,,list,,0.139,date,10310,not needed,ok
+honest_ep,regression_domain,reg16,gambling_control,hxxps://dpboss[.]tax/,own_domain,1742,Suspicious,,,list,,0.358,date,56,not needed,ok
+honest_ep,regression_domain,reg17,gambling_control,hxxps://betika[.]com/,own_domain,1598,Suspicious,,,list,,0.156,date,8067,not needed,ok
+honest_ep,regression_domain,reg18,gambling_control,hxxps://sportybet[.]com/,own_domain,1382,Suspicious,,,list,,0.449,date,8667,not needed,ok
+honest_ep,regression_domain,reg19,gambling_control,hxxps://ultrabet852[.]com/,own_domain,,Suspicious,,,list,,0.48,date,430,not needed,nxdomain
+honest_ep,regression_domain,reg20,gambling_control,hxxps://casinocashvault[.]com/,own_domain,,Suspicious,,,list,,0.488,date,893,not needed,ok
+honest_ep,regression_domain,reg21,gambling_control,hxxps://elroyalecasinobonuses[.]com/,own_domain,,Suspicious,,,list,,0.491,date,2346,not needed,ok
+honest_ep,regression_domain,reg22,gambling_control,hxxps://aurealmoneycasino[.]com/,own_domain,,Suspicious,,,list,,0.493,date,135,not needed,ok
+honest_ep,regression_message,msg-listed,gambling_message,hxxps://bet365[.]com/,own_domain,,Likely scam,,,list,,0.175,date,9941,not needed,ok
+honest_ep,regression_message,msg-short,gambling_message,hxxps://bit[.]ly/3Xk9Qp,shortener,,Likely scam,,,,,,n/a,,n/a,n/a
+honest_ep,regression_message,msg-unlisted,gambling_message,hxxps://sportpesa[.]com/,own_domain,,Likely scam,,,list,,0.258,date,5306,not needed,ok
+honest_elp,phish,p001,phishing,hxxp://tokinix-cdn21-hk21[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_elp,phish,p002,phishing,hxxps://mydpd[.]audjd[.]cc/track-ch,own_domain,,Suspicious,R7,,,OpenPhish,0.885,date,3,not needed,nxdomain
+honest_elp,phish,p003,phishing,hxxps://allegrolokalnie[.]nr-h2n-8sn4-sn23[.]sbs/oferta/gigabyte-aero-geforce-rtx-4060-8gb-white-3x-oc/RE8fLQ62,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,1,not needed,ok
+honest_elp,phish,p004,phishing,hxxp://repairing[.]game-en[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.898,date,243,not needed,ok
+honest_elp,phish,p005,phishing,hxxps://geminii-logen[.]gitbook[.]io/sign-in,own_domain,3490,Suspicious,,,,OpenPhish,0.885,unsupported,,not needed,ok
+honest_elp,phish,p006,phishing,hxxps://www[.]roblox[.]et/games/89725522375970/an-insane-roblox-game?privateServerLinkCode=91660200462430984472412001152778,own_domain,,Suspicious,R10,,,OpenPhish,0.584,unsupported,,not needed,ok
+honest_elp,phish,p007,phishing,hxxp://share-edge-og1u[.]p-4bpdi3hp[.]workers[.]dev/,free_hosting,79,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p008,phishing,hxxps://jvillalobos[.]com/pic/media/2026/music/abos/205578005848502584878de8402208518151d8ed0d88f0sj858/,own_domain,,No warning signs,,,,OpenPhish,0.392,date,7921,not needed,ok
+honest_elp,phish,p009,phishing,hxxps://scp-comunicaciones[.]com/,own_domain,,Suspicious,R7,,,OpenPhish,0.379,date,2,not needed,ok
+honest_elp,phish,p010,phishing,hxxps://velunoraglobalcartmarket3[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_elp,phish,p011,phishing,hxxps://zd[.]lc/roblox-profile-4545543,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p012,phishing,hxxps://metamask[.]walletportal[.]app/verify,own_domain,,Suspicious,R7,,,OpenPhish,0.896,date,1,not needed,nxdomain
+honest_elp,phish,p013,phishing,hxxps://es-empresas[.]cc/adobe[.]products-lista[.]cc/,own_domain,,Suspicious,R7,,,OpenPhish,0.627,date,1,not needed,failed:bad_response
+honest_elp,phish,p014,phishing,hxxps://www[.]tenant-data[.]help/,own_domain,,Suspicious,,,,OpenPhish,0.927,date,49,not needed,ok
+honest_elp,phish,p015,phishing,hxxps://premium[.]spotfi[.]eu/open[.]me[.]com/,own_domain,,Suspicious,,,,OpenPhish,0.709,unsupported,,not needed,ok
+honest_elp,phish,p016,phishing,hxxp://tokanim-cdn16-hk16[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_elp,phish,p017,phishing,hxxps://3658993[.]cc/?shareName=3658friy59233[.]cc,own_domain,,Suspicious,,,,OpenPhish,0.989,date,96,not needed,ok
+honest_elp,phish,p018,phishing,hxxps://webmail-oauth[.]lygrunfeng[.]com/yuin/auth22053149/cpsesvlmvqlqakz#eXZvbm5lLmNvZmZleUBiZWxsZXZpbGxlYm9vdC5jb20=,own_domain,,Suspicious,,,,OpenPhish,0.725,date,6812,not needed,ok
+honest_elp,phish,p019,phishing,hxxp://strong-auth[.]cyou/,own_domain,,Suspicious,R7,,,OpenPhish,0.871,date,3,not needed,ok
+honest_elp,phish,p020,phishing,hxxps://www[.]elbrushome[.]hostel[.]town/,own_domain,,Suspicious,,,,OpenPhish,0.955,date,184,not needed,ok
+honest_elp,phish,p021,phishing,hxxp://infobcl[.]site/,own_domain,,Suspicious,R7,,,OpenPhish,0.437,date,9,not needed,nxdomain
+honest_elp,phish,p022,phishing,hxxps://9dp7mj[.]7773653[.]com/247102306,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_elp,phish,p023,phishing,hxxp://tokinim-cdn41-hk41[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_elp,phish,p024,phishing,hxxps://tokanim-cdn35-hk08[.]homes/,own_domain,,Likely scam,R7,,,OpenPhish,0.983,date,6,not needed,ok
+honest_elp,phish,p025,phishing,hxxp://www[.]my-account-netfilx[.]com/pages/info[.]php,own_domain,,Suspicious,,,,OpenPhish,0.957,date,80,not needed,ok
+honest_elp,phish,p026,phishing,hxxps://validacion2026[.]yzz[.]me/?i=1,own_domain,,Suspicious,,,,OpenPhish,0.957,unsupported,,not needed,ok
+honest_elp,phish,p027,phishing,hxxps://velunoraglobalcartmarket2[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_elp,phish,p028,phishing,hxxp://comcastmaileroauthes[.]weebly[.]com/,free_hosting,335,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p029,phishing,hxxps://uq6189[.]craftum[.]io/,own_domain,65396,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p030,phishing,hxxp://velunoraglobalcartmarket4[.]top/,own_domain,,Likely scam,R7,,,OpenPhish,0.98,date,1,not needed,nxdomain
+honest_elp,phish,p031,phishing,hxxps://taskerx[.]800876[.]xyz/features/sync,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1478,not needed,ok
+honest_elp,phish,p032,phishing,hxxps://aminu-gal-expenses[.]netlify[.]app/,free_hosting,870,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p033,phishing,hxxps://lk[.]1x-bet[.]mobi/,own_domain,21723,Suspicious,,,list,OpenPhish,0.875,date,1193,not needed,ok
+honest_elp,phish,p034,phishing,hxxps://milevwinery[.]com/Design-Consulting-Project-Planning-General-Contracting-Powered-by-Procore,own_domain,,No warning signs,,,,OpenPhish,0.373,date,1338,not needed,ok
+honest_elp,phish,p035,phishing,hxxps://pyuqk5[.]id8954388[.]shop/223037158,own_domain,,Likely scam,R7,,,OpenPhish,0.999,date,1,not needed,ok
+honest_elp,phish,p036,phishing,hxxps://www-chase-com[.]csy-launcher[.]com/digital/resources/js-disabled,own_domain,,Suspicious,,,,OpenPhish,0.74,date,72,not needed,ok
+honest_elp,phish,p037,phishing,hxxps://r[.]oblox[.]com[.]et/users/7318921578/profile,own_domain,,Suspicious,,,,OpenPhish,0.736,unsupported,,not needed,ok
+honest_elp,phish,p038,phishing,hxxp://skinsaway[.]lol/,own_domain,,No warning signs,,,,OpenPhish,0.55,date,60,not needed,ok
+honest_elp,phish,p039,phishing,hxxps://kaushaltiwariweb[.]github[.]io/spotify-clone,free_hosting,131,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p040,phishing,hxxp://correors[.]qpon/,own_domain,,Suspicious,R7,,,OpenPhish,0.527,date,1,not needed,ok
+honest_elp,phish,p041,phishing,hxxps://quitarhojecomdesconto[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.963,date,75,not needed,ok
+honest_elp,phish,p042,phishing,hxxps://g5[.]lu/ztcyv,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p043,phishing,hxxps://detaillogs[.]servicecostumenr-8998we7hr[.]crabdance[.]com/,own_domain,33148,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p044,phishing,hxxps://confiraachadodalu[.]com/produto/1375521,own_domain,,Suspicious,R7,,,OpenPhish,0.554,date,1,not needed,ok
+honest_elp,phish,p045,phishing,hxxp://www[.]user-fabiof[.]flazio[.]online/,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p046,phishing,hxxps://f005[.]backblazeb2[.]com/file/kreial/vx/index[.]html,own_domain,4117,Suspicious,,,,OpenPhish,0.91,n/a,,n/a,n/a
+honest_elp,phish,p047,phishing,hxxps://www[.]roblox[.]com[.]am/games/119413010689131/Bubble-Gum-Clicker?privateServerLinkCode=123142513246344254994143211520,own_domain,984745,Suspicious,R10,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_elp,phish,p048,phishing,hxxp://kukcoin-jlogi6[.]godaddysites[.]com/,free_hosting,6243,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p049,phishing,hxxps://credits-community[.]xyz/,own_domain,,Likely scam,R7,,,OpenPhish,0.985,date,1,not needed,ok
+honest_elp,phish,p050,phishing,hxxps://poderema[.]teye[.]xyz/service/app/,own_domain,,Suspicious,,,,OpenPhish,0.995,date,1843,not needed,ok
+honest_elp,phish,p051,phishing,hxxps://www[.]roblox[.]ly/users/2303337964/profile,own_domain,,Suspicious,R10,,,OpenPhish,0.602,failed:timeout,,not needed,ok
+honest_elp,phish,p052,phishing,hxxp://tokemim-cdn34-hk34[.]club/,own_domain,,Likely scam,R7,,,OpenPhish,0.996,date,8,not needed,ok
+honest_elp,phish,p053,phishing,hxxps://mydpd[.]jdevr[.]xyz/track-ch,own_domain,,Likely scam,R7,,,OpenPhish,0.995,date,0,not needed,nxdomain
+honest_elp,phish,p054,phishing,hxxps://kleinanzeigen-verify[.]website/,own_domain,,Likely scam,R7,,,OpenPhish,0.981,date,1,not needed,ok
+honest_elp,phish,p055,phishing,hxxp://www[.]sopping-17[.]blogspot[.]com/,free_hosting,93,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p056,phishing,hxxp://seller[.]wefe[.]cc/,own_domain,,Suspicious,,,,OpenPhish,0.849,date,175,not needed,ok
+honest_elp,phish,p057,phishing,hxxps://www[.]roblox[.]com[.]pt/games/106198175232796/UPDATE-2-5-Anime-Legacy-Simulator?privateServerLinkCode=33904598587074146790476626474920&game_id=106198175232796&game_name=UPDATE-2-5-Anime-Legacy-Simulator,own_domain,,Suspicious,R10,,,OpenPhish,0.642,unsupported,,not needed,ok
+honest_elp,phish,p058,phishing,hxxp://central-crimson-l5ks1k8d[.]edgeone[.]dev/?request=arissys@75675b8285963a94abf393cb002ddb1eebae[.]net,own_domain,105119,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p059,phishing,hxxps://hight2210-tfjnutpk[.]4everland[.]app/,own_domain,944760,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p060,phishing,hxxp://securityawareness[.]office-teams[.]net/i/afce01f701bf94d789808dd4048b474f8,own_domain,,Suspicious,,,,OpenPhish,0.858,date,1520,not needed,ok
+honest_elp,phish,p061,phishing,hxxps://lnk[.]ink/condoserver,own_domain,863953,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p062,phishing,hxxp://overview--en--trzer-en[.]typedream[.]app/,own_domain,219790,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p063,phishing,hxxps://f76[.]hkwordpress[.]com/wp-includes/XC/wp[.]html#janor@110bbeab727a5f140f666a64893f43ace39e[.]net,own_domain,,Suspicious,,,,OpenPhish,0.944,date,3313,not needed,ok
+honest_elp,phish,p064,phishing,hxxps://steamcommvnlty[.]com/id/7656193595737567,own_domain,,Suspicious,R7,,,OpenPhish,0.422,date,10,not needed,ok
+honest_elp,phish,p065,phishing,hxxps://gemini[.]anzerio[.]ddns[.]net/,own_domain,989,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p066,phishing,hxxps://qkjwejkqwq1231[.]duckdns[.]org/,own_domain,171,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p067,phishing,hxxps://9000-firebase-mneeee-1780309173719[.]cluster-l2bgochoazbomqgfmlhuvdvgiy[.]cloudworkstations[.]dev/#alorsys@cd42e1ee29b5807d852dda7395386261d14b[.]net/,own_domain,41968,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p068,phishing,hxxp://edevlet[.]vatandasgiris[.]org/,own_domain,,Suspicious,R7,,,OpenPhish,0.402,date,2,not needed,nxdomain
+honest_elp,phish,p069,phishing,hxxp://descontosdesenrolar26[.]shop/,own_domain,,Suspicious,,,,OpenPhish,0.987,date,74,not needed,nxdomain
+honest_elp,phish,p070,phishing,hxxps://www[.]ritzcarltonmilleniasingapore[.]spahotel[.]guru/,own_domain,,Suspicious,,,,OpenPhish,0.962,date,811,not needed,ok
+honest_elp,phish,p071,phishing,hxxps://upload[.]thenxtsmp[.]net/AP/backup[.]html,own_domain,,No warning signs,,,,OpenPhish,0.415,date,238,not needed,ok
+honest_elp,phish,p072,phishing,hxxps://yay[.]snj[.]mycrazydomains[.]me/a/pt/,own_domain,211495,Suspicious,,,,OpenPhish,0.899,unsupported,,not needed,ok
+honest_elp,phish,p073,phishing,hxxp://sleepdynamics-9sd7f2n[.]web[.]app/,free_hosting,2745,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p074,phishing,hxxp://webdisket-g7dvffckcxbxgsfq[.]westus3-01[.]azurewebsites[.]net/,free_hosting,166,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p075,phishing,hxxp://steamcommuminty[.]cam/tradeoffer/new/path-HG14/nK-951244-29,own_domain,,Suspicious,,,,OpenPhish,0.839,date,59,not needed,ok
+honest_elp,phish,p076,phishing,hxxp://www[.]indexxjjo[.]vercel[.]app/,free_hosting,610,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p077,phishing,hxxp://vip-spinradar[.]click/,own_domain,,Suspicious,,,,OpenPhish,0.881,date,276,not needed,ok
+honest_elp,phish,p078,phishing,hxxps://ar24security-3920b0[.]gitlab[.]io/,free_hosting,4299,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p079,phishing,hxxp://www[.]sso-uphouldcdn[.]teleporthq[.]app/,own_domain,,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p080,phishing,hxxps://dbs[.]swis[.]blog/dbs/app/id[.]php?sessionId=ad8ad124cca8&userId=126092&scope=all&valid=true,own_domain,,Suspicious,R7,,,OpenPhish,0.746,date,9,not needed,ok
+honest_elp,phish,p081,phishing,hxxps://digital-assets[.]top/nexuschain[.]html,own_domain,,Likely scam,R7,,,OpenPhish,0.92,date,17,not needed,nxdomain
+honest_elp,phish,p082,phishing,hxxps://my-top-juno-webmail-site[.]webflow[.]io/,free_hosting,3000,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p083,phishing,hxxp://trezorbridge[.]framer[.]website/,free_hosting,14427,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p084,phishing,hxxps://proboss[.]be/[.]well/,own_domain,,No warning signs,,,,OpenPhish,0.577,unsupported,,not needed,ok
+honest_elp,phish,p085,phishing,hxxps://www[.]roblox[.]com[.]ml/users/155654793242/profile,own_domain,614834,Suspicious,R10,,,OpenPhish,0.595,date,394,not needed,ok
+honest_elp,phish,p086,phishing,hxxps://tusmo[.]so/rjmather/RJM-document[.]php,own_domain,,No warning signs,,,,OpenPhish,0.384,unsupported,,not needed,ok
+honest_elp,phish,p087,phishing,hxxp://sp30ct-tazul-biz-rovex-nalik[.]pages[.]dev/,free_hosting,194,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p088,phishing,hxxps://vwwv-roblox[.]co/login?returnUrl=1041215277,own_domain,,Suspicious,,,,OpenPhish,0.735,unsupported,,not needed,ok
+honest_elp,phish,p089,phishing,hxxps://www[.]grade[.]us/intolerancelab/,own_domain,261872,Suspicious,,,,OpenPhish,0.706,unsupported,,not needed,ok
+honest_elp,phish,p090,phishing,hxxp://spf777[.]com[.]mx/,own_domain,,Suspicious,,,,OpenPhish,0.668,unsupported,,not needed,ok
+honest_elp,phish,p091,phishing,hxxps://www[.]roblox[.]com[.]bi/games/5407396567/MOM-LIFESeaboard-City-RP?privateServerLinkCode=00739129325506098636355984327537,own_domain,647968,Suspicious,R10,,,OpenPhish,0.651,unsupported,,not needed,ok
+honest_elp,phish,p092,phishing,hxxp://cerruiops[.]click/,own_domain,,Suspicious,R7,,,OpenPhish,0.497,date,3,not needed,nxdomain
+honest_elp,phish,p093,phishing,hxxp://gray-beach-0fc576a03[.]4[.]azurestaticapps[.]net/,own_domain,11284,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p094,phishing,hxxps://gemini[.]alybot[.]dpdns[.]org/,own_domain,8480,Can't judge,,,,OpenPhish,,n/a,,n/a,n/a
+honest_elp,phish,p095,phishing,hxxps://schwarzteam[.]eu/2agp00l9aucqzfct,own_domain,,No warning signs,,,,OpenPhish,0.574,unsupported,,not needed,ok
+honest_elp,phish,p096,phishing,hxxps://www[.]roblox[.]ss/users/8177702111/profile,own_domain,,Likely scam,"R10,R7,R9",,,OpenPhish,0.602,date,14,not needed,ok
+honest_elp,benign_top10k,b001,benign,hxxps://yandex[.]net/,own_domain,84,No warning signs,,,,,0.145,date,9473,not needed,ok
+honest_elp,benign_top10k,b002,benign,hxxps://hubspot[.]com/,own_domain,256,No warning signs,,,,,0.197,date,7928,not needed,ok
+honest_elp,benign_top10k,b003,benign,hxxps://ggpht[.]com/,own_domain,284,No warning signs,,,,,0.119,date,6854,not needed,ok
+honest_elp,benign_top10k,b004,benign,hxxps://capcut[.]com/,own_domain,542,No warning signs,,,,,0.165,date,10799,not needed,ok
+honest_elp,benign_top10k,b005,benign,hxxps://featureassets[.]org/,own_domain,617,No warning signs,,,,,0.356,date,916,not needed,ok
+honest_elp,benign_top10k,b006,benign,hxxps://eeroup[.]com/,own_domain,780,No warning signs,,,,,0.147,date,4031,not needed,ok
+honest_elp,benign_top10k,b007,benign,hxxps://zpath[.]net/,own_domain,872,No warning signs,,,,,0.15,date,9612,not needed,ok
+honest_elp,benign_top10k,b008,benign,hxxps://vk-analytics[.]ru/,own_domain,1045,Suspicious,,,,,0.791,unsupported,,not needed,ok
+honest_elp,benign_top10k,b009,benign,hxxps://starlink[.]com/,own_domain,1244,No warning signs,,,,,0.24,date,11367,not needed,ok
+honest_elp,benign_top10k,b010,benign,hxxps://lookmovie2[.]to/,own_domain,1324,No warning signs,,,,,0.633,date,1685,not needed,ok
+honest_elp,benign_top10k,b011,benign,hxxps://cmoa[.]jp/,own_domain,1405,No warning signs,,,,,0.129,unsupported,,not needed,ok
+honest_elp,benign_top10k,b012,benign,hxxps://iltalehti[.]fi/,own_domain,1411,No warning signs,,,,,0.456,date,13079,not needed,ok
+honest_elp,benign_top10k,b013,benign,hxxps://nya2[.]com/,own_domain,1594,No warning signs,,,,,0.125,date,3186,not needed,ok
+honest_elp,benign_top10k,b014,benign,hxxps://xvideos-ar[.]com/,own_domain,1623,No warning signs,,,,,0.398,date,871,not needed,ok
+honest_elp,benign_top10k,b015,benign,hxxps://xpaja[.]net/,own_domain,1667,No warning signs,,,,,0.271,date,4896,not needed,ok
+honest_elp,benign_top10k,b016,benign,hxxps://annunci69[.]it/,own_domain,1725,No warning signs,,,,,0.366,unsupported,,not needed,ok
+honest_elp,benign_top10k,b017,benign,hxxps://va[.]gov/,own_domain,1857,No warning signs,,,,,0.001,date,10612,not needed,ok
+honest_elp,benign_top10k,b018,benign,hxxps://usgs[.]gov/,own_domain,1866,No warning signs,,,,,0.004,date,10612,not needed,ok
+honest_elp,benign_top10k,b019,benign,hxxps://apple[.]news/,own_domain,2044,Can't judge,,,,,,n/a,,n/a,n/a
+honest_elp,benign_top10k,b020,benign,hxxps://infocyte[.]com/,own_domain,2135,No warning signs,,,,,0.275,date,4805,not needed,ok
+honest_elp,benign_top10k,b021,benign,hxxps://kasserver[.]com/,own_domain,2275,No warning signs,,,,,0.271,date,9012,not needed,ok
+honest_elp,benign_top10k,b022,benign,hxxps://useinsider[.]com/,own_domain,2285,No warning signs,,,,,0.274,date,4570,not needed,ok
+honest_elp,benign_top10k,b023,benign,hxxps://vtb[.]ru/,own_domain,2314,No warning signs,,,,,0.034,unsupported,,not needed,ok
+honest_elp,benign_top10k,b024,benign,hxxps://tvsquared[.]com/,own_domain,2676,No warning signs,,,,,0.26,date,5431,not needed,ok
+honest_elp,benign_top10k,b025,benign,hxxps://icloud[.]com[.]cn/,own_domain,2801,No warning signs,,,,,0.205,unsupported,,not needed,ok
+honest_elp,benign_top10k,b026,benign,hxxps://capitalone[.]com/,own_domain,2822,No warning signs,,,,,0.323,date,11546,not needed,ok
+honest_elp,benign_top10k,b027,benign,hxxps://cnnbrasil[.]com[.]br/,own_domain,2931,No warning signs,,,,,0.609,date,8798,not needed,ok
+honest_elp,benign_top10k,b028,benign,hxxps://sedoparking[.]com/,own_domain,2984,No warning signs,,,,,0.306,date,9165,not needed,ok
+honest_elp,benign_top10k,b029,benign,hxxps://faqs[.]org/,own_domain,3110,No warning signs,,,,,0.062,date,10817,not needed,ok
+honest_elp,benign_top10k,b030,benign,hxxps://nianticlabs[.]com/,own_domain,3271,No warning signs,,,,,0.389,date,5317,not needed,ok
+honest_elp,benign_top10k,b031,benign,hxxps://backblaze[.]com/,own_domain,3382,No warning signs,,,,,0.258,date,7143,not needed,ok
+honest_elp,benign_top10k,b032,benign,hxxps://ibytedtos[.]com/,own_domain,3433,No warning signs,,,,,0.449,date,3230,not needed,ok
+honest_elp,benign_top10k,b033,benign,hxxps://code[.]org/,own_domain,3493,No warning signs,,,,,0.037,date,9886,not needed,ok
+honest_elp,benign_top10k,b034,benign,hxxps://unl[.]edu/,own_domain,3606,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_elp,benign_top10k,b035,benign,hxxps://uidapi[.]com/,own_domain,3656,Suspicious,R4,,,,0.229,date,2208,not needed,ok
+honest_elp,benign_top10k,b036,benign,hxxps://bayern[.]de/,own_domain,3860,No warning signs,,,,,0.073,unsupported,,not needed,ok
+honest_elp,benign_top10k,b037,benign,hxxps://google[.]com[.]my/,own_domain,3985,No warning signs,,,,,0.01,unsupported,,not needed,ok
+honest_elp,benign_top10k,b038,benign,hxxps://g2[.]com/,own_domain,4032,No warning signs,,,,,0.011,date,11537,not needed,ok
+honest_elp,benign_top10k,b039,benign,hxxps://usf[.]edu/,own_domain,4276,No warning signs,,,,,0.001,unsupported,,not needed,ok
+honest_elp,benign_top10k,b040,benign,hxxps://merchant-center-analytics[.]goog/,own_domain,4311,Suspicious,,,,,0.966,date,1553,not needed,ok
+honest_elp,benign_top10k,b041,benign,hxxps://just-eat[.]co[.]uk/,own_domain,4363,No warning signs,,,,,0.227,date,8241,not needed,ok
+honest_elp,benign_top10k,b042,benign,hxxps://sway[.]com/,own_domain,4473,No warning signs,,,,,0.036,date,11314,not needed,ok
+honest_elp,benign_top10k,b043,benign,hxxps://miibeian[.]gov[.]cn/,own_domain,4548,No warning signs,,,,,0.557,unsupported,,not needed,failed:timeout
+honest_elp,benign_top10k,b044,benign,hxxps://caissedesdepots[.]fr/,own_domain,4591,No warning signs,,,,,0.262,date,11161,not needed,ok
+honest_elp,benign_top10k,b045,benign,hxxps://boredpanda[.]com/,own_domain,4778,No warning signs,,,,,0.302,date,6300,not needed,ok
+honest_elp,benign_top10k,b046,benign,hxxps://fastpanel[.]direct/,own_domain,4882,No warning signs,,,,,0.555,date,3803,not needed,ok
+honest_elp,benign_top10k,b047,benign,hxxps://bose[.]io/,own_domain,4970,No warning signs,,,,,0.04,unsupported,,not needed,ok
+honest_elp,benign_top10k,b048,benign,hxxps://myportfolio[.]com/,own_domain,5010,No warning signs,,,,,0.377,date,10677,not needed,ok
+honest_elp,benign_top10k,b049,benign,hxxps://samsara[.]com/,own_domain,5198,No warning signs,,,,,0.215,date,10752,not needed,ok
+honest_elp,benign_top10k,b050,benign,hxxps://audiomack[.]com/,own_domain,5206,No warning signs,,,,,0.308,date,6097,not needed,ok
+honest_elp,benign_top10k,b051,benign,hxxps://appfolio[.]com/,own_domain,5434,No warning signs,,,,,0.241,date,7351,not needed,ok
+honest_elp,benign_top10k,b052,benign,hxxps://loggly[.]com/,own_domain,5617,No warning signs,,,,,0.138,date,6359,not needed,ok
+honest_elp,benign_top10k,b053,benign,hxxps://xxx[.]com/,own_domain,5836,No warning signs,,,,,0.004,date,11788,not needed,ok
+honest_elp,benign_top10k,b054,benign,hxxps://cqloud[.]com/,own_domain,5960,No warning signs,,,,,0.156,date,4074,not needed,ok
+honest_elp,benign_top10k,b055,benign,hxxps://thescore[.]com/,own_domain,6023,No warning signs,,,,,0.261,date,8982,not needed,ok
+honest_elp,benign_top10k,b056,benign,hxxps://homeoffice[.]gov[.]uk/,own_domain,6027,No warning signs,,,,,0.269,failed:http_301,,not needed,ok
+honest_elp,benign_top10k,b057,benign,hxxps://gpo[.]gov/,own_domain,6279,No warning signs,,,,,0.002,date,10612,not needed,ok
+honest_elp,benign_top10k,b058,benign,hxxps://hostpapa[.]com/,own_domain,6353,No warning signs,,,,,0.218,date,7674,not needed,ok
+honest_elp,benign_top10k,b059,benign,hxxps://n11[.]com/,own_domain,6356,No warning signs,,,,,0.017,date,9670,not needed,ok
+honest_elp,benign_top10k,b060,benign,hxxps://wistia[.]net/,own_domain,6755,No warning signs,,,,,0.195,date,6624,not needed,ok
+honest_elp,benign_top10k,b061,benign,hxxps://maze[.]co/,own_domain,6799,No warning signs,,,,,0.151,unsupported,,not needed,ok
+honest_elp,benign_top10k,b062,benign,hxxps://aidcgroup[.]net/,own_domain,6832,No warning signs,,,,,0.269,date,1245,not needed,ok
+honest_elp,benign_top10k,b063,benign,hxxps://theplanet[.]com/,own_domain,6894,No warning signs,,,,,0.31,date,10087,not needed,ok
+honest_elp,benign_top10k,b064,benign,hxxps://rtesvc[.]com/,own_domain,6991,No warning signs,,,,,0.146,date,1004,not needed,ok
+honest_elp,benign_top10k,b065,benign,hxxps://poolbinance[.]com/,own_domain,7122,No warning signs,,,,,0.378,date,2432,not needed,ok
+honest_elp,benign_top10k,b066,benign,hxxps://playbattlegrounds[.]com/,own_domain,7185,No warning signs,,,,,0.335,date,3768,not needed,ok
+honest_elp,benign_top10k,b067,benign,hxxps://lgappstv[.]com/,own_domain,7322,No warning signs,,,,,0.23,date,5725,not needed,ok
+honest_elp,benign_top10k,b068,benign,hxxps://wtr-lab[.]com/,own_domain,7336,No warning signs,,,,,0.42,date,2890,not needed,ok
+honest_elp,benign_top10k,b069,benign,hxxps://bling[.]com[.]br/,own_domain,7459,No warning signs,,,,,0.361,date,7946,not needed,ok
+honest_elp,benign_top10k,b070,benign,hxxps://palmettostatearmory[.]com/,own_domain,7547,No warning signs,,,,,0.526,date,6834,not needed,ok
+honest_elp,benign_top10k,b071,benign,hxxps://pokemondb[.]net/,own_domain,7612,No warning signs,,,,,0.267,date,6268,not needed,ok
+honest_elp,benign_top10k,b072,benign,hxxps://tvpixel[.]com/,own_domain,7817,No warning signs,,,,,0.175,date,7629,not needed,ok
+honest_elp,benign_top10k,b073,benign,hxxps://papy[.]co[.]jp/,own_domain,7839,No warning signs,,,,,0.053,unsupported,,not needed,ok
+honest_elp,benign_top10k,b074,benign,hxxps://profesia[.]sk/,own_domain,8011,No warning signs,,,,,0.493,unsupported,,not needed,ok
+honest_elp,benign_top10k,b075,benign,hxxps://intersport[.]fr/,own_domain,8139,No warning signs,,,,,0.161,date,11313,not needed,ok
+honest_elp,benign_top10k,b076,benign,hxxps://runsignup[.]com/,own_domain,8179,No warning signs,,,,,0.31,date,6342,not needed,ok
+honest_elp,benign_top10k,b077,benign,hxxps://livecamrips[.]to/,own_domain,8257,Suspicious,,,,,0.687,date,442,not needed,ok
+honest_elp,benign_top10k,b078,benign,hxxps://darknessporn[.]com/,own_domain,8299,No warning signs,,,,,0.391,date,2541,not needed,ok
+honest_elp,benign_top10k,b079,benign,hxxps://fortunebusinessinsights[.]com/,own_domain,8445,No warning signs,,,,,0.64,date,2947,not needed,ok
+honest_elp,benign_top10k,b080,benign,hxxps://freeporno[.]xxx/,own_domain,8569,No warning signs,,,,,0.517,date,3126,not needed,ok
+honest_elp,benign_top10k,b081,benign,hxxps://whatwg[.]org/,own_domain,8592,No warning signs,,,,,0.203,date,8262,not needed,ok
+honest_elp,benign_top10k,b082,benign,hxxps://njav[.]com/,own_domain,8602,No warning signs,,,,,0.036,date,7318,not needed,ok
+honest_elp,benign_top10k,b083,benign,hxxps://ads-tinyorbit[.]com/,own_domain,8765,No warning signs,,,,,0.372,date,518,not needed,ok
+honest_elp,benign_top10k,b084,benign,hxxps://gnezdo[.]ru/,own_domain,8775,No warning signs,,,,,0.271,unsupported,,not needed,ok
+honest_elp,benign_top10k,b085,benign,hxxps://unstop[.]com/,own_domain,8785,No warning signs,,,,,0.146,date,6380,not needed,ok
+honest_elp,benign_top10k,b086,benign,hxxps://mintmanga[.]com/,own_domain,8861,No warning signs,,,,,0.258,date,6435,not needed,ok
+honest_elp,benign_top10k,b087,benign,hxxps://sportal[.]bg/,own_domain,8882,No warning signs,,,,,0.484,unsupported,,not needed,ok
+honest_elp,benign_top10k,b088,benign,hxxps://sfile[.]co/,own_domain,8906,No warning signs,,,,,0.202,unsupported,,not needed,ok
+honest_elp,benign_top10k,b089,benign,hxxps://digmawifi[.]com/,own_domain,8917,No warning signs,,,,,0.271,date,203,not needed,ok
+honest_elp,benign_top10k,b090,benign,hxxps://lsgkerala[.]gov[.]in/,own_domain,8988,No warning signs,,display,,,0.26,date,6166,not needed,ok
+honest_elp,benign_top10k,b091,benign,hxxps://toomics[.]com/,own_domain,9077,No warning signs,,,,,0.253,date,4131,not needed,ok
+honest_elp,benign_top10k,b092,benign,hxxps://aafp[.]org/,own_domain,9152,No warning signs,,,,,0.027,date,11405,not needed,ok
+honest_elp,benign_top10k,b093,benign,hxxps://umingle[.]com/,own_domain,9269,No warning signs,,,,,0.197,date,8602,not needed,ok
+honest_elp,benign_top10k,b094,benign,hxxps://komikindo[.]ch/,own_domain,9329,No warning signs,,,,,0.515,unsupported,,not needed,ok
+honest_elp,benign_top10k,b095,benign,hxxps://pscube[.]jp/,own_domain,9539,No warning signs,,,,,0.16,unsupported,,not needed,ok
+honest_elp,benign_top10k,b096,benign,hxxps://infopanel[.]jp/,own_domain,9667,No warning signs,,,,,0.267,unsupported,,not needed,ok
+honest_elp,benign_top10k,b097,benign,hxxps://locanto[.]org/,own_domain,9690,No warning signs,,,,,0.165,date,7706,not needed,ok
+honest_elp,benign_top10k,b098,benign,hxxps://theweek[.]com/,own_domain,9729,No warning signs,,,,,0.215,date,10401,not needed,ok
+honest_elp,benign_top10k,b099,benign,hxxps://videy[.]design/,own_domain,9816,No warning signs,,,,,0.347,date,349,not needed,ok
+honest_elp,benign_top10k,b100,benign,hxxps://yenibeygir[.]com/,own_domain,10000,No warning signs,,,,,0.274,date,3264,not needed,ok
+honest_elp,benign_100k_1m,b101,benign,hxxps://totalfootballanalysis[.]com/,own_domain,103502,No warning signs,,,,,0.571,date,3107,not needed,ok
+honest_elp,benign_100k_1m,b102,benign,hxxps://gridwise[.]com[.]cn/,own_domain,124344,No warning signs,,,,,0.631,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b103,benign,hxxps://mkvcinemas[.]as/,own_domain,129326,No warning signs,,,,,0.542,date,99,not needed,ok
+honest_elp,benign_100k_1m,b104,benign,hxxps://toto123resmi[.]cyou/,own_domain,129813,Suspicious,,,,,0.891,date,156,not needed,ok
+honest_elp,benign_100k_1m,b105,benign,hxxps://tnews[.]co[.]th/,own_domain,134758,No warning signs,,,,,0.39,date,6698,not needed,ok
+honest_elp,benign_100k_1m,b106,benign,hxxps://digimon[.]net/,own_domain,145007,No warning signs,,,,,0.263,date,10586,not needed,ok
+honest_elp,benign_100k_1m,b107,benign,hxxps://shespeaks[.]com/,own_domain,148406,No warning signs,,,,,0.275,date,9065,not needed,ok
+honest_elp,benign_100k_1m,b108,benign,hxxps://dnsup[.]net/,own_domain,162939,No warning signs,,,,,0.15,date,3821,not needed,ok
+honest_elp,benign_100k_1m,b109,benign,hxxps://gorodperm[.]ru/,own_domain,166925,No warning signs,,,,,0.467,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b110,benign,hxxps://agro-ukraine[.]com/,own_domain,175212,No warning signs,,,,,0.5,date,7203,not needed,ok
+honest_elp,benign_100k_1m,b111,benign,hxxps://observatoriodosfamosos[.]com[.]br/,own_domain,192553,Suspicious,,,,,0.952,date,3605,not needed,ok
+honest_elp,benign_100k_1m,b112,benign,hxxps://webmail[.]ee/,own_domain,194752,No warning signs,,,,,0.348,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b113,benign,hxxps://affiliated-business[.]com/,own_domain,208869,No warning signs,,,,,0.607,date,7859,not needed,ok
+honest_elp,benign_100k_1m,b114,benign,hxxps://casinofreak[.]com/,own_domain,211389,Suspicious,,,list,,0.377,date,10304,not needed,ok
+honest_elp,benign_100k_1m,b115,benign,hxxps://letsdatascience[.]com/,own_domain,212505,No warning signs,,,,,0.479,date,2112,not needed,ok
+honest_elp,benign_100k_1m,b116,benign,hxxps://trivago[.]com[.]co/,own_domain,219447,No warning signs,,,,,0.343,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b117,benign,hxxps://689pgwin[.]com/,own_domain,223144,No warning signs,,,,,0.247,date,37,not needed,ok
+honest_elp,benign_100k_1m,b118,benign,hxxps://textline[.]com/,own_domain,241543,No warning signs,,,,,0.249,date,7754,not needed,ok
+honest_elp,benign_100k_1m,b119,benign,hxxps://dokonlin[.]online/,own_domain,252943,No warning signs,,,,,0.412,date,1513,not needed,ok
+honest_elp,benign_100k_1m,b120,benign,hxxps://bestrevie[.]ws/,own_domain,265245,No warning signs,,,,,0.445,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b121,benign,hxxps://wiiwii[.]co/,own_domain,272691,No warning signs,,,,,0.532,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b122,benign,hxxps://peachandlily[.]com/,own_domain,301138,No warning signs,,,,,0.408,date,5168,not needed,ok
+honest_elp,benign_100k_1m,b123,benign,hxxps://cirquent[.]de/,own_domain,313565,No warning signs,,,,,0.14,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b124,benign,hxxps://communitycoffee[.]com/,own_domain,315072,No warning signs,,,,,0.442,date,11276,not needed,ok
+honest_elp,benign_100k_1m,b125,benign,hxxps://96590[.]net/,own_domain,326315,No warning signs,,,,,0.509,date,8724,not needed,ok
+honest_elp,benign_100k_1m,b126,benign,hxxps://maxracing[.]co/,own_domain,342389,No warning signs,,,,,0.518,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b127,benign,hxxps://rcservidores[.]com/,own_domain,353834,No warning signs,,,,,0.411,date,714,not needed,ok
+honest_elp,benign_100k_1m,b128,benign,hxxps://inwebproservers[.]com/,own_domain,357317,No warning signs,,,,,0.501,date,5491,not needed,failed:timeout
+honest_elp,benign_100k_1m,b129,benign,hxxps://interwijs[.]nl/,own_domain,360614,No warning signs,,,,,0.234,date,10242,not needed,ok
+honest_elp,benign_100k_1m,b130,benign,hxxps://span[.]app/,own_domain,374862,No warning signs,,,,,0.267,date,3089,not needed,ok
+honest_elp,benign_100k_1m,b131,benign,hxxps://macworldexpo[.]com/,own_domain,377970,No warning signs,,,,,0.31,date,11153,not needed,ok
+honest_elp,benign_100k_1m,b132,benign,hxxps://5series[.]net/,own_domain,389968,No warning signs,,,,,0.235,date,6379,not needed,ok
+honest_elp,benign_100k_1m,b133,benign,hxxps://ziyouz[.]com/,own_domain,391587,No warning signs,,,,,0.147,date,7437,not needed,ok
+honest_elp,benign_100k_1m,b134,benign,hxxps://freesoft-board[.]de/,own_domain,409122,No warning signs,,,,,0.644,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b135,benign,hxxps://3ecompany[.]com/,own_domain,412222,No warning signs,,,,,0.256,date,10173,not needed,ok
+honest_elp,benign_100k_1m,b136,benign,hxxps://forendors[.]cz/,own_domain,416233,No warning signs,,,,,0.366,date,1148,not needed,ok
+honest_elp,benign_100k_1m,b137,benign,hxxps://slamwrestling[.]net/,own_domain,419098,No warning signs,,,,,0.301,date,2348,not needed,ok
+honest_elp,benign_100k_1m,b138,benign,hxxps://satincrystals[.]com/,own_domain,425466,No warning signs,,,,,0.445,date,8269,not needed,ok
+honest_elp,benign_100k_1m,b139,benign,hxxps://romanticai[.]com/,own_domain,428823,No warning signs,,,,,0.326,date,1745,not needed,ok
+honest_elp,benign_100k_1m,b140,benign,hxxps://xxxsex[.]best/,own_domain,429716,No warning signs,,,,,0.457,date,1766,not needed,ok
+honest_elp,benign_100k_1m,b141,benign,hxxps://actiondns[.]it/,own_domain,468310,No warning signs,,,,,0.304,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b142,benign,hxxps://plus[.]es/,own_domain,474646,No warning signs,,,,,0.066,unsupported,,not needed,failed:timeout
+honest_elp,benign_100k_1m,b143,benign,hxxps://roomservice360[.]com/,own_domain,492192,No warning signs,,,,,0.374,date,5853,not needed,ok
+honest_elp,benign_100k_1m,b144,benign,hxxps://raos[.]com/,own_domain,499497,No warning signs,,,,,0.029,date,10789,not needed,ok
+honest_elp,benign_100k_1m,b145,benign,hxxps://radiatetheworld[.]com/,own_domain,505952,No warning signs,,,,,0.476,date,4234,not needed,ok
+honest_elp,benign_100k_1m,b146,benign,hxxps://getbuddy[.]com/,own_domain,516927,No warning signs,,,,,0.23,date,8527,not needed,ok
+honest_elp,benign_100k_1m,b147,benign,hxxps://autoparts[.]expert/,own_domain,523906,No warning signs,,,,,0.611,date,243,not needed,ok
+honest_elp,benign_100k_1m,b148,benign,hxxps://brodownload[.]site/,own_domain,536784,Suspicious,,,,,0.737,date,160,not needed,ok
+honest_elp,benign_100k_1m,b149,benign,hxxps://qxvsoftwarecompany[.]com/,own_domain,551596,No warning signs,,,,,0.392,date,580,not needed,ok
+honest_elp,benign_100k_1m,b150,benign,hxxps://artistbooks[.]de/,own_domain,554702,No warning signs,,,,,0.166,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b151,benign,hxxps://franklyflawless[.]org/,own_domain,567321,No warning signs,,,,,0.308,date,1236,not needed,ok
+honest_elp,benign_100k_1m,b152,benign,hxxps://maxbmw[.]com/,own_domain,568311,No warning signs,,,,,0.165,date,9666,not needed,ok
+honest_elp,benign_100k_1m,b153,benign,hxxps://cbsnorthstar[.]com/,own_domain,582505,No warning signs,,,,,0.396,date,5845,not needed,ok
+honest_elp,benign_100k_1m,b154,benign,hxxps://actaport[.]de/,own_domain,594033,No warning signs,,,,,0.158,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b155,benign,hxxps://dakym[.]com/,own_domain,598017,No warning signs,,,,,0.118,date,1009,not needed,ok
+honest_elp,benign_100k_1m,b156,benign,hxxps://mrcrack[.]xyz/,own_domain,598782,Suspicious,,,,,0.888,date,2685,not needed,ok
+honest_elp,benign_100k_1m,b157,benign,hxxps://enerset-shop[.]rs/,own_domain,606576,Suspicious,,,,,0.799,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b158,benign,hxxps://horances[.]com/,own_domain,628403,No warning signs,,,,,0.275,date,471,not needed,ok
+honest_elp,benign_100k_1m,b159,benign,hxxps://nolabels[.]org/,own_domain,640998,No warning signs,,,,,0.293,date,6155,not needed,ok
+honest_elp,benign_100k_1m,b160,benign,hxxps://legionsdk[.]com/,own_domain,652496,No warning signs,,,,,0.25,date,301,not needed,ok
+honest_elp,benign_100k_1m,b161,benign,hxxps://leisurelands[.]nl/,own_domain,655220,No warning signs,,,,,0.303,date,4471,not needed,ok
+honest_elp,benign_100k_1m,b162,benign,hxxps://timex[.]cz/,own_domain,659730,No warning signs,,,,,0.111,date,10188,not needed,ok
+honest_elp,benign_100k_1m,b163,benign,hxxps://nishohi[.]com/,own_domain,695306,No warning signs,,,,,0.211,date,3151,not needed,ok
+honest_elp,benign_100k_1m,b164,benign,hxxps://dyestatpro[.]com/,own_domain,700525,No warning signs,,,,,0.298,date,3960,not needed,ok
+honest_elp,benign_100k_1m,b165,benign,hxxps://arcdyn[.]com/,own_domain,708084,No warning signs,,,,,0.146,date,3698,not needed,ok
+honest_elp,benign_100k_1m,b166,benign,hxxps://transid[.]org/,own_domain,711071,No warning signs,,,,,0.22,date,1517,not needed,ok
+honest_elp,benign_100k_1m,b167,benign,hxxps://kosgos[.]ru/,own_domain,721147,No warning signs,,,,,0.196,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b168,benign,hxxps://wwcom[.]ch/,own_domain,728077,No warning signs,,,,,0.513,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b169,benign,hxxps://hypesneakerid[.]com/,own_domain,731927,No warning signs,,,,,0.502,date,2024,not needed,ok
+honest_elp,benign_100k_1m,b170,benign,hxxps://norma[.]ch/,own_domain,745499,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b171,benign,hxxps://daailynews[.]com/,own_domain,746307,No warning signs,,,,,0.291,date,2807,not needed,ok
+honest_elp,benign_100k_1m,b172,benign,hxxps://flygo[.]com/,own_domain,786579,No warning signs,,,,,0.118,date,10034,not needed,ok
+honest_elp,benign_100k_1m,b173,benign,hxxps://givav[.]fr/,own_domain,789628,No warning signs,,,,,0.248,date,4590,not needed,ok
+honest_elp,benign_100k_1m,b174,benign,hxxps://izidok[.]id/,own_domain,797488,No warning signs,,,,,0.446,date,2549,not needed,ok
+honest_elp,benign_100k_1m,b175,benign,hxxps://jankariupdate[.]in/,own_domain,797923,No warning signs,,,,,0.593,date,583,not needed,ok
+honest_elp,benign_100k_1m,b176,benign,hxxps://javoak[.]com/,own_domain,798040,No warning signs,,,,,0.147,date,1000,not needed,ok
+honest_elp,benign_100k_1m,b177,benign,hxxps://kaskus800[.]biz/,own_domain,800479,Suspicious,,,,,0.847,date,317,not needed,ok
+honest_elp,benign_100k_1m,b178,benign,hxxps://kec[.]ac[.]in/,own_domain,800734,No warning signs,,,,,0.042,date,7255,not needed,ok
+honest_elp,benign_100k_1m,b179,benign,hxxps://mombelli[.]org/,own_domain,811418,No warning signs,,,,,0.393,date,6106,not needed,ok
+honest_elp,benign_100k_1m,b180,benign,hxxps://pizzacooc[.]com/,own_domain,821501,No warning signs,,,,,0.27,date,8885,not needed,ok
+honest_elp,benign_100k_1m,b181,benign,hxxps://sabadogol[.]com[.]ar/,own_domain,828756,No warning signs,,,,,0.661,date,1315,not needed,ok
+honest_elp,benign_100k_1m,b182,benign,hxxps://sieuthinama[.]com/,own_domain,832173,No warning signs,,,,,0.373,date,374,not needed,ok
+honest_elp,benign_100k_1m,b183,benign,hxxps://t5j9[.]com/,own_domain,837111,No warning signs,,,,,0.224,date,317,not needed,ok
+honest_elp,benign_100k_1m,b184,benign,hxxps://vip888laos[.]online/,own_domain,845638,Suspicious,,,,,0.807,date,69,not needed,ok
+honest_elp,benign_100k_1m,b185,benign,hxxps://xmeta[.]vn/,own_domain,868760,No warning signs,,,,,0.358,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b186,benign,hxxps://meat-profi[.]ru/,own_domain,869334,Suspicious,,,,,0.691,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b187,benign,hxxps://annamatari[.]ru/,own_domain,873417,No warning signs,,,,,0.451,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b188,benign,hxxps://lifeinthefastlane[.]com/,own_domain,883452,No warning signs,,,,,0.505,date,9318,not needed,ok
+honest_elp,benign_100k_1m,b189,benign,hxxps://robertet[.]com/,own_domain,893119,No warning signs,,,,,0.237,date,9780,not needed,ok
+honest_elp,benign_100k_1m,b190,benign,hxxps://blogbuzzecho[.]com/,own_domain,896439,No warning signs,,,,,0.396,date,383,not needed,ok
+honest_elp,benign_100k_1m,b191,benign,hxxps://vyvod-iz-zapoya-v-novorossijske3[.]ru/,own_domain,915280,Suspicious,,,,,0.852,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b192,benign,hxxps://plantanimalmineral[.]com/,own_domain,919880,No warning signs,,,,,0.48,date,894,not needed,ok
+honest_elp,benign_100k_1m,b193,benign,hxxps://amatore[.]nl/,own_domain,920707,No warning signs,,,,,0.103,date,1132,not needed,ok
+honest_elp,benign_100k_1m,b194,benign,hxxps://plugged[.]host/,own_domain,928071,No warning signs,,,,,0.429,date,64,not needed,ok
+honest_elp,benign_100k_1m,b195,benign,hxxps://totolink[.]vn/,own_domain,932492,No warning signs,,,,,0.411,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b196,benign,hxxps://josephatelier[.]de/,own_domain,942560,No warning signs,,,,,0.334,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b197,benign,hxxps://dailytrailvista[.]com/,own_domain,942951,No warning signs,,,,,0.486,date,383,not needed,ok
+honest_elp,benign_100k_1m,b198,benign,hxxps://fedplus[.]be/,own_domain,975442,No warning signs,,,,,0.461,unsupported,,not needed,ok
+honest_elp,benign_100k_1m,b199,benign,hxxps://turbospin138login11[.]shop/,own_domain,987960,Suspicious,,,,,0.99,date,255,not needed,ok
+honest_elp,benign_100k_1m,b200,benign,hxxps://win9999[.]store/,own_domain,989214,Suspicious,,,,,0.716,date,1241,not needed,ok
+honest_elp,regression_domain,reg01,gambling_unlisted,hxxps://sportpesa[.]com/,own_domain,8210,Suspicious,,,list,,0.258,date,5306,not needed,ok
+honest_elp,regression_domain,reg02,gambling_unlisted,hxxps://msport[.]com/,own_domain,7713,Suspicious,,,list,,0.156,date,10145,not needed,ok
+honest_elp,regression_domain,reg03,gambling_unlisted,hxxps://bingoplus[.]com/,own_domain,1615,Suspicious,,,list,,0.25,date,8601,not needed,ok
+honest_elp,regression_domain,reg04,gambling_unlisted,hxxps://tippmix[.]hu/,own_domain,9857,Suspicious,,,list,,0.491,unsupported,,not needed,ok
+honest_elp,regression_domain,reg05,gambling_unlisted,hxxps://skyvegas[.]com/,own_domain,3669,Suspicious,,,list,,0.23,date,9368,not needed,ok
+honest_elp,regression_domain,reg06,gambling_unlisted,hxxps://pocketoption[.]com/,own_domain,7924,Suspicious,,,list,,0.411,date,3745,not needed,ok
+honest_elp,regression_domain,reg07,gambling_unlisted,hxxps://szerencsejatek[.]hu/,own_domain,9168,Suspicious,,,list,,0.863,unsupported,,not needed,ok
+honest_elp,regression_domain,reg08,gambling_unlisted,hxxps://juan365[.]com/,own_domain,9716,Suspicious,,,list,,0.211,date,623,not needed,ok
+honest_elp,regression_domain,reg09,gambling_unconfirmed,hxxps://betonuzzz[.]ru/,own_domain,,No warning signs,,,,,0.451,unsupported,,not needed,nxdomain
+honest_elp,regression_domain,reg10,gambling_unconfirmed,hxxps://casino50[.]com/,own_domain,18017,No warning signs,,,,,0.237,date,3572,not needed,nxdomain
+honest_elp,regression_domain,reg11,gambling_unconfirmed,hxxps://metabet[.]tv/,own_domain,10092,No warning signs,,,,,0.087,date,1818,not needed,ok
+honest_elp,regression_domain,reg12,gambling_unconfirmed,hxxps://parimatchs123[.]com/,own_domain,13353,No warning signs,,,,,0.396,date,524,not needed,ok
+honest_elp,regression_domain,reg13,gambling_control,hxxps://bet365[.]com/,own_domain,2780,Suspicious,,,list,,0.175,date,9941,not needed,ok
+honest_elp,regression_domain,reg14,gambling_control,hxxps://1xbet[.]com/,own_domain,11904,Suspicious,,,list,,0.158,date,7356,not needed,ok
+honest_elp,regression_domain,reg15,gambling_control,hxxps://stake[.]com/,own_domain,5405,Suspicious,,,list,,0.139,date,10310,not needed,ok
+honest_elp,regression_domain,reg16,gambling_control,hxxps://dpboss[.]tax/,own_domain,1742,Suspicious,,,list,,0.358,date,56,not needed,ok
+honest_elp,regression_domain,reg17,gambling_control,hxxps://betika[.]com/,own_domain,1598,Suspicious,,,list,,0.156,date,8067,not needed,ok
+honest_elp,regression_domain,reg18,gambling_control,hxxps://sportybet[.]com/,own_domain,1382,Suspicious,,,list,,0.449,date,8667,not needed,ok
+honest_elp,regression_domain,reg19,gambling_control,hxxps://ultrabet852[.]com/,own_domain,,Suspicious,,,list,,0.48,date,430,not needed,nxdomain
+honest_elp,regression_domain,reg20,gambling_control,hxxps://casinocashvault[.]com/,own_domain,,Suspicious,,,list,,0.488,date,893,not needed,ok
+honest_elp,regression_domain,reg21,gambling_control,hxxps://elroyalecasinobonuses[.]com/,own_domain,,Suspicious,,,list,,0.491,date,2346,not needed,ok
+honest_elp,regression_domain,reg22,gambling_control,hxxps://aurealmoneycasino[.]com/,own_domain,,Suspicious,,,list,,0.493,date,135,not needed,ok
+honest_elp,regression_message,msg-listed,gambling_message,hxxps://bet365[.]com/,own_domain,,Likely scam,,,list,,0.175,date,9941,not needed,ok
+honest_elp,regression_message,msg-short,gambling_message,hxxps://bit[.]ly/3Xk9Qp,shortener,,Likely scam,,,,,,n/a,,n/a,n/a
+honest_elp,regression_message,msg-unlisted,gambling_message,hxxps://sportpesa[.]com/,own_domain,,Likely scam,,,list,,0.258,date,5306,not needed,ok

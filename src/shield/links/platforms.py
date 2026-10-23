@@ -37,6 +37,25 @@ DYNAMIC_DNS = {"dpdns.org", "ddns.net", "duckdns.org", "hopto.org", "zapto.org",
 SITE_BUILDERS = {"craftum.io", "myshopify.com", "square.site", "yolasite.com", "bubbleapps.io"}
 SHORTENERS |= SHORTENERS_ADDED
 FREE_HOSTING |= DYNAMIC_DNS | SITE_BUILDERS
+# Additions of 2026-10-23 (decision C3). reports/eval_live_links.md section 10 listed the phishing links that an age gate would lose: pages on hosting platforms the
+# lists above did not know, so the platform's own old registration made them look like old ordinary domains. All nine were in the OpenPhish public feed of
+# 2026-10-22. Where a platform is in the bundled Public Suffix List (a 2026 snapshot) it says so; the others are not in that snapshot, so their kind is read from
+# the pages seen in the feed and from the platform's own name, NOT checked against a list in this offline task.
+#   FREE_HOSTING (anyone publishes a site under a name they pick; the URL model's score is not shown, only a brand / scam word in the subdomain raises the link)
+#     edgeone.dev           Tencent EdgeOne Pages (feed: central-crimson-*.edgeone.dev)           not in the PSL snapshot
+#     4everland.app         4EVERLAND web3 hosting (feed: <name>.4everland.app)                    not in the PSL snapshot
+#     azurestaticapps.net   Microsoft Azure Static Web Apps (feed: *.4.azurestaticapps.net)        in the PSL private section ("Microsoft Azure")
+#     cloudworkstations.dev Google Cloud Workstations, a per-user dev server on a public name       not in the PSL snapshot
+#     crabdance.com         a free sub-domain provider (feed: detaillogs.*.crabdance.com)         not in the PSL snapshot; kind inferred from the feed row only
+#   SITE_BUILDERS (page builders; same treatment as FREE_HOSTING)
+#     flazio.online         Flazio website builder (feed: user-*.flazio.online)                    not in the PSL snapshot
+#     typedream.app         Typedream site builder (feed: *.typedream.app)                         in the PSL private section ("Typedream")
+#     teleporthq.app        TeleportHQ site builder (feed: *.teleporthq.app)                       not in the PSL snapshot
+#   USER_CONTENT (a storage service: the file is the user's, the service's name is not; the URL model still scores the link, like amazonaws.com)
+#     backblazeb2.com       Backblaze B2 cloud storage buckets (feed: f005.backblazeb2.com/file/<bucket>/...)   not in the PSL snapshot
+PLATFORMS_C3_FREE_HOSTING = {"edgeone.dev", "4everland.app", "azurestaticapps.net", "cloudworkstations.dev", "crabdance.com", "flazio.online", "typedream.app", "teleporthq.app"}
+PLATFORMS_C3_USER_CONTENT = {"backblazeb2.com"}
+FREE_HOSTING |= PLATFORMS_C3_FREE_HOSTING
 CANT_VERIFY, CANT_JUDGE = "Can't verify - hidden destination", "Can't judge by domain - free hosting"
 # User-content hosts (D23): popular sites where anyone can post a page, a form, a file, a chat invite or a profile, so the site's popularity (P2)
 # and its registration facts say nothing about the page a link points to, and a blocklist entry there marks that page only. The URL model still
@@ -66,6 +85,8 @@ def load_downloaded_shorteners(path=None):
     plat = USER_CONTENT | FREE_HOSTING
     return {d for d in (l.strip().lower() for l in lines) if re.fullmatch(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,24}", d)
             and d not in SHORTENERS_EXCLUDED and not suffix_match(d, plat) and not any(u.endswith("." + d) for u in plat)}
+
+USER_CONTENT |= PLATFORMS_C3_USER_CONTENT
 
 def platform_of(host):
     """The root of the shortener, free-hosting or user-content platform host is on (e.g. "pages.dev", "docs.google.com"), or None."""

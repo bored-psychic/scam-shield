@@ -12,6 +12,7 @@ GAMBLING_INDIA_PATH = ROOT / "data" / "final" / "gambling_india.json"
 LINKLISTS_DIR = ROOT / "data" / "final" / "linklists"
 _LINKS_DIR = ROOT / "src" / "shield" / "links"
 BRAND_TLDS_PATH = _LINKS_DIR / "brand_tlds.json"           # verified by update_link_lists.py against ICANN gtlds.json + IANA root zone
+EXACT_BRANDS_PATH = _LINKS_DIR / "exact_brands.json"         # R10: brand label -> its official registered domains (decision C3)
 BRANDS_INDIA_PATH = _LINKS_DIR / "brands_india.json"       # brand -> name tokens, registered domains it owns, its brand TLDs
 RESTRICTED_ZONES_PATH = _LINKS_DIR / "restricted_zones.json"   # .bank.in (P1), .gov.in / .nic.in (display only)
 ABUSE_TLDS_PATH = _LINKS_DIR / "abuse_tlds.json"           # cited high-abuse TLD names (display only)
@@ -26,6 +27,13 @@ CRTSH_CHECK = os.environ.get("SHIELD_CRTSH", "0") == "1"
 # link-check evidence (a red flag R1-R9). In the 2026-10-22 live evaluation the model alone fired on 27 of the 29 flagged benign domains, and 3 of them
 # reached Likely scam. 2 = the old behaviour (the scripts/eval_live_links.py variant (a) sets it for the "before" rows). SHIELD_URL_ALONE_MAX=2 restores it.
 URL_ALONE_MAX_LEVEL = int(os.environ.get("SHIELD_URL_ALONE_MAX", "1"))
+# Decision C3 (2026-10-23, variant e): the host-only URL model's flag threshold. 0.662 = the lowest value at which the URL head's own validation split has
+# <= 5% benign flagged (4.99%; scripts/eval_live_links.py url_val_threshold); the model file's own threshold, 0.537, flagged 9.4% there. In the 2026-10-22 live
+# evaluation it cut benign false alarms from 29 to 16 of 200. SHIELD_URL_FLAG=0.537 restores the model file's threshold (any number is accepted; "bundle" = the file's).
+_url_flag = os.environ.get("SHIELD_URL_FLAG", "0.662")
+URL_FLAG_THRESHOLD = None if _url_flag == "bundle" else float(_url_flag)
+# R10, the exact-brand-name rule (decision C3, shield.links.lookalike.exact_brand): SHIELD_EXACT_BRAND=0 switches it off.
+EXACT_BRAND_CHECK = os.environ.get("SHIELD_EXACT_BRAND", "1") != "0"
 
 # Safety-advice cap (decision S1 once enabled; reports/otp_advisory.md): a message whose only reason for Suspicious is the text head, and which contains
 # standard "never share your OTP" advice and none of the signs of a scam wrapped around it (router.safety_advice_cap), is shown as No warning signs.

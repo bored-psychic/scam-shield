@@ -1,0 +1,464 @@
+{
+ "about": "Exact-brand-name rule R10 (decision C3, 2026-10-23). A link whose REGISTERED DOMAIN's first label equals one of a brand's labels exactly (roblox.com.am -> 'roblox'; tldextract's top_domain_under_public_suffix, the app's link_domain), but whose registered domain is not in that brand's official list, is flagged: 'Uses the name <Brand> but is not <Brand>'s official website.' Exact label only: no substring and no fuzzy match (robloxfans.com, pineapple.com never fire; the substring / near-miss rule is R4 in brands_india.json). A missing official domain would be flagged, so each list must include the brand's country variants; the rule was run over the Tranco top 100k (scripts/exact_brand_scan.py) and every hit fixed or justified.",
+ "brands": [
+  {
+   "brand": "Roblox",
+   "labels": [
+    "roblox"
+   ],
+   "official": [
+    "roblox.com"
+   ],
+   "source": "Roblox Corporation's site roblox.com (the only domain of that name); the 2026-10-22 OpenPhish feed had roblox.et, .ly, .com.am, .com.pt, .com.bi, .com.ml pages (reports/eval_live_links.md section 10)"
+  },
+  {
+   "brand": "Amazon",
+   "labels": [
+    "amazon"
+   ],
+   "official": [
+    "amazon.com",
+    "amazon.in",
+    "amazon.co.uk",
+    "amazon.de",
+    "amazon.fr",
+    "amazon.it",
+    "amazon.es",
+    "amazon.nl",
+    "amazon.se",
+    "amazon.pl",
+    "amazon.ca",
+    "amazon.com.au",
+    "amazon.co.jp",
+    "amazon.com.br",
+    "amazon.com.mx",
+    "amazon.sg",
+    "amazon.ae",
+    "amazon.sa",
+    "amazon.eg",
+    "amazon.com.tr",
+    "amazon.com.be",
+    "amazon.cn",
+    "amazon.co.za",
+    "amazon.ie",
+    "amazon.jobs",
+    "amazon.dev",
+    "amazon.eu",
+    "amazon.jp",
+    "amazon.science"
+   ],
+   "source": "Amazon's localized store sites (the 'Amazon sites' list in amazon.com's footer / Wikipedia 'Amazon (company)'); the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; amazon.dev (Tranco rank 133, the only top-10k hit), amazon.eu, amazon.jp, amazon.science added after the Tranco scan (scripts/exact_brand_scan.py): Amazon's developer, EU, Japan-redirect and research sites, recognised by the author, ownership not re-checked"
+  },
+  {
+   "brand": "State Bank of India",
+   "labels": [
+    "sbi",
+    "onlinesbi"
+   ],
+   "official": [
+    "sbi.co.in",
+    "sbi.bank.in",
+    "onlinesbi.com",
+    "onlinesbi.sbi"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "HDFC Bank",
+   "labels": [
+    "hdfcbank"
+   ],
+   "official": [
+    "hdfcbank.com",
+    "hdfcbank.bank.in"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "ICICI Bank",
+   "labels": [
+    "icicibank"
+   ],
+   "official": [
+    "icicibank.com",
+    "icicibank.bank.in"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Axis Bank",
+   "labels": [
+    "axisbank"
+   ],
+   "official": [
+    "axisbank.com",
+    "axisbank.co.in",
+    "axisbank.bank.in"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Kotak Mahindra Bank",
+   "labels": [
+    "kotak",
+    "kotakbank"
+   ],
+   "official": [
+    "kotak.com",
+    "kotak.bank.in",
+    "kotakbank.com"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Yes Bank",
+   "labels": [
+    "yesbank"
+   ],
+   "official": [
+    "yesbank.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Punjab National Bank",
+   "labels": [
+    "pnbindia"
+   ],
+   "official": [
+    "pnbindia.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Bank of Baroda",
+   "labels": [
+    "bankofbaroda"
+   ],
+   "official": [
+    "bankofbaroda.in",
+    "bankofbaroda.com",
+    "bankofbaroda.co.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; bankofbaroda.co.in added after the Tranco scan (the bank's older web address, recognised by the author, not re-checked)"
+  },
+  {
+   "brand": "Canara Bank",
+   "labels": [
+    "canarabank"
+   ],
+   "official": [
+    "canarabank.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Union Bank of India",
+   "labels": [
+    "unionbankofindia"
+   ],
+   "official": [
+    "unionbankofindia.co.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "IDFC FIRST Bank",
+   "labels": [
+    "idfcfirstbank"
+   ],
+   "official": [
+    "idfcfirstbank.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "IndusInd Bank",
+   "labels": [
+    "indusind"
+   ],
+   "official": [
+    "indusind.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Federal Bank",
+   "labels": [
+    "federalbank"
+   ],
+   "official": [
+    "federalbank.co.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Bandhan Bank",
+   "labels": [
+    "bandhanbank"
+   ],
+   "official": [
+    "bandhanbank.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "AU Small Finance Bank",
+   "labels": [
+    "aubank"
+   ],
+   "official": [
+    "aubank.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "RBL Bank",
+   "labels": [
+    "rblbank"
+   ],
+   "official": [
+    "rblbank.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Paytm",
+   "labels": [
+    "paytm"
+   ],
+   "official": [
+    "paytm.com",
+    "paytm.in",
+    "paytm.me"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address; paytm.me added after the Tranco scan (Paytm's short-link domain, recognised by the author, not re-checked)"
+  },
+  {
+   "brand": "PhonePe",
+   "labels": [
+    "phonepe"
+   ],
+   "official": [
+    "phonepe.com"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "BHIM UPI / NPCI",
+   "labels": [
+    "npci",
+    "bhimupi"
+   ],
+   "official": [
+    "npci.org.in",
+    "bhimupi.org.in"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Razorpay",
+   "labels": [
+    "razorpay"
+   ],
+   "official": [
+    "razorpay.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "MobiKwik",
+   "labels": [
+    "mobikwik"
+   ],
+   "official": [
+    "mobikwik.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Freecharge",
+   "labels": [
+    "freecharge"
+   ],
+   "official": [
+    "freecharge.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "BharatPe",
+   "labels": [
+    "bharatpe"
+   ],
+   "official": [
+    "bharatpe.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "India Post",
+   "labels": [
+    "indiapost"
+   ],
+   "official": [
+    "indiapost.gov.in"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Delhivery",
+   "labels": [
+    "delhivery"
+   ],
+   "official": [
+    "delhivery.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Blue Dart",
+   "labels": [
+    "bluedart"
+   ],
+   "official": [
+    "bluedart.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "DTDC",
+   "labels": [
+    "dtdc"
+   ],
+   "official": [
+    "dtdc.in",
+    "dtdc.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Ecom Express",
+   "labels": [
+    "ecomexpress"
+   ],
+   "official": [
+    "ecomexpress.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Xpressbees",
+   "labels": [
+    "xpressbees"
+   ],
+   "official": [
+    "xpressbees.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Shadowfax",
+   "labels": [
+    "shadowfax"
+   ],
+   "official": [
+    "shadowfax.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Ekart",
+   "labels": [
+    "ekartlogistics"
+   ],
+   "official": [
+    "ekartlogistics.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Flipkart",
+   "labels": [
+    "flipkart"
+   ],
+   "official": [
+    "flipkart.com",
+    "flipkart.net"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  },
+  {
+   "brand": "Myntra",
+   "labels": [
+    "myntra"
+   ],
+   "official": [
+    "myntra.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Meesho",
+   "labels": [
+    "meesho"
+   ],
+   "official": [
+    "meesho.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Swiggy",
+   "labels": [
+    "swiggy"
+   ],
+   "official": [
+    "swiggy.com",
+    "swiggy.in"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Zomato",
+   "labels": [
+    "zomato"
+   ],
+   "official": [
+    "zomato.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "Blinkit",
+   "labels": [
+    "blinkit"
+   ],
+   "official": [
+    "blinkit.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "BigBasket",
+   "labels": [
+    "bigbasket"
+   ],
+   "official": [
+    "bigbasket.com"
+   ],
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+  },
+  {
+   "brand": "IRCTC",
+   "labels": [
+    "irctc"
+   ],
+   "official": [
+    "irctc.co.in",
+    "irctc.com"
+   ],
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+  }
+ ]
+}
