@@ -593,12 +593,12 @@ def l18(m):
 
 def l19(m):
     """C3 (e) and the platforms: the app's URL flag threshold is 0.662 (the model file's own is 0.537, SHIELD_URL_FLAG=0.537 or bundle restores it); the nine
-    platforms of platforms.py are free hosting / user content."""
+    platforms of platforms.py are user content (moved from free hosting, which cost 8 caught scams)."""
     import joblib
     from shield import config
     from shield.config import URL_MODEL_PATH
     from shield.links.lexical import UrlScorer
-    from shield.links.platforms import PLATFORMS_C3_FREE_HOSTING, PLATFORMS_C3_USER_CONTENT, platform_of
+    from shield.links.platforms import FREE_HOSTING, PLATFORMS_C3_USER_CONTENT, USER_CONTENT, platform_of
     bad = []
     if m[1].t_flag != 0.662 or m[1].t_bundle != 0.537:
         bad.append(f"URL flag threshold {m[1].t_flag} (wanted 0.662), model file {m[1].t_bundle} (wanted 0.537)")
@@ -613,14 +613,11 @@ def l19(m):
         config.URL_FLAG_THRESHOLD = saved
     if (a, b) != (0.537, 0.537):
         bad.append(f"restoring the model file's threshold: {a}, {b}")
-    if len(PLATFORMS_C3_FREE_HOSTING) != 8 or len(PLATFORMS_C3_USER_CONTENT) != 1:
-        bad.append("expected 8 free-hosting + 1 user-content platforms")
-    for d in sorted(PLATFORMS_C3_FREE_HOSTING):
-        a = assess_link(f"https://some-name.{d}/")
-        if not a or a["kind"] != "free" or a["level"] is not None:
-            bad.append(f"{d}: {a and a['kind']}, wanted free hosting / Can't judge")
-    if platform_of("f005.backblazeb2.com") != "backblazeb2.com" or assess_link("https://f005.backblazeb2.com/file/b/x.html") is not None:
-        bad.append("backblazeb2.com must be user content (URL model still scores it)")
+    if len(PLATFORMS_C3_USER_CONTENT) != 9 or not PLATFORMS_C3_USER_CONTENT <= USER_CONTENT or PLATFORMS_C3_USER_CONTENT & FREE_HOSTING:
+        bad.append("the nine platforms must be user content and not free hosting")
+    for d in sorted(PLATFORMS_C3_USER_CONTENT):   # user content: the URL model still scores the link (no "Can't judge"), the link checks know it is a platform page
+        if assess_link(f"https://some-name.{d}/") is not None or platform_of(f"some-name.{d}") != d:
+            bad.append(f"{d}: must be user content (assess_link None, platform_of {d})")
     return bad
 
 

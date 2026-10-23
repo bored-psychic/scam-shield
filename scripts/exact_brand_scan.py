@@ -51,10 +51,10 @@ def main():
         if hits:
             L += ["| Tranco rank | Domain | Brand named | Label |", "|---:|---|---|---|"] + [f"| {r} | `{d.replace('.', '[.]')}` | {b} | {lab} |" for r, d, b, lab in hits] + [""]
     L.append("## Reading the hits\n\nThe Tranco top 10k scan had one hit on the first run, `amazon[.]dev` (rank 133), Amazon's own developer site: added to Amazon's official list, as were `amazon.eu`, `amazon.jp`, "
-             "`amazon.science`, `bankofbaroda.co.in` and `paytm.me` (found by the 100k scan; marked \"added after the scan\" in `exact_brands.json`, recognised by the author, ownership not re-checked). "
-             "The hits that remain in the top 100k are other TLDs of Roblox, Zomato, Blinkit and BharatPe, and `amazon.work`. Whether they are the brand's own defensive registrations or someone else's cannot be told "
-             "from the name, and checking needs a registry look-up (a network call), so they are left flagged: the effect is a Suspicious flag with the sentence \"Uses the name X but is not X's official website\" on a link to such "
-             "a domain, and the fix for a confirmed one is a line in the brand's official list.\n")
+             "`amazon.science`, `bankofbaroda.co.in` and `paytm.me` (found by the 100k scan; recognised by the author). The first 100k scan then had 18 hits. Each was looked up in RDAP and DNS "
+             "(`scripts/verify_official_domains.py`, `reports/exact_brand_official_check.md`): 7 turned out to be the brand's own and were added (`amazon.work`, four `roblox.*` on roblox.com's own nameservers, "
+             "`zomato.durban`, `zomato.joburg`, whose registrant organisation is Zomato Media Private Limited), 1 is clearly someone else's (`roblox.com.bz`), and the 10 that remain unclear are listed in the "
+             "check report for the user to decide. This table is the scan as the rule stands now.\n")
     (ROOT / "reports" / "exact_brand_scan.md").write_text("\n".join(L) + "\n", encoding="utf-8")
     for k, (n, hits) in res.items():
         print(f"{k}: {len(hits)} hits of {n}")

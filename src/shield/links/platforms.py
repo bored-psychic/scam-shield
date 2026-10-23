@@ -41,21 +41,20 @@ FREE_HOSTING |= DYNAMIC_DNS | SITE_BUILDERS
 # lists above did not know, so the platform's own old registration made them look like old ordinary domains. All nine were in the OpenPhish public feed of
 # 2026-10-22. Where a platform is in the bundled Public Suffix List (a 2026 snapshot) it says so; the others are not in that snapshot, so their kind is read from
 # the pages seen in the feed and from the platform's own name, NOT checked against a list in this offline task.
-#   FREE_HOSTING (anyone publishes a site under a name they pick; the URL model's score is not shown, only a brand / scam word in the subdomain raises the link)
-#     edgeone.dev           Tencent EdgeOne Pages (feed: central-crimson-*.edgeone.dev)           not in the PSL snapshot
-#     4everland.app         4EVERLAND web3 hosting (feed: <name>.4everland.app)                    not in the PSL snapshot
-#     azurestaticapps.net   Microsoft Azure Static Web Apps (feed: *.4.azurestaticapps.net)        in the PSL private section ("Microsoft Azure")
-#     cloudworkstations.dev Google Cloud Workstations, a per-user dev server on a public name       not in the PSL snapshot
-#     crabdance.com         a free sub-domain provider (feed: detaillogs.*.crabdance.com)         not in the PSL snapshot; kind inferred from the feed row only
-#   SITE_BUILDERS (page builders; same treatment as FREE_HOSTING)
-#     flazio.online         Flazio website builder (feed: user-*.flazio.online)                    not in the PSL snapshot
-#     typedream.app         Typedream site builder (feed: *.typedream.app)                         in the PSL private section ("Typedream")
-#     teleporthq.app        TeleportHQ site builder (feed: *.teleporthq.app)                       not in the PSL snapshot
-#   USER_CONTENT (a storage service: the file is the user's, the service's name is not; the URL model still scores the link, like amazonaws.com)
-#     backblazeb2.com       Backblaze B2 cloud storage buckets (feed: f005.backblazeb2.com/file/<bucket>/...)   not in the PSL snapshot
-PLATFORMS_C3_FREE_HOSTING = {"edgeone.dev", "4everland.app", "azurestaticapps.net", "cloudworkstations.dev", "crabdance.com", "flazio.online", "typedream.app", "teleporthq.app"}
-PLATFORMS_C3_USER_CONTENT = {"backblazeb2.com"}
-FREE_HOSTING |= PLATFORMS_C3_FREE_HOSTING
+#   Moved from FREE_HOSTING to USER_CONTENT the same day (decision C3, follow-up): as FREE_HOSTING the eight cost 8 caught phishing links, which read "Can't judge" instead of
+#   Suspicious (reports/eval_live_links.md section 10) and removed no benign false alarm. USER_CONTENT keeps the URL model's vote, which is what those links need; the link
+#   checks still treat them as platform pages (no registry age, no top-10k "well-known" credit, only the part the uploader picks is checked for a brand name).
+#   edgeone.dev           Tencent EdgeOne Pages (feed: central-crimson-*.edgeone.dev), a free-hosting service                not in the PSL snapshot
+#   4everland.app         4EVERLAND web3 hosting (feed: <name>.4everland.app), free-hosting service                          not in the PSL snapshot
+#   azurestaticapps.net   Microsoft Azure Static Web Apps (feed: *.4.azurestaticapps.net), free-hosting service             in the PSL private section ("Microsoft Azure")
+#   cloudworkstations.dev Google Cloud Workstations, a per-user dev server on a public name                                  not in the PSL snapshot
+#   crabdance.com         a free sub-domain provider (feed: detaillogs.*.crabdance.com)                                      not in the PSL snapshot; kind inferred from the feed row only
+#   flazio.online         Flazio website builder (feed: user-*.flazio.online)                                                not in the PSL snapshot
+#   typedream.app         Typedream site builder (feed: *.typedream.app)                                                     in the PSL private section ("Typedream")
+#   teleporthq.app        TeleportHQ site builder (feed: *.teleporthq.app)                                                   not in the PSL snapshot
+#   backblazeb2.com       Backblaze B2 cloud storage buckets (feed: f005.backblazeb2.com/file/<bucket>/...)                  not in the PSL snapshot (user content from the start)
+PLATFORMS_C3_USER_CONTENT = {"edgeone.dev", "4everland.app", "azurestaticapps.net", "cloudworkstations.dev", "crabdance.com", "flazio.online", "typedream.app", "teleporthq.app",
+                             "backblazeb2.com"}
 CANT_VERIFY, CANT_JUDGE = "Can't verify - hidden destination", "Can't judge by domain - free hosting"
 # User-content hosts (D23): popular sites where anyone can post a page, a form, a file, a chat invite or a profile, so the site's popularity (P2)
 # and its registration facts say nothing about the page a link points to, and a blocklist entry there marks that page only. The URL model still

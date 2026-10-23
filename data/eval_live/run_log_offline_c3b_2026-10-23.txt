@@ -1,0 +1,176 @@
+loading models and lists ...
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 11712.51it/s]
+reusing the saved samples of this date
+NOTE: only 96 unique registered domains in the feed (wanted 200)
+(e) threshold 0.662 (val FPR 0.0497; current 0.537 has 0.0953)
+  [all_on] 25/321 items, 2s
+  [all_on] 50/321 items, 4s
+  [all_on] 75/321 items, 5s
+  [all_on] 100/321 items, 6s
+  [all_on] 125/321 items, 8s
+  [all_on] 150/321 items, 10s
+  [all_on] 175/321 items, 12s
+  [all_on] 200/321 items, 13s
+  [all_on] 225/321 items, 15s
+  [all_on] 250/321 items, 18s
+  [all_on] 275/321 items, 20s
+  [all_on] 300/321 items, 23s
+[all_on] All signals ON: 321 items in 25s
+  [no_blocklists] 25/321 items, 2s
+  [no_blocklists] 50/321 items, 3s
+  [no_blocklists] 75/321 items, 5s
+  [no_blocklists] 100/321 items, 8s
+  [no_blocklists] 125/321 items, 10s
+  [no_blocklists] 150/321 items, 12s
+  [no_blocklists] 175/321 items, 14s
+  [no_blocklists] 200/321 items, 17s
+  [no_blocklists] 225/321 items, 20s
+  [no_blocklists] 250/321 items, 22s
+  [no_blocklists] 275/321 items, 24s
+  [no_blocklists] 300/321 items, 25s
+[no_blocklists] OpenPhish + URLhaus OFF: 321 items in 27s
+  [honest] 25/321 items, 2s
+  [honest] 50/321 items, 3s
+  [honest] 75/321 items, 4s
+  [honest] 100/321 items, 6s
+  [honest] 125/321 items, 7s
+  [honest] 150/321 items, 9s
+  [honest] 175/321 items, 11s
+  [honest] 200/321 items, 13s
+  [honest] 225/321 items, 15s
+  [honest] 250/321 items, 16s
+  [honest] 275/321 items, 18s
+  [honest] 300/321 items, 21s
+[honest] OpenPhish + URLhaus + Tranco OFF (honest headline): 321 items in 24s
+  [honest_first] 25/321 items, 3s
+  [honest_first] 50/321 items, 4s
+  [honest_first] 75/321 items, 5s
+  [honest_first] 100/321 items, 7s
+  [honest_first] 125/321 items, 9s
+  [honest_first] 150/321 items, 11s
+  [honest_first] 175/321 items, 12s
+  [honest_first] 200/321 items, 15s
+  [honest_first] 225/321 items, 17s
+  [honest_first] 250/321 items, 19s
+  [honest_first] 275/321 items, 2893s
+  [honest_first] 300/321 items, 2902s
+[honest_first] Honest setting, first attempt only (no retries: as the app answers): 321 items in 2905s
+  [honest_b] 25/321 items, 3s
+  [honest_b] 50/321 items, 5s
+  [honest_b] 75/321 items, 7s
+  [honest_b] 100/321 items, 9s
+  [honest_b] 125/321 items, 11s
+  [honest_b] 150/321 items, 13s
+  [honest_b] 175/321 items, 14s
+  [honest_b] 200/321 items, 16s
+  [honest_b] 225/321 items, 18s
+  [honest_b] 250/321 items, 20s
+  [honest_b] 275/321 items, 22s
+  [honest_b] 300/321 items, 24s
+[honest_b] Honest setting, variant (b): URL model alone at most Suspicious (the app from C2 to C3): 321 items in 25s
+  [honest_c] 25/321 items, 2s
+  [honest_c] 50/321 items, 3s
+  [honest_c] 75/321 items, 4s
+  [honest_c] 100/321 items, 6s
+  [honest_c] 125/321 items, 8s
+  [honest_c] 150/321 items, 9s
+  [honest_c] 175/321 items, 11s
+  [honest_c] 200/321 items, 13s
+  [honest_c] 225/321 items, 15s
+  [honest_c] 250/321 items, 16s
+  [honest_c] 275/321 items, 18s
+  [honest_c] 300/321 items, 20s
+[honest_c] Honest setting, variant (c): URL model alone cannot raise the verdict: 321 items in 22s
+  [honest_d] 25/321 items, 2s
+  [honest_d] 50/321 items, 3s
+  [honest_d] 75/321 items, 4s
+  [honest_d] 100/321 items, 6s
+  [honest_d] 125/321 items, 8s
+  [honest_d] 150/321 items, 9s
+  [honest_d] 175/321 items, 11s
+  [honest_d] 200/321 items, 13s
+  [honest_d] 225/321 items, 15s
+  [honest_d] 250/321 items, 17s
+  [honest_d] 275/321 items, 19s
+  [honest_d] 300/321 items, 21s
+[honest_d] Honest setting, variant (d): (b) + age gate: 321 items in 22s
+  [honest_e] 25/321 items, 2s
+  [honest_e] 50/321 items, 3s
+  [honest_e] 75/321 items, 4s
+  [honest_e] 100/321 items, 6s
+  [honest_e] 125/321 items, 7s
+  [honest_e] 150/321 items, 9s
+  [honest_e] 175/321 items, 11s
+  [honest_e] 200/321 items, 13s
+  [honest_e] 225/321 items, 14s
+  [honest_e] 250/321 items, 16s
+  [honest_e] 275/321 items, 18s
+  [honest_e] 300/321 items, 20s
+[honest_e] Honest setting, variant (e): (b) + validation-split threshold: 321 items in 22s
+  [honest_de] 25/321 items, 2s
+  [honest_de] 50/321 items, 3s
+  [honest_de] 75/321 items, 4s
+  [honest_de] 100/321 items, 6s
+  [honest_de] 125/321 items, 7s
+  [honest_de] 150/321 items, 9s
+  [honest_de] 175/321 items, 11s
+  [honest_de] 200/321 items, 13s
+  [honest_de] 225/321 items, 15s
+  [honest_de] 250/321 items, 17s
+  [honest_de] 275/321 items, 19s
+  [honest_de] 300/321 items, 21s
+[honest_de] Honest setting, variant (d)+(e): 321 items in 22s
+  [honest_el] 25/321 items, 2s
+  [honest_el] 50/321 items, 3s
+  [honest_el] 75/321 items, 5s
+  [honest_el] 100/321 items, 6s
+  [honest_el] 125/321 items, 8s
+  [honest_el] 150/321 items, 10s
+  [honest_el] 175/321 items, 12s
+  [honest_el] 200/321 items, 13s
+  [honest_el] 225/321 items, 15s
+  [honest_el] 250/321 items, 17s
+  [honest_el] 275/321 items, 19s
+  [honest_el] 300/321 items, 20s
+[honest_el] Honest setting, (e) + exact-brand rule R10: 321 items in 22s
+  [honest_ep] 25/321 items, 2s
+  [honest_ep] 50/321 items, 3s
+  [honest_ep] 75/321 items, 4s
+  [honest_ep] 100/321 items, 6s
+  [honest_ep] 125/321 items, 7s
+  [honest_ep] 150/321 items, 9s
+  [honest_ep] 175/321 items, 11s
+  [honest_ep] 200/321 items, 13s
+  [honest_ep] 225/321 items, 15s
+  [honest_ep] 250/321 items, 16s
+  [honest_ep] 275/321 items, 18s
+  [honest_ep] 300/321 items, 20s
+[honest_ep] Honest setting, (e) + the nine hosting platforms: 321 items in 21s
+  [honest_elp] 25/321 items, 2s
+  [honest_elp] 50/321 items, 3s
+  [honest_elp] 75/321 items, 4s
+  [honest_elp] 100/321 items, 6s
+  [honest_elp] 125/321 items, 8s
+  [honest_elp] 150/321 items, 9s
+  [honest_elp] 175/321 items, 11s
+  [honest_elp] 200/321 items, 13s
+  [honest_elp] 225/321 items, 15s
+  [honest_elp] 250/321 items, 17s
+  [honest_elp] 275/321 items, 18s
+  [honest_elp] 300/321 items, 20s
+[honest_elp] Honest setting, (e) + R10 + platforms (all nine as user content) = the app now: 321 items in 22s
+  [honest_elf] 25/321 items, 2s
+  [honest_elf] 50/321 items, 3s
+  [honest_elf] 75/321 items, 4s
+  [honest_elf] 100/321 items, 5s
+  [honest_elf] 125/321 items, 7s
+  [honest_elf] 150/321 items, 9s
+  [honest_elf] 175/321 items, 11s
+  [honest_elf] 200/321 items, 13s
+  [honest_elf] 225/321 items, 15s
+  [honest_elf] 250/321 items, 16s
+  [honest_elf] 275/321 items, 18s
+  [honest_elf] 300/321 items, 20s
+[honest_elf] Honest setting, (e) + R10 + the eight platforms as FREE_HOSTING (the previous commit): 321 items in 21s
+wrote /Users/kiyo/scam-project/reports/eval_live_links.md
+finished

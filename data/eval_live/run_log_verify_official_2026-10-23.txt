@@ -1,0 +1,29 @@
+18 hits + 87 official domains = 105 domains
+  20/105
+  40/105
+  60/105
+  80/105
+  100/105
+{
+ "rdap.nic.work": 1,
+ "cloudflare-dns.com": 212,
+ "rdap.verisign.com": 34,
+ "rdap.identitydigital.services": 6,
+ "rdap.nominet.uk": 3,
+ "rdap.nixiregistry.in": 26,
+ "ccrdap.twnic.tw": 1,
+ "rdap.tonicregistry.to": 1,
+ "rdap.nic.durban": 1,
+ "rdap.nic.vodka": 1,
+ "rdap.nic.joburg": 1,
+ "rdap.nic.fr": 1,
+ "rdap.sidn.nl": 1,
+ "rdap.dns.pl": 1,
+ "rdap.ca.fury.ca": 1,
+ "rdap.cctld.au": 1,
+ "rdap.registro.br": 1,
+ "rdap.sgnic.sg": 1,
+ "pubapi.registry.google": 1,
+ "rdap.nic.science": 1
+}
+finished

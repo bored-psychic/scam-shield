@@ -97,9 +97,11 @@ EXTRA_SETTINGS = [("honest_b", "Honest setting, variant (b): URL model alone at 
                   ("honest_de", "Honest setting, variant (d)+(e)", HONEST, "retry", "de"),
                   ("honest_el", "Honest setting, (e) + exact-brand rule R10", HONEST, "retry", "el"),
                   ("honest_ep", "Honest setting, (e) + the nine hosting platforms", HONEST, "retry", "ep"),
-                  ("honest_elp", "Honest setting, (e) + R10 + platforms = the app since C3", HONEST, "retry", "elp")]
-VARIANT_ROWS = [("(b) the app before C3", "honest_b"), ("(e) threshold 0.662", "honest_e"), ("(e) + R10 + platforms [the app now]", "honest_elp")]
-ATTRIBUTION_ROWS = [("(e) + R10 only", "honest_el"), ("(e) + platforms only", "honest_ep")]
+                  ("honest_elp", "Honest setting, (e) + R10 + platforms (all nine as user content) = the app now", HONEST, "retry", "elp"),
+                  ("honest_elf", "Honest setting, (e) + R10 + the eight platforms as FREE_HOSTING (the previous commit)", HONEST, "retry", "elf")]
+VARIANT_ROWS = [("(b) the app before C3", "honest_b"), ("(e) threshold 0.662", "honest_e"), ("(e) + R10 + platforms as FREE_HOSTING [previous commit]", "honest_elf"),
+                ("(e) + R10 + platforms as USER_CONTENT [the app now]", "honest_elp")]
+ATTRIBUTION_ROWS = [("(e) + R10 only", "honest_el"), ("(e) + platforms (user content) only", "honest_ep")]
 REFERENCE_ROWS = [("(a) pre-C2: URL model alone up to Likely scam", "honest"), ("(c) URL model alone: no effect", "honest_c"), ("(d) (b) + age gate", "honest_d"), ("(d)+(e)", "honest_de")]
 AGE_GATE_DAYS, TARGET_VAL_FPR = 365, 0.05
 C2_PREV_COMMIT = "d34b734"     # edition 2 (decision C1): hand-written lists only; the "before" of the shortener-list effect
@@ -462,7 +464,8 @@ def run_all(items, text_model, url_model, harness, base, today, log, t_e):
     live_checks.run = run_wrapped
     results = {}
     real_assess, real_cap, real_t, real_l = router.assess_background, config.URL_ALONE_MAX_LEVEL, url_model.t_flag, config.EXACT_BRAND_CHECK
-    c3_free, c3_user = PL.PLATFORMS_C3_FREE_HOSTING, PL.PLATFORMS_C3_USER_CONTENT
+    c3_user = PL.PLATFORMS_C3_USER_CONTENT
+    free8 = c3_user - {"backblazeb2.com"}      # the eight that were FREE_HOSTING for one commit; variant f puts them back there
     try:
         for sid, title, opts, mode, variant in [(*x, "a") for x in SETTINGS] + EXTRA_SETTINGS:
             lists_view = view(base, **opts)
@@ -471,10 +474,11 @@ def run_all(items, text_model, url_model, harness, base, today, log, t_e):
             config.URL_ALONE_MAX_LEVEL = 2 if variant == "a" else 1
             url_model.t_flag = t_e if "e" in variant else url_model.t_bundle
             config.EXACT_BRAND_CHECK = "l" in variant
-            if "p" in variant:
-                FREE_HOSTING.update(c3_free), USER_CONTENT.update(c3_user)
-            else:
-                FREE_HOSTING.difference_update(c3_free), USER_CONTENT.difference_update(c3_user)
+            FREE_HOSTING.difference_update(free8), USER_CONTENT.difference_update(c3_user)
+            if "p" in variant:                                # the app now: all nine in USER_CONTENT
+                USER_CONTENT.update(c3_user)
+            elif "f" in variant:                              # the previous commit: eight in FREE_HOSTING, backblazeb2.com in USER_CONTENT
+                FREE_HOSTING.update(free8), USER_CONTENT.add("backblazeb2.com")
             harness.mode = mode
             results[sid] = {}
             t0 = time.time()
@@ -495,7 +499,7 @@ def run_all(items, text_model, url_model, harness, base, today, log, t_e):
         live_checks.run = orig_run
         router.load_lists = load_lists
         router.assess_background, config.URL_ALONE_MAX_LEVEL, url_model.t_flag, config.EXACT_BRAND_CHECK = real_assess, real_cap, real_t, real_l
-        FREE_HOSTING.update(c3_free), USER_CONTENT.update(c3_user)   # the app's own state
+        FREE_HOSTING.difference_update(free8), USER_CONTENT.update(c3_user)   # the app's own state
     return results
 
 
@@ -918,10 +922,11 @@ def variants_section(S, phish, own, b10, b100, benign, t_e, ug, scan_res):
       "written after reading the list of scams that (e) loses, so they recover those scams by construction. They must be confirmed on a fresh pull (a separate task). "
       "Differences of 1-3 links are inside the noise of 96 / 100 links.\n")
     w("Honest setting = OpenPhish, URLhaus and Tranco off. The URL model alone is capped at Suspicious in every row (decision C2). **(b)** = the app before C3 (flag threshold 0.537). "
-      f"**(e)** = flag threshold {t_e['threshold']:.3f}, picked on the URL head's own validation split (decision C3, now in the app). **(e) + R10 + platforms** = the app since C3: "
+      f"**(e)** = flag threshold {t_e['threshold']:.3f}, picked on the URL head's own validation split (decision C3, now in the app). **(e) + R10 + platforms** = the app now: "
       "R10 is the exact-brand-name rule (`lookalike.exact_brand`: the registered domain's first label equals a brand's label but the domain is not in the brand's official list; "
-      "Suspicious, no substring or fuzzy match), and nine more hosting platforms are in `platforms.py` (edgeone.dev, 4everland.app, azurestaticapps.net, cloudworkstations.dev, "
-      "crabdance.com, flazio.online, typedream.app, teleporthq.app as free hosting; backblazeb2.com as user content). Each piece is switched on in this script only for the rows that name it.\n")
+      "Suspicious, no substring or fuzzy match), and nine more hosting platforms are in `platforms.py` as USER_CONTENT (edgeone.dev, 4everland.app, azurestaticapps.net, cloudworkstations.dev, "
+      "crabdance.com, flazio.online, typedream.app, teleporthq.app, backblazeb2.com: the URL model keeps its vote). The row marked FREE_HOSTING is the previous commit, where the first eight were free hosting "
+      "(\"Can't judge\"). Each piece is switched on in this script only for the rows that name it.\n")
     w(f"**Threshold of (e): {t_e['threshold']:.3f}**, from `data/final/url_preds.csv` (task phishing_vs_benign, split val, {t_e['n_val']:,} URLs: {t_e['n_benign']:,} benign, {t_e['n_bad']:,} phishing; "
       f"no test row and nothing from this sample). Val false-positive rate **{t_e['fpr']:.2%}**, val recall {t_e['recall']:.1%}; the model file's {t_e['current']:.3f} has val FPR {t_e['fpr_current']:.2%}, recall "
       f"{t_e['recall_current']:.1%}. The app's configured value ({config.URL_FLAG_THRESHOLD}) {'matches' if config.URL_FLAG_THRESHOLD is not None and abs(config.URL_FLAG_THRESHOLD - t_e['threshold']) < 1e-9 else 'DOES NOT MATCH'} this "
@@ -957,20 +962,19 @@ def variants_section(S, phish, own, b10, b100, benign, t_e, ug, scan_res):
       f"{sum('R10' in S['honest_elp'][i['id']]['flags'] for i in rec)}). **Still lost: {len(still)}**"
       + (": " + ", ".join(f"`{defang(i['url'])[:60]}`" for i in still) if still else "") + ".\n")
     lost_table("Phishing links lost by (e) + R10 + platforms, the app now (flagged under (b), not flagged here)", "honest_elp", lost_app)
-    new = [i for i in lost_app if i not in lost_e]
-    if new:
-        w(f"Of those, **{len(new)} are lost for a different reason than (e)'s threshold**: they were kept by (e) but are now on a hosting platform the app does not judge by domain, so the verdict is "
-          f"\"Can't judge\" unless the subdomain names a brand or a scam word. {sum(S['honest_elp'][i['id']]['verdict'] == CJ for i in new)} of the {len(new)} read \"Can't judge\". "
-          "That is the existing free-hosting policy (BUGS.md, \"URL head treats free hosting as phishing\"), applied to platforms that were missing; listing a platform under USER_CONTENT instead keeps the URL model's vote.\n")
+    lost_f = lost["honest_elf"]
+    back = [i for i in lost_f if isflag("honest_elp", i)]
+    w(f"**The platforms.** With the eight platforms as FREE_HOSTING (previous commit) {len(lost_f)} scams are lost against (b); as USER_CONTENT (now) {len(lost_app)}. "
+      f"**{len(back)} scams are back** (flagged again, the URL model's vote kept): " + (", ".join(f"`{defang(i['url'])[:55]}`" for i in back) or "none") + ". "
+      f"False alarms on benign: {fl(V('honest_elf', benign))} (FREE_HOSTING) and {fl(V('honest_elp', benign))} (USER_CONTENT) of {len(benign)}.\n")
     w("**False alarms on the benign sample, by Tranco band**, from the first table: top 10k and 100k-1M. Benign domains flagged by R10: "
       f"{sum('R10' in S['honest_elp'][i['id']]['flags'] for i in benign)} of {len(benign)}.\n")
     w("### R10 false-alarm scan (string matching on files on disk, no network)\n")
     for k, (nn, hits) in scan_res.items():
         w(f"- {k} ({nn:,} domains): **{len(hits)} hit(s)**" + (": " + ", ".join(f"`{d.replace('.', '[.]')}` (rank {r}, {b})" for r, d, b, _ in hits) if hits else "") + ".")
     w("\nThe top-10k hit found on the first run, `amazon[.]dev` (rank 133), is Amazon's own developer site and was added to Amazon's official list (as were `amazon.eu`, `amazon.jp`, `amazon.science`, `bankofbaroda.co.in` and `paytm.me`, "
-      "found by the 100k scan; marked \"added after the scan\" in `exact_brands.json`). The remaining hits in the top 100k are left flagged: they are other TLDs of Roblox, Zomato, Blinkit, BharatPe and `amazon.work`, whose "
-      "ownership cannot be told from the name alone, and checking would need a registry look-up (a network call). If one of them is the brand's own, the effect is a Suspicious flag with the sentence "
-      "\"Uses the name X but is not X's official website\" on a link to a defensive registration, and the fix is one line in the official list. `reports/exact_brand_scan.md` has the full list.\n")
+      "found by the 100k scan). The first 100k scan had 18 hits; each was then checked in RDAP and DNS through `net.py` (`reports/exact_brand_official_check.md`): 7 are the brand's own and were added, 1 (`roblox.com.bz`) is "
+      "clearly someone else's, and 10 (eight Zomato gTLD / ccTLD domains, `bharatpe.in`, `blinkit.to`) are unclear and stay flagged until the user decides. `reports/exact_brand_scan.md` has the scan as it stands.\n")
     return L
 
 

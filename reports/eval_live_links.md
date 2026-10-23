@@ -316,7 +316,7 @@ All-signals-ON run, benign (n = 200): flagged 20 before, 20 after.
 
 > **Same-sample warning.** These numbers come from the same 96 + 200 links that the changes of C1, C2 and C3 were looked at on: the exact-brand rule and the platform additions were written after reading the list of scams that (e) loses, so they recover those scams by construction. They must be confirmed on a fresh pull (a separate task). Differences of 1-3 links are inside the noise of 96 / 100 links.
 
-Honest setting = OpenPhish, URLhaus and Tranco off. The URL model alone is capped at Suspicious in every row (decision C2). **(b)** = the app before C3 (flag threshold 0.537). **(e)** = flag threshold 0.662, picked on the URL head's own validation split (decision C3, now in the app). **(e) + R10 + platforms** = the app since C3: R10 is the exact-brand-name rule (`lookalike.exact_brand`: the registered domain's first label equals a brand's label but the domain is not in the brand's official list; Suspicious, no substring or fuzzy match), and nine more hosting platforms are in `platforms.py` (edgeone.dev, 4everland.app, azurestaticapps.net, cloudworkstations.dev, crabdance.com, flazio.online, typedream.app, teleporthq.app as free hosting; backblazeb2.com as user content). Each piece is switched on in this script only for the rows that name it.
+Honest setting = OpenPhish, URLhaus and Tranco off. The URL model alone is capped at Suspicious in every row (decision C2). **(b)** = the app before C3 (flag threshold 0.537). **(e)** = flag threshold 0.662, picked on the URL head's own validation split (decision C3, now in the app). **(e) + R10 + platforms** = the app now: R10 is the exact-brand-name rule (`lookalike.exact_brand`: the registered domain's first label equals a brand's label but the domain is not in the brand's official list; Suspicious, no substring or fuzzy match), and nine more hosting platforms are in `platforms.py` as USER_CONTENT (edgeone.dev, 4everland.app, azurestaticapps.net, cloudworkstations.dev, crabdance.com, flazio.online, typedream.app, teleporthq.app, backblazeb2.com: the URL model keeps its vote). The row marked FREE_HOSTING is the previous commit, where the first eight were free hosting ("Can't judge"). Each piece is switched on in this script only for the rows that name it.
 
 **Threshold of (e): 0.662**, from `data/final/url_preds.csv` (task phishing_vs_benign, split val, 5,886 URLs: 4,209 benign, 1,677 phishing; no test row and nothing from this sample). Val false-positive rate **4.97%**, val recall 53.7%; the model file's 0.537 has val FPR 9.53%, recall 62.4%. The app's configured value (0.662) matches this (`url_preds.csv` checked against the deployed model: 300 val URLs re-scored, largest difference 0.0005).
 
@@ -324,7 +324,8 @@ Honest setting = OpenPhish, URLhaus and Tranco off. The URL model alone is cappe
 |---|---:|---:|---:|---:|---:|
 | (b) the app before C3 | 72 (75% [65-83]) | 15 | 9 (9% [5-16]) | 20 (20% [13-29]) | 0 |
 | (e) threshold 0.662 | 63 (66% [56-74]) | 15 | 4 (4% [2-10]) | 12 (12% [7-20]) | 9 |
-| (e) + R10 + platforms [the app now] | 61 (64% [54-72]) | 16 | 4 (4% [2-10]) | 12 (12% [7-20]) | 11 |
+| (e) + R10 + platforms as FREE_HOSTING [previous commit] | 61 (64% [54-72]) | 16 | 4 (4% [2-10]) | 12 (12% [7-20]) | 11 |
+| (e) + R10 + platforms as USER_CONTENT [the app now] | 69 (72% [62-80]) | 16 | 4 (4% [2-10]) | 12 (12% [7-20]) | 3 |
 
 More columns, the two single changes on top of (e), and the older variants for reference (Likely scam on benign = benign domains the app would call Likely scam):
 
@@ -332,9 +333,10 @@ More columns, the two single changes on top of (e), and the older variants for r
 |---|---:|---:|---:|---:|---:|---:|---:|
 | (b) the app before C3 | 72 (75% [65-83]) | 72 (87% [78-92]) | 29 (14% [10-20]) | 0 | 4 | 20 | 0 |
 | (e) threshold 0.662 | 63 (66% [56-74]) | 63 (76% [66-84]) | 16 (8% [5-13]) | 0 | 13 | 20 | 9 |
-| (e) + R10 + platforms [the app now] | 61 (64% [54-72]) | 61 (73% [63-82]) | 16 (8% [5-13]) | 0 | 7 | 28 | 11 |
+| (e) + R10 + platforms as FREE_HOSTING [previous commit] | 61 (64% [54-72]) | 61 (73% [63-82]) | 16 (8% [5-13]) | 0 | 7 | 28 | 11 |
+| (e) + R10 + platforms as USER_CONTENT [the app now] | 69 (72% [62-80]) | 69 (83% [74-90]) | 16 (8% [5-13]) | 0 | 7 | 20 | 3 |
 | (e) + R10 only | 69 (72% [62-80]) | 69 (83% [74-90]) | 16 (8% [5-13]) | 0 | 7 | 20 | 3 |
-| (e) + platforms only | 55 (57% [47-67]) | 55 (66% [56-76]) | 16 (8% [5-13]) | 0 | 13 | 28 | 17 |
+| (e) + platforms (user content) only | 63 (66% [56-74]) | 63 (76% [66-84]) | 16 (8% [5-13]) | 0 | 13 | 20 | 9 |
 | (a) pre-C2: URL model alone up to Likely scam | 72 (75% [65-83]) | 72 (87% [78-92]) | 29 (14% [10-20]) | 3 | 4 | 20 | 0 |
 | (c) URL model alone: no effect | 29 (30% [22-40]) | 29 (35% [26-46]) | 2 (1% [0-4]) | 0 | 47 | 20 | 43 |
 | (d) (b) + age gate | 56 (58% [48-68]) | 56 (67% [57-77]) | 16 (8% [5-13]) | 0 | 20 | 20 | 16 |
@@ -356,23 +358,15 @@ More columns, the two single changes on top of (e), and the older variants for r
 
 **Recovered.** Of the 9 scams (e) loses, **6 are flagged again** in (e) + R10 + platforms (6 by R10 alone; flag R10 on: 6). **Still lost: 3**: `hxxp://skinsaway[.]lol/`, `hxxps://proboss[.]be/[.]well/`, `hxxps://schwarzteam[.]eu/2agp00l9aucqzfct`.
 
-**Phishing links lost by (e) + R10 + platforms, the app now (flagged under (b), not flagged here)**: 11
+**Phishing links lost by (e) + R10 + platforms, the app now (flagged under (b), not flagged here)**: 3
 
 | # | Link (defanged) | Kind | Domain age (RDAP) | URL-model score | Verdict under (b) | Verdict here | Flags here |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | 1 | `hxxp://skinsaway[.]lol/` | own_domain | 60 d | 0.550 | Suspicious | No warning signs | - |
-| 2 | `hxxps://detaillogs[.]servicecostumenr-8998we7hr[.]crabdance[.]com/` | own_domain | 7639 d | 0.994 | Suspicious | Can't judge | - |
-| 3 | `hxxp://www[.]user-fabiof[.]flazio[.]online/` | own_domain | 2592 d | 0.983 | Suspicious | Can't judge | - |
-| 4 | `hxxp://central-crimson-l5ks1k8d[.]edgeone[.]dev/?request=arissys@75675b8285963a94abf393cb002ddb1eeba` | own_domain | 500 d | 0.997 | Suspicious | Can't judge | - |
-| 5 | `hxxps://hight2210-tfjnutpk[.]4everland[.]app/` | own_domain | 1932 d | 0.998 | Suspicious | Can't judge | - |
-| 6 | `hxxp://overview--en--trzer-en[.]typedream[.]app/` | own_domain | 2099 d | 0.986 | Suspicious | Can't judge | - |
-| 7 | `hxxps://9000-firebase-mneeee-1780309173719[.]cluster-l2bgochoazbomqgfmlhuvdvgiy[.]cloudworkstations[` | own_domain | 1742 d | 0.999 | Suspicious | Can't judge | - |
-| 8 | `hxxp://www[.]sso-uphouldcdn[.]teleporthq[.]app/` | own_domain | 2514 d | 0.976 | Suspicious | Can't judge | - |
-| 9 | `hxxps://proboss[.]be/[.]well/` | own_domain | unknown (unsupported) | 0.577 | Suspicious | No warning signs | - |
-| 10 | `hxxp://gray-beach-0fc576a03[.]4[.]azurestaticapps[.]net/` | own_domain | 2388 d | 0.999 | Suspicious | Can't judge | - |
-| 11 | `hxxps://schwarzteam[.]eu/2agp00l9aucqzfct` | own_domain | unknown (unsupported) | 0.574 | Suspicious | No warning signs | - |
+| 2 | `hxxps://proboss[.]be/[.]well/` | own_domain | unknown (unsupported) | 0.577 | Suspicious | No warning signs | - |
+| 3 | `hxxps://schwarzteam[.]eu/2agp00l9aucqzfct` | own_domain | unknown (unsupported) | 0.574 | Suspicious | No warning signs | - |
 
-Of those, **8 are lost for a different reason than (e)'s threshold**: they were kept by (e) but are now on a hosting platform the app does not judge by domain, so the verdict is "Can't judge" unless the subdomain names a brand or a scam word. 8 of the 8 read "Can't judge". That is the existing free-hosting policy (BUGS.md, "URL head treats free hosting as phishing"), applied to platforms that were missing; listing a platform under USER_CONTENT instead keeps the URL model's vote.
+**The platforms.** With the eight platforms as FREE_HOSTING (previous commit) 11 scams are lost against (b); as USER_CONTENT (now) 3. **8 scams are back** (flagged again, the URL model's vote kept): `hxxps://detaillogs[.]servicecostumenr-8998we7hr[.]crabd`, `hxxp://www[.]user-fabiof[.]flazio[.]online/`, `hxxp://central-crimson-l5ks1k8d[.]edgeone[.]dev/?reques`, `hxxps://hight2210-tfjnutpk[.]4everland[.]app/`, `hxxp://overview--en--trzer-en[.]typedream[.]app/`, `hxxps://9000-firebase-mneeee-1780309173719[.]cluster-l2`, `hxxp://www[.]sso-uphouldcdn[.]teleporthq[.]app/`, `hxxp://gray-beach-0fc576a03[.]4[.]azurestaticapps[.]net`. False alarms on benign: 16 (FREE_HOSTING) and 16 (USER_CONTENT) of 200.
 
 **False alarms on the benign sample, by Tranco band**, from the first table: top 10k and 100k-1M. Benign domains flagged by R10: 0 of 200.
 
@@ -380,9 +374,9 @@ Of those, **8 are lost for a different reason than (e)'s threshold**: they were 
 
 - the 200 benign eval domains (200 domains): **0 hit(s)**.
 - Tranco top 10k (10,000 domains): **0 hit(s)**.
-- Tranco top 100k (100,000 domains): **18 hit(s)**: `amazon[.]work` (rank 14425, Amazon), `roblox[.]net` (rank 14936, Roblox), `zomato[.]restaurant` (rank 29467, Zomato), `roblox[.]us` (rank 32243, Roblox), `roblox[.]co[.]uk` (rank 33849, Roblox), `bharatpe[.]in` (rank 34101, BharatPe), `zomato[.]tw` (rank 38233, Zomato), `zomato[.]pizza` (rank 65892, Zomato), `zomato[.]ventures` (rank 66616, Zomato), `zomato[.]today` (rank 67300, Zomato), `blinkit[.]to` (rank 69194, Blinkit), `zomato[.]durban` (rank 70894, Zomato), `zomato[.]vodka` (rank 79240, Zomato), `roblox[.]com[.]bz` (rank 82269, Roblox), `roblox[.]vn` (rank 82979, Roblox), `zomato[.]technology` (rank 84998, Zomato), `zomato[.]joburg` (rank 91252, Zomato), `zomato[.]com[.]pr` (rank 94791, Zomato).
+- Tranco top 100k (100,000 domains): **11 hit(s)**: `zomato[.]restaurant` (rank 29467, Zomato), `bharatpe[.]in` (rank 34101, BharatPe), `zomato[.]tw` (rank 38233, Zomato), `zomato[.]pizza` (rank 65892, Zomato), `zomato[.]ventures` (rank 66616, Zomato), `zomato[.]today` (rank 67300, Zomato), `blinkit[.]to` (rank 69194, Blinkit), `zomato[.]vodka` (rank 79240, Zomato), `roblox[.]com[.]bz` (rank 82269, Roblox), `zomato[.]technology` (rank 84998, Zomato), `zomato[.]com[.]pr` (rank 94791, Zomato).
 
-The top-10k hit found on the first run, `amazon[.]dev` (rank 133), is Amazon's own developer site and was added to Amazon's official list (as were `amazon.eu`, `amazon.jp`, `amazon.science`, `bankofbaroda.co.in` and `paytm.me`, found by the 100k scan; marked "added after the scan" in `exact_brands.json`). The remaining hits in the top 100k are left flagged: they are other TLDs of Roblox, Zomato, Blinkit, BharatPe and `amazon.work`, whose ownership cannot be told from the name alone, and checking would need a registry look-up (a network call). If one of them is the brand's own, the effect is a Suspicious flag with the sentence "Uses the name X but is not X's official website" on a link to a defensive registration, and the fix is one line in the official list. `reports/exact_brand_scan.md` has the full list.
+The top-10k hit found on the first run, `amazon[.]dev` (rank 133), is Amazon's own developer site and was added to Amazon's official list (as were `amazon.eu`, `amazon.jp`, `amazon.science`, `bankofbaroda.co.in` and `paytm.me`, found by the 100k scan). The first 100k scan had 18 hits; each was then checked in RDAP and DNS through `net.py` (`reports/exact_brand_official_check.md`): 7 are the brand's own and were added, 1 (`roblox.com.bz`) is clearly someone else's, and 10 (eight Zomato gTLD / ccTLD domains, `bharatpe.in`, `blinkit.to`) are unclear and stay flagged until the user decides. `reports/exact_brand_scan.md` has the scan as it stands.
 
 ## 11. Checks
 
@@ -427,44 +421,44 @@ The top-10k hit found on the first run, `amazon[.]dev` (rank 133), is Amazon's o
 | `tld-rdap.verisign.com` | rdap | 4 | 4 |
 | **Total** |  | 613 | 745 |
 
-**This run (offline).** Calls the analysis made through `net.request` (every setting and variant, 6,396 logical calls), by host and by whether the reply came from the cache or was sent. Cache misses: 0. A guard on `socket.getaddrinfo`, `socket.connect` and `socket.create_connection` refused every name and connection in this process: names asked 0, connect attempts 0.
+**This run (offline).** Calls the analysis made through `net.request` (every setting and variant, 6,914 logical calls), by host and by whether the reply came from the cache or was sent. Cache misses: 0. A guard on `socket.getaddrinfo`, `socket.connect` and `socket.create_connection` refused every name and connection in this process: names asked 0, connect attempts 0.
 
 | Host | Answered from the cache | Sent to the network |
 |---|---:|---:|
-| `cloudflare-dns.com` | 3570 | 0 |
-| `pubapi.registry.google` | 86 | 0 |
-| `rdap.blog.fury.ca` | 12 | 0 |
-| `rdap.centralnic.com` | 168 | 0 |
-| `rdap.fi` | 12 | 0 |
-| `rdap.gmoregistry.net` | 48 | 0 |
-| `rdap.identitydigital.services` | 72 | 0 |
-| `rdap.nic.ar` | 12 | 0 |
-| `rdap.nic.as` | 12 | 0 |
-| `rdap.nic.biz` | 12 | 0 |
-| `rdap.nic.club` | 48 | 0 |
-| `rdap.nic.cz` | 24 | 0 |
-| `rdap.nic.design` | 12 | 0 |
-| `rdap.nic.fr` | 36 | 0 |
-| `rdap.nic.gov` | 36 | 0 |
-| `rdap.nic.ly` | 12 | 0 |
-| `rdap.nic.ml` | 12 | 0 |
-| `rdap.nic.ss` | 12 | 0 |
-| `rdap.nic.tv` | 12 | 0 |
-| `rdap.nic.xxx` | 12 | 0 |
-| `rdap.nixiregistry.in` | 36 | 0 |
-| `rdap.nominet.uk` | 24 | 0 |
-| `rdap.pandi.id` | 12 | 0 |
-| `rdap.publicinterestregistry.org` | 132 | 0 |
-| `rdap.radix.host` | 94 | 0 |
-| `rdap.registro.br` | 36 | 0 |
-| `rdap.registry.click` | 24 | 0 |
-| `rdap.sidn.nl` | 36 | 0 |
-| `rdap.thains.co.th` | 12 | 0 |
-| `rdap.tonicregistry.to` | 24 | 0 |
-| `rdap.verisign.com` | 1650 | 0 |
-| `rdap.zdnsgtld.com` | 48 | 0 |
-| `tld-rdap.verisign.com` | 48 | 0 |
-| **Total** | 6396 | 0 |
+| `cloudflare-dns.com` | 3860 | 0 |
+| `pubapi.registry.google` | 89 | 0 |
+| `rdap.blog.fury.ca` | 13 | 0 |
+| `rdap.centralnic.com` | 182 | 0 |
+| `rdap.fi` | 13 | 0 |
+| `rdap.gmoregistry.net` | 52 | 0 |
+| `rdap.identitydigital.services` | 78 | 0 |
+| `rdap.nic.ar` | 13 | 0 |
+| `rdap.nic.as` | 13 | 0 |
+| `rdap.nic.biz` | 13 | 0 |
+| `rdap.nic.club` | 52 | 0 |
+| `rdap.nic.cz` | 26 | 0 |
+| `rdap.nic.design` | 13 | 0 |
+| `rdap.nic.fr` | 39 | 0 |
+| `rdap.nic.gov` | 39 | 0 |
+| `rdap.nic.ly` | 13 | 0 |
+| `rdap.nic.ml` | 13 | 0 |
+| `rdap.nic.ss` | 13 | 0 |
+| `rdap.nic.tv` | 13 | 0 |
+| `rdap.nic.xxx` | 13 | 0 |
+| `rdap.nixiregistry.in` | 39 | 0 |
+| `rdap.nominet.uk` | 26 | 0 |
+| `rdap.pandi.id` | 13 | 0 |
+| `rdap.publicinterestregistry.org` | 143 | 0 |
+| `rdap.radix.host` | 101 | 0 |
+| `rdap.registro.br` | 39 | 0 |
+| `rdap.registry.click` | 26 | 0 |
+| `rdap.sidn.nl` | 39 | 0 |
+| `rdap.thains.co.th` | 13 | 0 |
+| `rdap.tonicregistry.to` | 26 | 0 |
+| `rdap.verisign.com` | 1785 | 0 |
+| `rdap.zdnsgtld.com` | 52 | 0 |
+| `tld-rdap.verisign.com` | 52 | 0 |
+| **Total** | 6914 | 0 |
 
 Hosts contacted that are also a sampled link's host or registered domain: **0** . Only the registered domain was sent, to a registry (RDAP), Cloudflare DoH or crt.sh; the IP in a DNS answer was never connected to.
 

@@ -7,9 +7,13 @@
     "roblox"
    ],
    "official": [
-    "roblox.com"
+    "roblox.com",
+    "roblox.net",
+    "roblox.us",
+    "roblox.co.uk",
+    "roblox.vn"
    ],
-   "source": "Roblox Corporation's site roblox.com (the only domain of that name); the 2026-10-22 OpenPhish feed had roblox.et, .ly, .com.am, .com.pt, .com.bi, .com.ml pages (reports/eval_live_links.md section 10)"
+   "source": "Roblox Corporation's site roblox.com (the only domain of that name); the 2026-10-22 OpenPhish feed had roblox.et, .ly, .com.am, .com.pt, .com.bi, .com.ml pages (reports/eval_live_links.md section 10); roblox.net, roblox.us, roblox.co.uk, roblox.vn added 2026-10-23 after DNS / RDAP check (reports/exact_brand_official_check.md): all four use roblox.com's own nameservers (nspx1.roblox.com, nspx2.roblox.net, nspx3.roblox.us, nspx4.roblox.co.uk); roblox.net and roblox.co.uk are also registered at MarkMonitor like roblox.com"
   },
   {
    "brand": "Amazon",
@@ -45,9 +49,10 @@
     "amazon.dev",
     "amazon.eu",
     "amazon.jp",
-    "amazon.science"
+    "amazon.science",
+    "amazon.work"
    ],
-   "source": "Amazon's localized store sites (the 'Amazon sites' list in amazon.com's footer / Wikipedia 'Amazon (company)'); the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; amazon.dev (Tranco rank 133, the only top-10k hit), amazon.eu, amazon.jp, amazon.science added after the Tranco scan (scripts/exact_brand_scan.py): Amazon's developer, EU, Japan-redirect and research sites, recognised by the author, ownership not re-checked"
+   "source": "Amazon's localized store sites (the 'Amazon sites' list in amazon.com's footer / Wikipedia 'Amazon (company)'); the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; amazon.dev (Tranco rank 133, the only top-10k hit), amazon.eu, amazon.jp, amazon.science added after the Tranco scan (scripts/exact_brand_scan.py): Amazon's developer, EU, Japan-redirect and research sites, recognised by the author, ownership not re-checked; amazon.work added 2026-10-23 after RDAP / DNS check (reports/exact_brand_official_check.md): its RDAP nameservers are ns1/ns2.amzndns.{com,net,org,co.uk}, the same eight as amazon.in, whose registrant is Amazon Technologies, Inc.; registrar Com Laude (the brand-protection registrar amazon.dev, .science and .nl also use)"
   },
   {
    "brand": "State Bank of India",
@@ -425,9 +430,11 @@
     "zomato"
    ],
    "official": [
-    "zomato.com"
+    "zomato.com",
+    "zomato.durban",
+    "zomato.joburg"
    ],
-   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; zomato.durban and zomato.joburg added 2026-10-23 after RDAP check (reports/exact_brand_official_check.md): registrant organisation 'Zomato Media Private Limited', registrar 101Domain as for zomato.com. The other Zomato gTLD / ccTLD domains of the Tranco top 100k are left flagged and listed for the user"
   },
   {
    "brand": "Blinkit",

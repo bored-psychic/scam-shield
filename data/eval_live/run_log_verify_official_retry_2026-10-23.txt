@@ -1,0 +1,6 @@
+18 hits + 87 official domains = 105 domains
+{
+ "ccrdap.twnic.tw": 1,
+ "cloudflare-dns.com": 5,
+ "rdap.verisign.com": 1
+}
