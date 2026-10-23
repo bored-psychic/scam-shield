@@ -374,7 +374,7 @@ More columns, the two single changes on top of (e), and the older variants for r
 
 - the 200 benign eval domains (200 domains): **0 hit(s)**.
 - Tranco top 10k (10,000 domains): **0 hit(s)**.
-- Tranco top 100k (100,000 domains): **11 hit(s)**: `zomato[.]restaurant` (rank 29467, Zomato), `bharatpe[.]in` (rank 34101, BharatPe), `zomato[.]tw` (rank 38233, Zomato), `zomato[.]pizza` (rank 65892, Zomato), `zomato[.]ventures` (rank 66616, Zomato), `zomato[.]today` (rank 67300, Zomato), `blinkit[.]to` (rank 69194, Blinkit), `zomato[.]vodka` (rank 79240, Zomato), `roblox[.]com[.]bz` (rank 82269, Roblox), `zomato[.]technology` (rank 84998, Zomato), `zomato[.]com[.]pr` (rank 94791, Zomato).
+- Tranco top 100k (100,000 domains): **2 hit(s)**: `blinkit[.]to` (rank 69194, Blinkit), `roblox[.]com[.]bz` (rank 82269, Roblox).
 
 The top-10k hit found on the first run, `amazon[.]dev` (rank 133), is Amazon's own developer site and was added to Amazon's official list (as were `amazon.eu`, `amazon.jp`, `amazon.science`, `bankofbaroda.co.in` and `paytm.me`, found by the 100k scan). The first 100k scan had 18 hits; each was then checked in RDAP and DNS through `net.py` (`reports/exact_brand_official_check.md`): 7 are the brand's own and were added, 1 (`roblox.com.bz`) is clearly someone else's, and 10 (eight Zomato gTLD / ccTLD domains, `bharatpe.in`, `blinkit.to`) are unclear and stay flagged until the user decides. `reports/exact_brand_scan.md` has the scan as it stands.
 

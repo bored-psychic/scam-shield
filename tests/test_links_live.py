@@ -591,6 +591,19 @@ def l18(m):
         bad.append(f"R10 + a 2-day-old domain: flags {l['flags']}, risk {l['risk_level']}; wanted R10, R7, R9 and Likely scam")
     return bad
 
+def l20(m):
+    """Official-list fixes (2026-10-23): kotakbank.com is not official (drop-caught), so it is flagged; bharatpe.in and zomato.restaurant are official."""
+    from shield.links.lookalike import exact_brand
+    bad = []
+    h, rg = link_domain("https://kotakbank.com/login")
+    if not exact_brand(h, rg):
+        bad.append("kotakbank.com must NOT be treated as official")
+    for u in ("https://bharatpe.in/", "https://zomato.restaurant/", "https://kotak.com/"):
+        h, rg = link_domain(u)
+        if exact_brand(h, rg):
+            bad.append(f"{u} must be official")
+    return bad
+
 def l19(m):
     """C3 (e) and the platforms: the app's URL flag threshold is 0.662 (the model file's own is 0.537, SHIELD_URL_FLAG=0.537 or bundle restores it); the nine
     platforms of platforms.py are user content (moved from free hosting, which cost 8 caught scams)."""
@@ -630,7 +643,7 @@ CHECKS = [("L1", "lookalike cases", l1), ("L2", "Jio: Jio-owned -> Suspicious; m
           ("L12", "in-memory cache", l12), ("L14", "offline call: no requests, pending marked", l14),
           ("L15", "C1 list additions: eval misses are shortener / free hosting; PSL sources", l15),
           ("L16", "C2 (b): URL model alone stops at Suspicious; a red flag keeps Likely scam", l16), ("L17", "C2: downloaded shortener list merged, exclusions", l17),
-          ("L18", "C3 R10: exact brand label on a non-official domain", l18), ("L19", "C3: URL flag threshold 0.662 (restorable), nine platforms", l19)]
+          ("L18", "C3 R10: exact brand label on a non-official domain", l18), ("L19", "C3: URL flag threshold 0.662 (restorable), nine platforms", l19), ("L20", "official-list fixes: kotakbank.com not official", l20)]
 
 
 @contextlib.contextmanager

@@ -85,10 +85,9 @@
     "icicibank"
    ],
    "official": [
-    "icicibank.com",
-    "icicibank.bank.in"
+    "icicibank.com"
    ],
-   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address; icicibank.bank.in removed 2026-10-23 (does not exist: NXDOMAIN)"
   },
   {
    "brand": "Axis Bank",
@@ -97,10 +96,9 @@
    ],
    "official": [
     "axisbank.com",
-    "axisbank.co.in",
-    "axisbank.bank.in"
+    "axisbank.co.in"
    ],
-   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address; axisbank.bank.in removed 2026-10-23 (does not exist: NXDOMAIN)"
   },
   {
    "brand": "Kotak Mahindra Bank",
@@ -110,10 +108,9 @@
    ],
    "official": [
     "kotak.com",
-    "kotak.bank.in",
-    "kotakbank.com"
+    "kotak.bank.in"
    ],
-   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address"
+   "source": "src/shield/links/brands_india.json 'owned' list (written by hand from the brand's own sites, 2026-10-18) plus the brand's .bank.in address; kotakbank.com removed 2026-10-23 (drop-caught, DropCatch registrar, no owner shown)"
   },
   {
    "brand": "Yes Bank",
@@ -297,9 +294,10 @@
     "bharatpe"
    ],
    "official": [
-    "bharatpe.com"
+    "bharatpe.com",
+    "bharatpe.in"
    ],
-   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it"
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; bharatpe.in added 2026-10-23: registrant Resilient Innovations Pvt Ltd = BharatPe's operating company"
   },
   {
    "brand": "India Post",
@@ -432,9 +430,17 @@
    "official": [
     "zomato.com",
     "zomato.durban",
-    "zomato.joburg"
+    "zomato.joburg",
+    "zomato.restaurant",
+    "zomato.pizza",
+    "zomato.ventures",
+    "zomato.today",
+    "zomato.technology",
+    "zomato.vodka",
+    "zomato.tw",
+    "zomato.com.pr"
    ],
-   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; zomato.durban and zomato.joburg added 2026-10-23 after RDAP check (reports/exact_brand_official_check.md): registrant organisation 'Zomato Media Private Limited', registrar 101Domain as for zomato.com. The other Zomato gTLD / ccTLD domains of the Tranco top 100k are left flagged and listed for the user"
+   "source": "the brand's own website (domains as the brand uses them), written from the author's knowledge; NOT re-fetched in this task (offline, no credits): re-check before relying on it; zomato.durban and zomato.joburg added 2026-10-23 after RDAP check (reports/exact_brand_official_check.md): registrant organisation 'Zomato Media Private Limited', registrar 101Domain as for zomato.com. The other Zomato gTLD / ccTLD domains of the Tranco top 100k are left flagged and listed for the user; zomato.restaurant added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.pizza added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.ventures added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.today added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.technology added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.vodka added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.tw added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden; zomato.com.pr added 2026-10-23: same registrar + NS as confirmed zomato.durban/.joburg; registrant hidden (zomato.tw and zomato.com.pr: only the AliDNS nameserver pair was available, no registrar)"
   },
   {
    "brand": "Blinkit",
