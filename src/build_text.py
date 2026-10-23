@@ -401,6 +401,8 @@ if TR_LEDGER:
     print("\ntranslation ledger (rows dropped at each step, rows left after it):")
     print(pd.DataFrame(TR_LEDGER).to_string(index=False))
 df = df.drop(columns=["_anchor", "_parent_text", "hash_v1"])
+import realguard   # tripwire: no row of the real-message TEST set (data/real/real_test_v1.csv) may enter messages.csv
+realguard.guard_inputs([], [("messages.csv to be written", df)])
 df.to_csv("data/final/messages.csv", index=False)
 print(df.groupby(["source", "label"]).size().unstack(fill_value=0))
 print("\nby category:\n", df.groupby(["category", "label"]).size().unstack(fill_value=0))

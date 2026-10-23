@@ -7,6 +7,7 @@ import numpy as np, pandas as pd
 from scipy.optimize import minimize_scalar
 
 from textprep import model_text
+from realguard import guard_inputs   # tripwire: the real-message TEST set (data/real/) is never a calibration input
 from finetune import SPLIT_MAP_SHA256, sha256, thresholds   # the same splits-v2 hash and the same val cut-off rule as training
 from shield.core.risk import curve
 from shield.core.verdict import r3
@@ -121,6 +122,7 @@ def main():
     ap.add_argument("--export", action="store_true", help="write models/calibration/<run>.json from the bundle's current block; no fit")
     ap.add_argument("--apply", type=Path, help="re-apply a saved calibration file to --run; no fit")
     a = ap.parse_args()
+    guard_inputs([a.run] + ([a.apply] if a.apply else []))
     meta_path = a.run / "shield_meta.json"
     if a.apply:
         return apply_backup(a.run, a.apply)
@@ -148,6 +150,7 @@ def main():
 
     # ---- Suspicious flag policy (val)
     df = pd.read_csv(ROOT / "data/final/messages.csv", usecols=["text_hash", "text", "label", "split"], low_memory=False)
+    guard_inputs([], [("messages.csv", df), ("predictions_val.csv", v)])
     assert set(df.loc[df["split"] == "val", "text_hash"]) == set(v["text_hash"]), "val rows differ from the bundle's predictions"
     by, bs, b_t = app_baseline_val(df)
     b_rate, b_n, b_rec = flag_stats(by, bs, b_t[0])

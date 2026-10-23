@@ -27,6 +27,7 @@ Start everything with `./run.sh` (frees ports 8000 / 5173, refreshes stale link 
 9. **Explain changes.** The user wants to understand the pipeline, not just run it. After each change, say what changed, why, and how it affects results. Account for every change in row counts.
 10. **Before rerunning downstream steps** (augment, baseline, training), check whether an upstream step is about to change the splits. If so, do that first.
 11. **Every text model reads `textprep.model_text(text)`** (`src/textprep.py`): links (including `hxxp` / `[.]` forms and `[Link]` / `[URL]` placeholders) become `<URL>`, then the text is cut to 2000 characters. `baseline.py`, `sanity_checks.py` and `app.py` use it, and the fine-tuning script on the 2nd laptop must import it (it needs `tldextract`; `git pull` brings `textprep.py`, `url_features.py`, `pii.py`), not re-implement it: a model scored with a different version silently loses accuracy. It is applied at model-input time only. `messages.csv`, `text_hash`, `neardup.py` clustering and `split_map.csv` stay on the raw text, and the URL head is unaffected. `models/text_baseline.joblib` records the token it was trained with and `app.py` refuses an older file.
+12. **The real-message test set is TEST ONLY.** `data/real/` (git-ignored) holds the Form's raw export and `real_test_v1.csv`; it is made by `src/intake_real.py` and scored once by `src/eval_real.py --final` (every run is one line in `reports/real_eval_ledger.md`; a second run on the same file needs `--again "reason"`). Never train, tune, calibrate or choose a threshold on it, and never read its scores in between. `src/realguard.py` makes `finetune.py`, `calibrate_text_head.py` and `build_text.py` refuse any input under `data/real/` or any row whose text hash is in `real_test_v1.csv` (tests `tests/test_real_intake.py`).
 
 ## Which model and effort to use
 
@@ -117,3 +118,7 @@ Later modules (only after the core is solid): apps (permission-based), UPI/payme
 - Run `.venv/bin/python src/update_link_lists.py` for the link checks (D23): OpenPhish refreshes every 12 h, URLhaus daily, Tranco / iptoasn / the RDAP bootstrap monthly is enough; a blocklist older than 7 days shows "couldn't verify (list out of date)". Rerun the test suites after it (they read the lists on disk).
 - Run `python src/pull_urls.py` daily for fresh OpenPhish URLs (out-of-source URL test).
 - Run `src/enrich_domains.py` in batches until domain age covers train, val and test.
+
+## Frozen hashes (real-message test set)
+
+Not frozen yet: no real responses have been collected. After the Form's export is in `data/real/raw/`, review `data/real/review_names.csv`, then `.venv/bin/python src/intake_real.py --freeze` writes the line here (file, rows, SHA-256). Changing a frozen hash needs a decision, not a rewrite.

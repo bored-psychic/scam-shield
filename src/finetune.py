@@ -8,6 +8,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_sco
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
 from textprep import model_text, URL_TOKEN, MAX_CHARS
+from realguard import guard_inputs   # tripwire: the real-message TEST set (data/real/) is never a training input
 
 # Fine-tunes a multilingual encoder (MuRIL by default) as the text head. Runs on the 2nd laptop (RTX 5050, 8 GB, Windows)
 # or on Kaggle (P100 / T4, notebooks/kaggle_finetune.ipynb); both only `git pull` and run this, they never edit code.
@@ -80,6 +81,7 @@ def load_data(data_dir, use_aug, held_out):
     """messages.csv (+ messages_aug.csv) after the split checks; raises before anything is trained if a check fails.
     Test rows are in messages.csv, so they are read here for the checks; unless held_out they are dropped before returning
     and messages_adv_test.csv (test parents only) is not opened at all."""
+    guard_inputs([data_dir])
     sm_path = data_dir / "split_map.csv"
     got = sha256(sm_path)
     if got != SPLIT_MAP_SHA256:
@@ -98,6 +100,7 @@ def load_data(data_dir, use_aug, held_out):
     if not held_out:
         df = df[df["split"] != "test"]
     df = df.reset_index(drop=True)
+    guard_inputs([], [("messages.csv", df)])
 
     aug = None
     if use_aug:
@@ -106,6 +109,7 @@ def load_data(data_dir, use_aug, held_out):
         assert (aug["parent_hash"].map(frozen) == "train").all(), "messages_aug.csv has parents outside train; rerun augment.py on the Mac"
         assert aug["cluster_id"].astype(str).isin(train_clusters).all(), "messages_aug.csv has clusters outside train"
         assert (aug["split"] == "train").all()
+        guard_inputs([], [("messages_aug.csv", aug)])
         assert not set(aug["parent_hash"]) & test_hashes, "messages_aug.csv has a test parent"
     adv = None
     if held_out:
@@ -241,6 +245,7 @@ def main():
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = Path(args.out or f"models/finetune/{short}_{stamp}{'_smoke' if args.smoke else ''}").expanduser().resolve()
     data_dir = Path(args.data_dir).expanduser().resolve()
+    guard_inputs([data_dir])   # before anything is created: data/real/ is never an input
     if out.exists() and any(out.iterdir()):
         raise SystemExit(f"{out} exists and is not empty; pick another --out")
     out.mkdir(parents=True, exist_ok=True)

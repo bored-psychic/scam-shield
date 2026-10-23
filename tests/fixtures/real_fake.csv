@@ -1,0 +1,22 @@
+Timestamp,Email address,Your name (optional),Message text,Is this a scam or genuine?,Language,Category
+2026-10-20 10:01:00,fake.contrib1@example.invalid,Asha Testperson,"Dear customer, FakeBank KYC expires today. Update now at https://fakebank-kyc-check.example.invalid/login or your account will be blocked.",Scam,English,Bank / KYC
+2026-10-20 10:02:00,fake.contrib2@example.invalid,Ravi Sample,Your OTP is 482913. Do not share it with anyone. FakeBank,Genuine,English,Bank / OTP
+2026-10-20 10:03:00,fake.contrib3@example.invalid,,Congratulations! You won Rs 50000. Send Rs 500 to fake.winner@ybl to claim the prize.,Scam,English,Prize / lottery
+2026-10-20 10:04:00,fake.contrib1@example.invalid,Asha Testperson,"Call 9000012345 urgently, your parcel from Demo Courier is held. Pay the fee.",Scam,English,Parcel
+2026-10-20 10:05:00,fake.contrib4@example.invalid,,"Meeting moved to 4 pm tomorrow, same room. Bring the printouts.",Genuine,English,Personal
+2026-10-20 10:06:00,fake.contrib5@example.invalid,,Mail me at fake.person@example.invalid for the invoice copy.,Genuine,English,Personal
+2026-10-20 10:07:00,fake.contrib5@example.invalid,,Your card 4111 1111 1111 1111 was charged Rs 999. Reply YES to dispute.,Scam,English,Bank / card
+2026-10-20 10:08:00,fake.contrib6@example.invalid,Meera Dummy,Account XX1234567890 credited Rs 200. Balance updated.,Genuine,English,Bank / alert
+2026-10-20 10:09:00,fake.contrib6@example.invalid,Meera Dummy,"Share your UPI PIN with the agent to receive your refund, ref 77889900112",Scam,English,Refund
+2026-10-20 10:10:00,fake.contrib7@example.invalid,,ok,Genuine,English,Other
+2026-10-20 10:11:00,fake.contrib7@example.invalid,,"Dear customer, FakeBank KYC expires today. Update now at https://fakebank-kyc-check.example.invalid/login or your account will be blocked.",Scam,English,Bank / KYC
+2026-10-20 10:12:00,fake.contrib8@example.invalid,,"Dear customer, FakeBank KYC expires on 31 Oct. Update at https://fakebank-kyc-check.example.invalid/login or the account will be blocked!",Scam,English,Bank / KYC
+2026-10-20 10:13:00,fake.contrib8@example.invalid,,Your package is waiting. Track at https://fake-parcel-track.example.invalid/x9 and pay the customs charge.,Scam,English,Parcel
+2026-10-20 10:14:00,fake.contrib9@example.invalid,,"Namaste, aap ka bill is mahine ka Rs 340 hai. Pay at fakepay.example.invalid",Genuine,Hinglish,Bill
+2026-10-20 10:15:00,fake.contrib9@example.invalid,,"Your loan is pre-approved, click the link to get Rs 5 lakh instantly. No documents.",Scam,English,Loan
+2026-10-20 10:16:00,fake.contrib10@example.invalid,,"Dinner at 8, will you come? Let me know by 6.",Genuine,English,Personal
+2026-10-20 10:17:00,fake.contrib10@example.invalid,,Kindly send the OTP received on your mobile 9000098765 to verify the parcel delivery,Scam,English,Parcel
+2026-10-20 10:18:00,fake.contrib11@example.invalid,,This is a test row with a fake label,Maybe,English,Other
+2026-10-20 10:19:00,fake.contrib11@example.invalid,,Your bank statement for September is ready. Login on the official app.,Genuine,English,Bank / alert
+2026-10-20 10:20:00,fake.contrib12@example.invalid,Kiran Pretendname,"Hi Kiran Pretendname, the job offer letter is attached. Reply with your Aadhaar number to confirm.",Scam,English,Job
+2026-10-20 10:21:00,fake.contrib12@example.invalid,,"Namaskara, nimma OTP 556677 yaarigu kodbedi. Idu FakeBank.",Scam,Kannada,Bank / OTP
