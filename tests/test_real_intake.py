@@ -18,6 +18,8 @@ FIXTURE = HERE / "fixtures" / "real_fake.csv"
 #   R7  tripwire in finetune.py and calibrate_text_head.py: --data-dir / --run under data/real/ exits before anything is created; build_text.py calls it before writing
 #   R8  eval_real.py refuses without --final
 #   R9  eval_real.py --final on the fixture: one ledger line per run, a second run on the same file refused, --again records the reason
+#   R10 probe tripwire: data/probe/investment_v1.csv is PROBE-ONLY with a source per row; its path, its texts and their keys are refused,
+#       and finetune.py exits on --data-dir data/probe before anything is created
 FAKE_ROWS_IN_TRAIN = "Your package is waiting. Track at https://fake-parcel-track.example.invalid/x9 and pay the customs charge now."
 
 
@@ -249,11 +251,49 @@ def r9(tmp):
     return bad
 
 
+def r10(tmp):
+    import pandas as pd
+    import realguard as G
+    bad = []
+    probe = ROOT / "data" / "probe" / "investment_v1.csv"
+    if not probe.exists():
+        return [f"{probe} missing"]
+    rows = rows_of(probe)
+    if any(r["use"] != "PROBE-ONLY" for r in rows) or any(not r["source_url"].startswith(("https://", "http://")) for r in rows):
+        bad.append("a probe row is not marked PROBE-ONLY or has no source URL")
+    for path in ("data/probe/investment_v1.csv", "data/probe", str(probe), "data/probes/investment_probe.csv"):
+        try:
+            G.refuse_real_paths([path])
+            bad.append(f"{path} not refused")
+        except G.RealDataTripwire:
+            pass
+    nofile = tmp / "no_real_test.csv"   # only the probe check can fire
+    if len(G.probe_hashes()) != len({G.norm_key(r["text"]) for r in rows}):
+        bad.append("probe_hashes does not read data/probe/")
+    for name, df in {"text": pd.DataFrame({"text": ["an ordinary training message", rows[3]["text"].upper()]}),
+                     "text_hash": pd.DataFrame({"text_hash": ["zz", G.norm_key(rows[-1]["text"])]})}.items():
+        try:
+            G.guard_inputs([], [(name, df)], real_path=nofile)
+            bad.append(f"a frame with a probe {name} was accepted")
+        except G.RealDataTripwire as e:
+            if "PROBE-ONLY" not in str(e):
+                bad.append(f"probe refusal does not say PROBE-ONLY: {e}")
+    G.guard_inputs([], [("clean", pd.DataFrame({"text": ["an ordinary training message"], "text_hash": ["x1"]}))], real_path=nofile)
+    n_before = len(list((ROOT / "models" / "finetune").glob("*"))) if (ROOT / "models" / "finetune").exists() else 0
+    p = subprocess.run([PY, "src/finetune.py", "--data-dir", "data/probe", "--smoke"], cwd=ROOT, capture_output=True, text=True)
+    if p.returncode == 0 or "PROBE-ONLY" not in (p.stderr + p.stdout):
+        bad.append(f"finetune.py on data/probe: exit {p.returncode}, {(p.stderr + p.stdout)[-160:]!r}")
+    if (len(list((ROOT / "models" / "finetune").glob("*"))) if (ROOT / "models" / "finetune").exists() else 0) != n_before:
+        bad.append("finetune.py created a run directory before the probe tripwire")
+    return bad
+
+
 CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1), ("R2", "intake on the fake fixture: drops, masks, no PII pattern", r2),
           ("R3", "overlap: train near-duplicate flagged, val twin not, nothing dropped", r3), ("R4", "names: review file, edits applied on rerun, not overwritten", r4),
           ("R5", "freeze writes the hash into CLAUDE.md, refuses a different one", r5), ("R6", "realguard refuses real paths, real texts and real hashes", r6),
           ("R7", "finetune / calibrate / build_text tripwires", r7), ("R8", "eval_real refuses without --final", r8),
-          ("R9", "eval_real --final: one ledger line per run, once-only, --again recorded", r9)]
+          ("R9", "eval_real --final: one ledger line per run, once-only, --again recorded", r9),
+          ("R10", "probe tripwire: data/probe/ path, texts and keys refused; finetune exits", r10)]
 
 
 def run():
