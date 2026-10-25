@@ -4,6 +4,7 @@
 # Keys under "expect" (all optional):
 #   cred_request  bool      the OTP / PIN / CVV request rule fires (True) or must stay quiet (False)
 #   pin_to_receive  bool    the UPI-PIN-to-receive-money rule (rules.pin_to_receive, R2) fires (True) or must stay quiet (False)
+#   invest_rules  list      the investment-scam rule codes (A1-A12, shield.messages.invest_rules) that fire, exactly ([] = none must fire)
 #   tags          list      tactic tags that must be present        no_tags   list   tags that must be absent
 #   min_level     0|1|2     verdict at least No warning signs found / Suspicious / Likely scam (needs both models; skipped if they can't load)
 #   urls          list      extract_urls() output, exactly         link_kinds  list   kind of each link: model / shortener / free
@@ -137,4 +138,31 @@ INPUTS = [
      "why": "a template slot in 201 scam rows and no benign row: maps to <URL> in the text models' input but is not a link to score", "expect": {"urls": [], "prep_has": ["<URL>"], "prep_lacks": ["[Link]"]}},
     {"id": "userinfo-trick", "text": "http://sbi.co.in@totally-different.top/verify",
      "why": "everything before the @ is decoration; the host is totally-different.top", "expect": {"urls": ["http://sbi.co.in@totally-different.top/verify"], "link_kinds": ["model"]}},
+    # ---- investment / trading / task scams (Phase A, docs/plans/investment_scams.md): hook rules raise to Suspicious, money rules to Likely scam
+    {"id": "invest-vip-group-tips", "text": "Join our VIP group for daily stock tips. Guaranteed returns, zero risk!",
+     "why": "the hook: a paid tips group and a guaranteed return, nothing asked yet (A5 + A3: Suspicious)", "expect": {"invest_rules": ["A3", "A5"], "min_level": 1}},
+    {"id": "invest-personal-upi", "text": "Congratulations, your VIP trading account is approved. Pay Rs 25,000 to rajesh.trade88@ybl to activate it.",
+     "why": "money to a personal UPI id in an investment message (A1: Likely scam)", "expect": {"invest_rules": ["A1"], "min_level": 2}},
+    {"id": "invest-pay-to-withdraw", "text": "Your profit of Rs 3,40,000 is ready. To withdraw it you must first pay 20% income tax of Rs 68,000.",
+     "why": "a tax demanded before a withdrawal (A4: Likely scam)", "expect": {"invest_rules": ["A4"], "min_level": 2}},
+    {"id": "invest-ipo-preallotment", "text": "Our FII channel has secured pre-allotment of shares in the upcoming IPO. Apply through our app today.",
+     "why": "IPO pre-allotment through a channel (A10: Suspicious)", "expect": {"invest_rules": ["A10"], "min_level": 1}},
+    {"id": "invest-task-prepaid", "text": "Higher level tasks are prepaid: pay Rs 5,000 and get Rs 6,500 back within 30 minutes.",
+     "why": "a prepaid task deposit (A8: Likely scam)", "expect": {"invest_rules": ["A8"], "min_level": 2}},
+    {"id": "invest-sebi-valid-template", "text": "We have a validated UPI ID for payment, please pay us at examplebroker.brk@validhdfc.",
+     "why": "SEBI's own circular template (Annexure E) with a @valid id: no rule fires", "expect": {"invest_rules": []}},
+    {"id": "invest-valid-id-pay", "text": "To add funds to your trading account, pay by UPI only to examplebroker.brk@validhdfc and check the green thumbs-up icon. Never pay to any personal account.",
+     "why": "a genuine broker asking for money to a @valid id: A1 stays quiet", "expect": {"invest_rules": []}},
+    {"id": "invest-warning-not-promise", "text": "NSE cautions investors not to subscribe to any scheme offering indicative, assured or guaranteed returns in the stock market.",
+     "why": "a warning that quotes the scam's words (A3 stays quiet in a warning sentence)", "expect": {"invest_rules": []}},
+    {"id": "invest-registered-analyst", "text": "Research call: BUY EXAMPLE INDUSTRIES CMP 412, target 450, stop loss 395. ABC Research, SEBI RA Reg. No. INH000012345.",
+     "why": "a registered analyst's call with a registration number (A2 needs a claim with no number)", "expect": {"invest_rules": []}},
+    {"id": "invest-prepaid-recharge", "text": "Your prepaid recharge of Rs 299 was successful. Validity 28 days.",
+     "why": "'prepaid' next to an amount in a recharge SMS (A8 needs prepaid tasks)", "expect": {"invest_rules": []}},
+    {"id": "invest-job-ad-daily", "text": "Office assistant needed, salary Rs 25,000 per month, work from home option, paid daily attendance bonus.",
+     "why": "a job ad with 'work from home' and 'daily' but no per-day promise for tasks (A7)", "expect": {"invest_rules": []}},
+    {"id": "upi-id-not-a-link", "text": "pay to rajesh.trade88@ybl",
+     "why": "a UPI id is not a link: 'rajesh.trade88' was read as the link rajesh.trade (fixed 2026-10-25, textprep._ID_REST)", "expect": {"urls": [], "prep_lacks": ["<URL>"]}},
+    {"id": "email-not-a-link", "text": "Write to user.name@gmail.com for details, or visit example.com",
+     "why": "the local part of an e-mail address (user.name, a real suffix) is not a link; the real link after it still is", "expect": {"urls": ["example.com"]}},
 ]

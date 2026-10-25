@@ -1,124 +1,124 @@
-text_hash,split,source,reason
-014242c21037adad71e7c391e0b40eb2,train,scam_ham_india,stock-group chat (GROUP_RX)
-0f39d09ddef060fb8d916491e74f5559,train,scam_ham_india,stock-group chat (GROUP_RX)
-0fc579d4c665ac5c047ec4be8a0a0e91,train,scam_ham_india,stock-group chat (GROUP_RX)
-1010acb736a101aa039ab2fab373e8fb,train,scam_ham_india,stock-group chat (GROUP_RX)
-139eae57ca56fe56ba63583f6f782e18,train,scam_ham_india,stock-group chat (GROUP_RX)
-193024e12d86c53fbfe66e53cc6a3fef,train,scam_ham_india,stock-group chat (GROUP_RX)
-1e7a786c09aef624c4c78defedf6b6fe,train,scam_ham_india,stock-group chat (GROUP_RX)
-27972aed91e9f169f41edf07a315b95f,train,scam_ham_india,stock-group chat (GROUP_RX)
-27d7abee3775449c02cc7fabceba0299,train,scam_ham_india,stock-group chat (GROUP_RX)
-2802b5fff8f100ab19e5bf12243b771a,train,scam_ham_india,stock-group chat (GROUP_RX)
-31961dffb989411699ad19ad9133a3d0,train,scam_ham_india,stock-group chat (GROUP_RX)
-3a8f5d1103e5db3ac4d4d4490b8778ec,train,scam_ham_india,stock-group chat (GROUP_RX)
-4196fb8a460043ff1750fbdebad723e4,train,scam_ham_india,stock-group chat (GROUP_RX)
-49b45304eb701462b1ee89e33c5b17ff,train,scam_ham_india,stock-group chat (GROUP_RX)
-5b318d53db12a73c697d846dc03ef0da,train,scam_ham_india,stock-group chat (GROUP_RX)
-656627ca5e1154d23a4e4177a66c50b0,train,scam_ham_india,stock-group chat (GROUP_RX)
-713187e4df2b41d6e83cdf4d7c185c92,train,scam_ham_india,stock-group chat (GROUP_RX)
-7f2f4fd4215d69fd9c6d4734abdc470f,train,scam_ham_india,stock-group chat (GROUP_RX)
-80928b4cfd54b1a7ca7b0e22bae34f9f,train,scam_ham_india,stock-group chat (GROUP_RX)
-90b0100f5b1a880d105e75ff687eb17b,train,scam_ham_india,stock-group chat (GROUP_RX)
-90b55ad817f48a48647750e1f3500886,train,scam_ham_india,stock-group chat (GROUP_RX)
-976e5e29471c9754baa75ca981bad696,train,scam_ham_india,stock-group chat (GROUP_RX)
-9a00f8ddf046f034fe0a2af7d7813ab3,train,scam_ham_india,stock-group chat (GROUP_RX)
-a9bfec76a5224bb2cbee1fb1c1bd969a,train,scam_ham_india,stock-group chat (GROUP_RX)
-b40bfaec8d798aee7d8b2f91a3e1af8f,train,scam_ham_india,stock-group chat (GROUP_RX)
-bfb68f70482a4c714aad9aa418d018a6,train,scam_ham_india,stock-group chat (GROUP_RX)
-c9a3837509cd55d515cf798466820150,train,scam_ham_india,stock-group chat (GROUP_RX)
-ca892fe806393c920141708a537c9fa7,train,scam_ham_india,stock-group chat (GROUP_RX)
-ccd1ccab1b14db38056190d2e27cf029,train,scam_ham_india,stock-group chat (GROUP_RX)
-d0f860f64874af5f3c039e2ff09a8eb0,train,scam_ham_india,stock-group chat (GROUP_RX)
-da878221b79788f9593fd6c78a5763be,train,scam_ham_india,stock-group chat (GROUP_RX)
-f12773fb84eae8886940eac40b71f936,train,scam_ham_india,stock-group chat (GROUP_RX)
-f881dea4e3258a136524d817b11157fe,train,scam_ham_india,stock-group chat (GROUP_RX)
-fd6891e129ac1cd6a2512c16be412232,train,scam_ham_india,stock-group chat (GROUP_RX)
-3a8511d016bb62c44e969c96f6b1c40c,val,scam_ham_india,stock-group chat (GROUP_RX)
-6c8d5004210fcf6e386380f6bb6beb9c,val,scam_ham_india,stock-group chat (GROUP_RX)
-80d7c81b98885396532a0bebea79fabc,val,scam_ham_india,stock-group chat (GROUP_RX)
-9a703bb6f522bef51a0798e07b27d2f9,val,scam_ham_india,stock-group chat (GROUP_RX)
-c4b7db832f362d5746f10337d5bd4a44,val,scam_ham_india,stock-group chat (GROUP_RX)
-091e87c34925f0371ef46ed940f35cb9,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-0f83868d8e1e334c9345e6f9d75090af,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-13f6a5e86c68589b9b099c73e50191cd,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-18b7ffa89dbf662e501fb25fd58353ee,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-1d35b8f735c2e085ce6c72d454072d63,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-1d59e70ae01afcc3cb63aa278f00919a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-26224599540ce449f7abfc0215dcc3cd,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-26662c020b175e797e6b5c5b6721eb57,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-29653678d97bfbee49b0124c82933738,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-2b5ae10f745c9862966f1767fc61449e,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-2c89275d42949499ec9fb86b8083c7bf,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-38d7a561a52cc5bba9215346970d2a80,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-393d00e1f1f21fdcc886a217fc243760,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-41a5f982e895026de233057460485e3c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-48189967512d60540bfe9fba61504cdc,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-4c96f98a42aa9038b042deed1dc91ff4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-562c4f7ee6c862712e0279adbe4e8c10,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-5687a0d0bc81ba3096d9b7ba49e4dcd4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-58085da869717759a7e016e16b79f4f8,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-585d181ceb8186757e49d5b63e85d1fb,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-5bc36131466de1854b71c2c39b4f81d2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-601ad72955c716bfca9f1d4657a331c6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-621cedb097ef0c3718efa2893ec601ea,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-64c273cbeef845df31d343f0b4513c3a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-65cffed0fe0ecd9e3c3354248e7e2e7f,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-6be6e6e46b6bd683d0ef4ae868b88152,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-7197af008543d24e3139fecbfbc9b64e,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-7d24541db50def8026360b20cbb8cb8d,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-81308f75c8d09fbc5d86b46cc1699a48,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-81c6ff3a36f85ddbdcb069605bee9b65,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-86f60b708485b4a5b6956364cac5a9a7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-88bf2d43de8a163e60737fe04350d304,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-8a9c6746de38577936661206c13cc85c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-8abf131144df36cba422d04849bddf57,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-8ae1162947f9a2f35425e992b76208b7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-8e0b5390c9418eebaba37b484f41c42f,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-92939977a7cdc4782b740bdbf9392830,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-93bd29f24970da6a13c6abee0142f1f0,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-9730f99c140a8fe5073e4db9d0a40856,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-98772d5352cf81983d2b5f8c74969cf7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-9ad2181097c9732a9bb7cec217f17947,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-9ba61a3b24e195b002cf5a92c5db86c2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-a0254f3136a91ea4d52ec893d10b7e09,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-a13240b65176c5ec140679686c585287,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-a5b816c0227f22cfeee38e910623bd5c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-addcd8b0157d7e7361a8a16876952fa6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-aeb2cd65686a01d848f7e688d39005fb,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-b468b1ffa9404f384d1d2d7630da69ed,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-b51e63d3a48d2a9dec5fbb7e4ca1d6ea,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-b7e0d93f817c6424855afaf3bf018348,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-b9cda38cb9e4cf0c2df868a1b0c3b9c4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-ba870926cb15758ed335f1bd32f8aebc,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-bbcdd8b4cccade84c1c2f49acba564c4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-bfef86abcb154e1ab8e049f96aec90fa,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-c34e7b8fdff1fba2bfe09665df0a9ee5,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-c58caae225b7e5389d45d2b82d1f60b2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-cb2ab823467af324e1a993e16df85fd6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-cdbbc512bd06e26b43fc62e3622a9d02,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-ce9a871407a65186e2e9331c7b4a1dae,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-cf729b54cf681751589ec295836cbff5,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-dacb8bec4af870fe2dede1971fe6296d,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-dc656716b1bfbb585c5576775c5faa66,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-e26ba5be136d1efdae0805a707bbdce7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f1f22c150d4d5b9173b347425632fa3b,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f251e01d5988bf836521f4ff456eed90,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f4baf57a3d385e106642d4c1b542e58a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f668199da747fff7f15e3e176f21fc37,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f9ed72352b668a17664faac368c278f4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-fcb7473635890ec470952d5308aa454a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-fef5fedd87fdc61c08a971a4c6d6e3db,train,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-12ac11f791497df03db915d90cf69021,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-23bec9d149debd85a7f6633f8a91abf7,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-2d24ca9c9f9ef088490a2248f8564c7e,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-2f9a7a0d55657f12ae23d0787bc14091,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-41124c24e6196ec9ac25156f65c30a8a,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-43894bbbbbbc404cce0580e467f2de59,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-510b9e2c272c881eb3c206422917bc53,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-76ffb03ba55eae4e986adfea760fad7a,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-8a6a51b25ad3fb5174e8df1e31783a61,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-9f2fdf331d388b07d5d9ad1ed77a8aef,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-bb5a8aeeeaa4dbb9c57ce979cc1473e1,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-bd9eb8640da683fe15f6a59de3d8b45c,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-def37a3c0908d86c8a735051ea5918ef,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
-f438ef90b4a891b4a54e8270e6e4c6bd,val,scam_ham_india,"uncertain: market chat in the same source, no group marker"
+text_hash,split,source,reason,tier,status
+014242c21037adad71e7c391e0b40eb2,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+0f39d09ddef060fb8d916491e74f5559,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+0fc579d4c665ac5c047ec4be8a0a0e91,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+1010acb736a101aa039ab2fab373e8fb,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+139eae57ca56fe56ba63583f6f782e18,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+193024e12d86c53fbfe66e53cc6a3fef,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+1e7a786c09aef624c4c78defedf6b6fe,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+27972aed91e9f169f41edf07a315b95f,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+27d7abee3775449c02cc7fabceba0299,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+2802b5fff8f100ab19e5bf12243b771a,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+31961dffb989411699ad19ad9133a3d0,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+3a8f5d1103e5db3ac4d4d4490b8778ec,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+4196fb8a460043ff1750fbdebad723e4,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+49b45304eb701462b1ee89e33c5b17ff,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+5b318d53db12a73c697d846dc03ef0da,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+656627ca5e1154d23a4e4177a66c50b0,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+713187e4df2b41d6e83cdf4d7c185c92,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+7f2f4fd4215d69fd9c6d4734abdc470f,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+80928b4cfd54b1a7ca7b0e22bae34f9f,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+90b0100f5b1a880d105e75ff687eb17b,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+90b55ad817f48a48647750e1f3500886,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+976e5e29471c9754baa75ca981bad696,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+9a00f8ddf046f034fe0a2af7d7813ab3,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+a9bfec76a5224bb2cbee1fb1c1bd969a,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+b40bfaec8d798aee7d8b2f91a3e1af8f,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+bfb68f70482a4c714aad9aa418d018a6,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+c9a3837509cd55d515cf798466820150,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+ca892fe806393c920141708a537c9fa7,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+ccd1ccab1b14db38056190d2e27cf029,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+d0f860f64874af5f3c039e2ff09a8eb0,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+da878221b79788f9593fd6c78a5763be,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+f12773fb84eae8886940eac40b71f936,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+f881dea4e3258a136524d817b11157fe,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+fd6891e129ac1cd6a2512c16be412232,train,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+3a8511d016bb62c44e969c96f6b1c40c,val,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+6c8d5004210fcf6e386380f6bb6beb9c,val,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+80d7c81b98885396532a0bebea79fabc,val,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+9a703bb6f522bef51a0798e07b27d2f9,val,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+c4b7db832f362d5746f10337d5bd4a44,val,scam_ham_india,stock-group chat (GROUP_RX),likely,splits-v3 candidate (data not edited)
+091e87c34925f0371ef46ed940f35cb9,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+0f83868d8e1e334c9345e6f9d75090af,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+13f6a5e86c68589b9b099c73e50191cd,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+18b7ffa89dbf662e501fb25fd58353ee,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+1d35b8f735c2e085ce6c72d454072d63,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+1d59e70ae01afcc3cb63aa278f00919a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+26224599540ce449f7abfc0215dcc3cd,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+26662c020b175e797e6b5c5b6721eb57,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+29653678d97bfbee49b0124c82933738,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+2b5ae10f745c9862966f1767fc61449e,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+2c89275d42949499ec9fb86b8083c7bf,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+38d7a561a52cc5bba9215346970d2a80,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+393d00e1f1f21fdcc886a217fc243760,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+41a5f982e895026de233057460485e3c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+48189967512d60540bfe9fba61504cdc,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+4c96f98a42aa9038b042deed1dc91ff4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+562c4f7ee6c862712e0279adbe4e8c10,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+5687a0d0bc81ba3096d9b7ba49e4dcd4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+58085da869717759a7e016e16b79f4f8,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+585d181ceb8186757e49d5b63e85d1fb,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+5bc36131466de1854b71c2c39b4f81d2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+601ad72955c716bfca9f1d4657a331c6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+621cedb097ef0c3718efa2893ec601ea,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+64c273cbeef845df31d343f0b4513c3a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+65cffed0fe0ecd9e3c3354248e7e2e7f,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+6be6e6e46b6bd683d0ef4ae868b88152,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+7197af008543d24e3139fecbfbc9b64e,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+7d24541db50def8026360b20cbb8cb8d,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+81308f75c8d09fbc5d86b46cc1699a48,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+81c6ff3a36f85ddbdcb069605bee9b65,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+86f60b708485b4a5b6956364cac5a9a7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+88bf2d43de8a163e60737fe04350d304,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+8a9c6746de38577936661206c13cc85c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+8abf131144df36cba422d04849bddf57,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+8ae1162947f9a2f35425e992b76208b7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+8e0b5390c9418eebaba37b484f41c42f,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+92939977a7cdc4782b740bdbf9392830,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+93bd29f24970da6a13c6abee0142f1f0,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+9730f99c140a8fe5073e4db9d0a40856,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+98772d5352cf81983d2b5f8c74969cf7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+9ad2181097c9732a9bb7cec217f17947,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+9ba61a3b24e195b002cf5a92c5db86c2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+a0254f3136a91ea4d52ec893d10b7e09,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+a13240b65176c5ec140679686c585287,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+a5b816c0227f22cfeee38e910623bd5c,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+addcd8b0157d7e7361a8a16876952fa6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+aeb2cd65686a01d848f7e688d39005fb,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+b468b1ffa9404f384d1d2d7630da69ed,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+b51e63d3a48d2a9dec5fbb7e4ca1d6ea,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+b7e0d93f817c6424855afaf3bf018348,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+b9cda38cb9e4cf0c2df868a1b0c3b9c4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+ba870926cb15758ed335f1bd32f8aebc,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+bbcdd8b4cccade84c1c2f49acba564c4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+bfef86abcb154e1ab8e049f96aec90fa,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+c34e7b8fdff1fba2bfe09665df0a9ee5,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+c58caae225b7e5389d45d2b82d1f60b2,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+cb2ab823467af324e1a993e16df85fd6,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+cdbbc512bd06e26b43fc62e3622a9d02,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+ce9a871407a65186e2e9331c7b4a1dae,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+cf729b54cf681751589ec295836cbff5,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+dacb8bec4af870fe2dede1971fe6296d,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+dc656716b1bfbb585c5576775c5faa66,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+e26ba5be136d1efdae0805a707bbdce7,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f1f22c150d4d5b9173b347425632fa3b,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f251e01d5988bf836521f4ff456eed90,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f4baf57a3d385e106642d4c1b542e58a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f668199da747fff7f15e3e176f21fc37,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f9ed72352b668a17664faac368c278f4,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+fcb7473635890ec470952d5308aa454a,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+fef5fedd87fdc61c08a971a4c6d6e3db,train,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+12ac11f791497df03db915d90cf69021,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+23bec9d149debd85a7f6633f8a91abf7,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+2d24ca9c9f9ef088490a2248f8564c7e,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+2f9a7a0d55657f12ae23d0787bc14091,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+41124c24e6196ec9ac25156f65c30a8a,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+43894bbbbbbc404cce0580e467f2de59,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+510b9e2c272c881eb3c206422917bc53,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+76ffb03ba55eae4e986adfea760fad7a,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+8a6a51b25ad3fb5174e8df1e31783a61,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+9f2fdf331d388b07d5d9ad1ed77a8aef,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+bb5a8aeeeaa4dbb9c57ce979cc1473e1,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+bd9eb8640da683fe15f6a59de3d8b45c,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+def37a3c0908d86c8a735051ea5918ef,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)
+f438ef90b4a891b4a54e8270e6e4c6bd,val,scam_ham_india,"uncertain: market chat in the same source, no group marker",uncertain,splits-v3 candidate (data not edited)

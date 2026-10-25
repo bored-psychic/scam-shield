@@ -5,7 +5,7 @@ import copy, hashlib, json
 import pandas as pd
 from shield import config
 from shield.contracts import Effect, Level, LEVEL_RANK, Report
-from shield.core.advice import ADVICE, GAMBLING_ADVICE
+from shield.core.advice import ADVICE, GAMBLING_ADVICE, INVESTMENT_ADVICE
 from shield.core.report import to_report
 from shield.core.router import analyse
 from shield.core.sender_rule import apply_sender, hard_risks
@@ -21,7 +21,8 @@ from tricky_inputs import INPUTS
 #   A7 NO_WARNING_SIGNS -> no DANGER / CAUTION   A8 top level >= judged children
 #   A9 text[span] == quote (code points)   A10 every Evidence has a tag of 1-24 characters   A11 tactic titles are the neutral ones exactly when the level is NO_WARNING_SIGNS
 #   A12 a rule.* / tactic.* span does not start or end inside a word (the cue "pin" must not point into "shipping"; re \w semantics)
-#   A13 advice: a top-level Report has 1-5 non-empty items, == ADVICE[level] with GAMBLING_ADVICE first iff category == "gambling"; children have none
+#   A13 advice: a top-level Report has 1-5 non-empty items, == ADVICE[level] with GAMBLING_ADVICE first iff category == "gambling" and INVESTMENT_ADVICE next iff a
+#       rule.invest_* evidence exists (Phase A, 2026-10-25); children have none
 #   A14 meta.models has text, url, gambling_lookup; text / url end in 8 hex chars that match the SHA-256 of the model files, the same dict in every Report,
 #       and model_versions() was computed once (cache misses == 1)
 #   A15 the safety-advice cap: a Report has a rule.safety_advice evidence exactly when analyse() set r["safety_advice"]; then the level is no_warning_signs,
@@ -85,7 +86,7 @@ def check(text, r, rep):
     if ranks and rep.level in LEVEL_RANK and LEVEL_RANK[rep.level] < max(ranks):
         bad["A8"] = f"top level {rep.level.value} below a child at rank {max(ranks)}"
     if rep.level == Level.PROMOTIONAL and (any(c.level == Level.LIKELY_SCAM for c in rep.children) or rep.category == "gambling"
-                                           or any(e.id in ("rule.otp_request", "rule.pin_to_receive") for e in rep.evidence)):
+                                           or any(e.id in ("rule.otp_request", "rule.pin_to_receive") or e.id.startswith("rule.invest_") for e in rep.evidence)):
         bad["A8"] = f"promotional with a Likely-scam child, a gambling category or a rule hit: {[c.level.value for c in rep.children]}, {rep.category}"
     if any(e.span is not None and text[e.span[0]:e.span[1]] != e.quote for e in ev):
         bad["A9"] = f"span does not slice back to the quote: {[(e.id, e.span, e.quote, text[e.span[0]:e.span[1]]) for e in ev if e.span is not None and text[e.span[0]:e.span[1]] != e.quote]}"
@@ -128,7 +129,8 @@ def check(text, r, rep):
     return bad
 
 def expected_advice(rep):
-    return ([GAMBLING_ADVICE] if rep.category == "gambling" else []) + ADVICE[rep.level]
+    investment = any(e.id.startswith("rule.invest_") for e in rep.evidence)   # Phase A: the SEBI line, right after the gambling line
+    return ([GAMBLING_ADVICE] if rep.category == "gambling" else []) + ([INVESTMENT_ADVICE] if investment else []) + ADVICE[rep.level]
 
 def check_advice(rep):
     """A13."""

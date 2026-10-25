@@ -4,6 +4,7 @@ from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Lowered, M
 from shield.core.advice import advice_for
 from shield.core.risk import risk_score
 from shield.core.sender_rule import RISKY_THING
+from shield.messages.invest_rules import SEBI_ADVICE
 from shield.core.verdict import PROMOTIONAL
 from shield.messages.sender import SUFFIX_NAME
 
@@ -48,7 +49,8 @@ _RISK_NAMES = {"otp_request": "an OTP / PIN / CVV / password request", "pin_to_r
                "link_red_flag": "a link red flag (a scam list, look-alike letters or name, a raw IP, a shared scam server, or a brand-new website)",
                "lookalike_link": "a lookalike link on free hosting", "gambling": "a gambling or betting link", "legal_threat": "an arrest or legal threat",
                "secrecy": "a demand for secrecy", "cutoff_threat": "a threat to block or cut off a service", "earning_promise": "a promise of guaranteed or easy earnings",
-               "payment_demand": "a payment or fee demand"}
+               "payment_demand": "a payment or fee demand",
+               "investment_rule": "an investment-scam pattern (guaranteed returns, a VIP group, a fee to withdraw ...)"}
 # The OTP rule also catches password requests (2026-10-18): a hit that names a password gets its own title and tag; every other hit keeps the old ones.
 _PASSWORD = re.compile(r"pass(?:word|code|wd)")
 _OTP_TITLE, _PASSWORD_TITLE = "Asks you to share an OTP, PIN or CVV", "Asks you to share a password"
@@ -138,6 +140,8 @@ def to_report(text: str, r: dict) -> Report:
         quote, span = _in_text(text, r["pin_to_receive"][0])
         ev.append(Evidence(id="rule.pin_to_receive", module="messages", effect=Effect.DANGER, tag=_TAGS["rule.pin_to_receive"], quote=quote, span=span,
                            title="Asks for your UPI PIN to receive money (receiving money never needs a PIN)"))
+    for h in r.get("invest_rules") or []:   # Phase A rules: the same shape as the OTP rule's evidence; the effect follows the rule's floor (hook = caution, money = danger)
+        ev.append(Evidence(id=h["id"], module="messages", effect=_BY_LEVEL[h["floor"]], title=h["title"], tag=h["tag"], quote=h["quote"], span=h["span"]))
     for hit in r["cred_request"]:
         quote, span = _in_text(text, hit)
         pw = bool(_PASSWORD.search(hit)) and not re.search(r"one[- ]?time", hit)   # a one-time password is an OTP
@@ -190,6 +194,6 @@ def to_report(text: str, r: dict) -> Report:
     low = r.get("lowered")   # D24: only if the level shown is still the one the P1 lowering produced (a later step, e.g. the sender rule, may have moved it)
     lowered = Lowered(from_level=_LEVEL[low["from"]], text=low["text"]) if low and r["level"] == 1 else None
     return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
-                  evidence=ev, reasons=reasons, advice=advice_for(level, category), children=children,
+                  evidence=ev, reasons=reasons, advice=advice_for(level, category, investment=bool(r.get("invest_rules"))), children=children,
                   pending=["links"] if any(c.pending for c in children) else [], risk_score=risk_score(level, r["text_score"], r.get("text_thresholds"), r.get("text_meter_ends")),
                   lowered=lowered, meta=meta)

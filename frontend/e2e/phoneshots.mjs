@@ -1,5 +1,6 @@
 // Phone screenshots (390x844) of the full result page for Likely scam (demo-d01), light and dark, helpline row in English and in Kannada.
-//   cd frontend && npm run build && node e2e/phoneshots.mjs OUT_DIR PREFIX      e.g. before / after
+//   cd frontend && npm run build && node e2e/phoneshots.mjs OUT_DIR PREFIX [FIXTURE_LABEL]      e.g. before / after
+//   FIXTURE_LABEL (default demo-d01; 2026-10-25) picks another Report from the fixtures, e.g. invest-vip-group-tips (an investment rule fired: reasons + card)
 // Serves dist/ with Vite preview, answers /api/analyse from src/lib/__fixtures__/reports.json, makes no other request, opens no link.
 import { readFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -9,7 +10,7 @@ import { preview } from "vite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = JSON.parse(readFileSync(join(HERE, "..", "src", "lib", "__fixtures__", "reports.json"), "utf8"));
-const [OUT, PREFIX = "shot"] = process.argv.slice(2);
+const [OUT, PREFIX = "shot", LABEL = "demo-d01"] = process.argv.slice(2);
 if (!OUT) { console.error("usage: node e2e/phoneshots.mjs OUT_DIR PREFIX"); process.exit(2); }
 const PORT = 4175;
 mkdirSync(OUT, { recursive: true });
@@ -17,7 +18,8 @@ const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 try {
   for (const theme of ["light", "dark"]) {
-    const f = FIXTURES.find((x) => x.label === "demo-d01");
+    const f = FIXTURES.find((x) => x.label === LABEL);
+    if (!f) throw new Error(`fixture ${LABEL} missing: rerun frontend/scripts/dump_fixture.py`);
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", colorScheme: theme });
     const page = await ctx.newPage();
     await page.route("**/api/analyse", (route) => route.fulfill({ json: f.report }));
@@ -29,7 +31,7 @@ try {
     await page.waitForTimeout(1200);   // the result boxes fade in (rise animation with a delay)
     for (const [lang, button] of [["", null], ["kn_", "ಕನ್ನಡ"]]) {
       if (button) { await page.click(`.helplangbtn:has-text("${button}")`); await page.waitForTimeout(200); }
-      const file = join(OUT, `${PREFIX}_likely_${lang}${theme}_390x844.png`);
+      const file = join(OUT, `${PREFIX}_${LABEL === "demo-d01" ? "likely" : LABEL}_${lang}${theme}_390x844.png`);
       await page.screenshot({ path: file, fullPage: true });
       const h = await page.evaluate(() => document.documentElement.scrollHeight);
       console.log(file, "page height", h);

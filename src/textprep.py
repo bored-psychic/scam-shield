@@ -79,10 +79,13 @@ def _is_url(core):
             return False
     return True
 
+# What directly follows a match, up to an '@' and a letter: the match is the start of an e-mail or UPI id (rajesh.trade88@ybl, user.name@gmail.com), not a link.
+_ID_REST = re.compile(r"[\w.+-]*@[A-Za-z]")
+
 def _urls(text):
     for m in URL_RE.finditer(text):
         core, tail = _split_tail(m.group(0))
-        if core and _is_url(core):
+        if core and _is_url(core) and not _ID_REST.match(text, m.end()):   # 2026-10-25: 'rajesh.trade88@ybl' was read as the link 'rajesh.trade'
             yield m.start(), m.start() + len(core), core
 
 def replace_urls(text):

@@ -421,6 +421,11 @@
   .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 14.5px/1.5 var(--sans); color: var(--muted);
     background: var(--sender-fill); border: 1px solid var(--sender-border); }
   .sendertip b { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
+  /* The investment card (2026-10-25): the one SEBI advice line the API adds when an investment-scam rule fired (lib/investment.ts), above the steps. */
+  .investcard { margin: 2px 0 4px; padding: 10px 12px; border-radius: 14px; background: var(--sender-fill); border: 1px solid var(--sender-border); }
+  .investcard b { display: block; font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
+  .investcard:lang(hi) b, .investcard:lang(kn) b { font: 500 13px/1.4 var(--sans); letter-spacing: 0; text-transform: none; }   /* Hindi / Kannada: body font, not the mono uppercase label */
+  .investcard p { margin: 4px 0 0; font: 400 var(--fs-body)/1.5 var(--sans); color: var(--ink); }
 
   /* result: two columns on wide screens, one column on phones. new (2026-10-18): the message panel used to span two grid rows and was
      stretched to the height of the verdict and why panels, leaving a large empty area under a short message. Now each column is its own
@@ -441,7 +446,7 @@
   .g-msg { font-size: 17px; line-height: 1.8; padding: 22px 24px; }
   /* new (2026-10-18): a readable measure in the wide column, about 65 characters a line (Lexend at 17px / 15px; measured on the longest demo message) */
   .g-msg .mtext { max-width: 31em; }
-  .steplist li, .sendertip { max-width: 35em; }
+  .steplist li, .sendertip, .investcard { max-width: 35em; }
   .g-why { padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
   .g-why .sect { margin: 2px 4px 6px; }
   .g-why .reasons { gap: 2px; }
@@ -595,6 +600,8 @@
     .steplist { gap: 8px; margin-top: 2px; }
     .steplist li { grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14.5px; line-height: 1.4; }
     .steplist li::before { width: 24px; height: 24px; font-size: 12px; }
+    .investcard { padding: 8px 10px; }
+    .investcard p { font-size: 14.5px; line-height: 1.4; }
     .helprow { padding: 10px 12px; gap: 8px; }
     .helprow .helplink, .callbtn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
     .helplabel { font-size: 11px; }

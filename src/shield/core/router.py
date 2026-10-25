@@ -4,6 +4,7 @@ from shield import config
 from url_features import parse_url
 from textprep import URL_TOKEN, MAX_CHARS, extract_urls, model_text, replace_urls
 from shield.core.verdict import LEVELS, r3, level_of, fuse
+from shield.messages.invest_rules import invest_rule_hits
 from shield.messages.rules import advisory_phrases, cred_requests, has_indian_mobile, pin_to_receive
 from shield.messages.tactics import tactic_tags
 from shield.links.lexical import url_notes
@@ -28,6 +29,7 @@ def safety_advice_cap(text, r):
         ("no advisory phrase", not phrases),
         ("credential request", bool(r["cred_request"])),
         ("PIN-to-receive request", bool(r["pin_to_receive"])),
+        ("investment-scam rule", bool(r.get("invest_rules"))),
         ("text level is not Suspicious", r["text_level"] != 1 or r["level"] != 1),
         ("has a link", bool(r["links"])),
         ("has a mobile number", has_indian_mobile(text)),
@@ -69,19 +71,20 @@ def apply_positives(text, r):
             r["lowered"] = {"from": before, "text": f"Lowered from {LEVELS[before]}: " + p1["lowered"].replace("{}", "the link", 1) + "."}
 
 
-def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False):
+def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
     (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender).
     live: run the network link checks (D23: shield.links.live, only registered domains leave the machine, <= 4 s); False = the offline
     analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal.
+    invest_rules: apply the investment-scam rules A1-A12 (None = config.INVEST_RULES). r["invest_rules"] holds the hits (shield.messages.invest_rules).
     explain: fill r["grams"] with the text head's strongest pieces of text (only the Gradio app shows them; the Report does not carry them, and
     for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
     cred, pin_recv = cred_requests(text), pin_to_receive(text)
-    r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
+    r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "invest_rules": [], "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
          "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": []}
     if prose_words >= MIN_PROSE_WORDS:
         prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
@@ -137,6 +140,14 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
         r["level"], r["escalated"] = 1, True
     if any(l["gambling"] for l in r["links"]) and (r["level"] is None or r["level"] < 1):   # gambling floor: Suspicious, never Likely scam on its own
         r["level"] = 1
+    # investment-scam rules (Phase A, raise-only): on the raw text, before the positives so that a hit counts as a hard-risk signal (hard_risks) and no
+    # brand-owned link or registered sender softens it. Hook rules floor the level at Suspicious, money rules at Likely scam; neither ever lowers.
+    if config.INVEST_RULES if invest_rules is None else invest_rules:
+        r["invest_rules"] = invest_rule_hits(text)
+        if r["invest_rules"]:
+            floor = max(h["floor"] for h in r["invest_rules"])
+            if r["level"] is None or r["level"] < floor:
+                r["level"] = floor
     apply_positives(text, r)   # D23 P1 / P2: only without a hard-risk signal, so after every floor above
     # safety-advice cap: last, so every hard rule and floor above has already had its say (the conditions refuse a message any of them fired on)
     if config.SAFETY_ADVICE_CAP if safety_cap is None else safety_cap:

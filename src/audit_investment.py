@@ -343,8 +343,11 @@ def main():
     mis = mislabel_candidates(rows)
     with open(MISLABEL_OUT, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["text_hash", "split", "source", "reason"])
-        w.writerows(sorted(mis, key=lambda t: (t[3], t[1], t[0])))
+        # status (2026-10-25): splits-v3 relabel candidates, NOT edited in the data. tier "likely" = a scam-group chat line labelled genuine, "uncertain" = market chat
+        # from the same source with no group marker (a labelling-policy decision, plan Phase B step 1).
+        w.writerow(["text_hash", "split", "source", "reason", "tier", "status"])
+        w.writerows((h, sp, src, why, "uncertain" if why.startswith("uncertain") else "likely", "splits-v3 candidate (data not edited)")
+                    for h, sp, src, why in sorted(mis, key=lambda t: (t[3], t[1], t[0])))
 
     L = ["# Investment / trading / task-scam audit", "",
          "Made by `src/audit_investment.py` (measurement only; nothing here is in the app). Plan: `docs/plans/investment_scams.md`. "

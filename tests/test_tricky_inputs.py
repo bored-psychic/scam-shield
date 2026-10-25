@@ -2,6 +2,7 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 from shield.core.router import analyse, safety_advice_cap
 from shield.links.lexical import load_url_model
+from shield.messages.invest_rules import invest_rule_hits
 from shield.messages.rules import cred_requests, pin_to_receive
 from shield.messages.tactics import tactic_tags
 from shield.messages.text_head import load_text_model
@@ -40,6 +41,8 @@ def check(entry, tm, um):
         bad.append(f"cred_request {bool(cred)} (hits {cred}), wanted {e['cred_request']}")
     if "pin_to_receive" in e and bool(pin_to_receive(t)) != e["pin_to_receive"]:
         bad.append(f"pin_to_receive {bool(pin_to_receive(t))} (hits {pin_to_receive(t)}), wanted {e['pin_to_receive']}")
+    if "invest_rules" in e and sorted(h["code"] for h in invest_rule_hits(t)) != sorted(e["invest_rules"]):
+        bad.append(f"invest_rules {sorted(h['code'] for h in invest_rule_hits(t))}, wanted {sorted(e['invest_rules'])}")
     bad += [f"tag {k} missing" for k in e.get("tags", []) if not tags[k]]
     bad += [f"tag {k} present" for k in e.get("no_tags", []) if tags[k]]
     if "urls" in e and extract_urls(t) != e["urls"]:

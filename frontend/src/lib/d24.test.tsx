@@ -5,6 +5,7 @@ import { SENDER_TIP } from "./sender";
 import { METER_NOTE } from "./risk";
 import Result from "../components/Result";
 import WhatToDo from "../components/WhatToDo";
+import { isInvestAdvice } from "./investment";
 import raw from "./__fixtures__/reports.json";
 
 // npm test. D24 on the page: A the "Lowered from..." line, B the risk score meter, C What to do as a numbered list. (D, the fonts, is checked on the
@@ -124,7 +125,7 @@ describe("C What to do now is a numbered list", () => {
       expect(html, f.label).not.toMatch(/<input|type="checkbox"|<label/);
       expect(html, f.label).toContain("<ol");
       const items = [...html.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1].replace(/&#x27;/g, "'").replace(/&amp;/g, "&").replace(/&quot;/g, '"'));
-      expect(items, f.label).toEqual(f.report.advice);
+      expect(items, f.label).toEqual(f.report.advice.filter((a) => !isInvestAdvice(a)));   // the one SEBI line the investment rules add is the card above the steps (investment.test.tsx), not a step
     }
   });
   test("the 'Check who sent it' tip behaves as before: printed only when given, sender IDs on one line, a note and not a step", () => {

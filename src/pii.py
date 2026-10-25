@@ -8,6 +8,9 @@ import re
 # olamoney.payu@indus slipped through), and any user@host left with a dotless host (root@localhost, x@python, OFFERS@VISHAL)
 # becomes <EMAIL>. That catch-all also masks things that are not personal addresses (shell prompts, promo tags, junk inside
 # encoded attachments); over-masking was chosen over a hand-tuned exception list (rule 5).
+# 2026-10-25: SEBI's @valid handles (circular SEBI/HO/DEPA-II/DEPA-II_SRG/P/CIR/2025/86: name.brk@validhdfc, name.mf@validicici) now mask as <UPI_ID>; before this
+# they fell to the dotless catch-all and became <EMAIL>. No row of data/ contains one (the sources predate October 2025), so messages.csv, text_hash and
+# split_map are unchanged; the stored masking of any future row follows these masks. The text heads see <UPI_ID> for these ids from now on (textprep.model_text).
 UPI_HANDLES = sorted({
     "abfspay", "airtel", "apl", "aubank", "axis", "axisb", "axisbank", "axl", "barodampay", "boi", "cbin", "centralbank", "citi",
     "cnrb", "cub", "dbs", "dlb", "equitas", "ezeepay", "fbl", "federal", "freecharge", "hdfc", "hdfcbank", "hsbc", "ibl", "icici",
@@ -18,6 +21,7 @@ UPI_HANDLES = sorted({
 MASKS = [
     (r"[\w.+-]+@[\w-]+\.[\w.]+", "<EMAIL>"),
     (r"(?i)\b[\w.-]{2,}@(?:" + "|".join(UPI_HANDLES) + r")\b", "<UPI_ID>"),
+    (r"(?i)\b[\w.-]{2,}@valid[a-z]*\b", "<UPI_ID>"),   # SEBI's @valid ids (name.brk@validhdfc, 2025): a UPI id, not an e-mail address (2026-10-25)
     (r"\b[\w.+-]+@[A-Za-z][\w-]*", "<EMAIL>"),   # dotless host: whatever is left of the user@host form
     (r"(?:\+91[\s-]?|\+92[\s-]?|\b0)?\b[6-9]\d{4}[\s-]?\d{5}\b", "<PHONE>"),
     (r"\b(?:XX|xx|\*{2,})?\d{9,18}\b", "<ACCOUNT>"),

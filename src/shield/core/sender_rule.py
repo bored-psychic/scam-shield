@@ -54,7 +54,8 @@ RISKY_THING = {"otp_request": "it asks for your OTP, PIN, CVV or password",
                "secrecy": "it tells you to keep it secret",
                "cutoff_threat": "it threatens to block or cut off a service",
                "earning_promise": "it promises guaranteed or easy earnings",
-               "payment_demand": "it asks for a payment or fee"}
+               "payment_demand": "it asks for a payment or fee",
+               "investment_rule": "it matches an investment-scam pattern"}
 
 
 def payment_demands(text):
@@ -74,7 +75,8 @@ def hard_risks(text, r):
         ("lookalike_link", any(l["kind"] == "free" and l["base_level"] == 1 for l in links)),
         ("gambling", any(l["gambling"] for l in links)),
         *((fam, bool(fear[fam])) for fam in FAMILIES),
-        ("payment_demand", bool(payment_demands(text)))) if hit]
+        ("payment_demand", bool(payment_demands(text))),
+        ("investment_rule", bool(r.get("invest_rules")))) if hit]   # last: the investment rules (Phase A) are the least specific signal, so an existing signal stays the first one named
 
 
 def apply_sender(r, sid: SenderID, text):

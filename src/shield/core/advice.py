@@ -1,4 +1,5 @@
 from shield.contracts import Level
+from shield.messages.invest_rules import SEBI_ADVICE
 
 # What to do next, per verdict level: the one place for this wording (the frontend shows Report.advice and owns no "what to do" copy).
 # Plain, calm, no jargon. A level with no warning still gets the OTP reminder: it only means nothing strong was found.
@@ -21,13 +22,17 @@ ADVICE: dict[Level, list[str]] = {
 # Added as the FIRST item when the message links to a gambling or betting site (Report.category == "gambling").
 GAMBLING_ADVICE = "Don't deposit money or share payment details with betting sites or apps promoted by message."
 
+# Added right after the gambling line when any investment-scam rule (shield.messages.invest_rules) fired. Same wording as invest_rules.SEBI_ADVICE.
+INVESTMENT_ADVICE = SEBI_ADVICE
+
 MAX_ADVICE = 5
 assert set(ADVICE) == set(Level), "every Level needs advice"
 assert all(1 <= len(v) <= MAX_ADVICE - 1 for v in ADVICE.values()), f"advice is at most {MAX_ADVICE} items, one of them the gambling line"
 
 
-def advice_for(level: Level, category: str | None) -> list[str]:
-    """A fresh list: ADVICE[level], with GAMBLING_ADVICE in front when category == "gambling"."""
-    out = ([GAMBLING_ADVICE] if category == "gambling" else []) + ADVICE[level]
+def advice_for(level: Level, category: str | None, investment: bool = False) -> list[str]:
+    """A fresh list: ADVICE[level], with GAMBLING_ADVICE in front when category == "gambling", and INVESTMENT_ADVICE after it when an investment rule fired
+    (investment is only ever true on a Suspicious or Likely scam level: the rules raise to at least Suspicious)."""
+    out = ([GAMBLING_ADVICE] if category == "gambling" else []) + ([INVESTMENT_ADVICE] if investment else []) + ADVICE[level]
     assert 1 <= len(out) <= MAX_ADVICE
     return out

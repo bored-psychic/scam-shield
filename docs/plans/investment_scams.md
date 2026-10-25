@@ -1,6 +1,6 @@
 # Investment, trading and task scams: audit and plan
 
-**Status: proposal (2026-10-24). Nothing here is built.** No detection code was added. The numbers come from `src/audit_investment.py`
+**Status: Phase A built 2026-10-25** (rules A1-A12, the SEBI advice card, the `@valid` mask fix; `reports/investment_rules_v1.md`, `src/shield/messages/CLAUDE.md`). **Phase B is still a proposal** (the go / no-go in section 6 is unchanged). The audit below (2026-10-24) added no detection code. The numbers come from `src/audit_investment.py`
 (output `reports/investment_audit.md`). The probe is `data/probe/investment_v1.csv` (PROBE-ONLY, see its README).
 
 Why this matters: investment scams are about 76% of India's scam losses (the brief's figure, MHA 2025; not re-checked here). Genuine
@@ -152,6 +152,8 @@ measure our own wording. `upi`, `registered` and `shares` lean genuine, which is
 | any (union) | 39 | 2 | 0 | 6 (+1 false alarm) |
 
 ## 5. Phase A: rules (about 1-2 sessions, Sonnet high)
+
+**Result (2026-10-25, `reports/investment_rules_v1.md`).** Built as planned, with the regexes tightened where the first run on the whole val split fired on 15 genuine rows (long-form emails and job posts; all hook rules except A8): the final rules fire on 0 of 4,115 genuine val rows and change 0 of 5,267 val verdicts (val F1 0.9294 before and after for MuRIL, 0.8924 for the baseline), and on 0 of 48 genuine probe rows. On the probe v1 (**upper bound**, written after reading it): MuRIL router 39/54 -> 46/54 scams flagged (7 new: s03 s13 s15 s16 s18 s39 s54), false alarms 14/48 -> 14/48; the rules alone catch 41/54. The old "+6, 45/54" estimate below was made with the audit's looser regexes. Not fixed, as planned: the 13 genuine probe rows MuRIL calls Likely scam (Phase B).
 
 Add rules like the OTP / PIN rules: a hit **floors** the level at Suspicious, never gives Likely scam alone, and shows its own reason and
 advice ("Check the UPI id ends in @valid... and use SEBI Check", "No registered adviser can promise fixed returns", "Pre-IPO allotment through a

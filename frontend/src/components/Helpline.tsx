@@ -4,9 +4,10 @@ import { CALL_URL, CYBERCRIME_URL, HELP_LANGS, HELP_STRINGS, type HelpLang } fro
 /* The helpline row (shown on Suspicious and Likely scam only, inside What to do now, under the steps): a label, [Call 1930] and
    [cybercrime.gov.in ↗], with a compact EN / हिंदी / ಕನ್ನಡ switch on the right of the row. The "if money was lost, call within one hour" hint is
    only the Call button's aria-label and title. English until the user picks another language (not remembered). Nothing is submitted, sent or
-   stored by this page. HELP_NEEDS_REVIEW (lib/helpline.ts) marks wording not yet checked by a native speaker; the row shows nothing about it. */
-export default function Helpline() {
-  const [lang, setLang] = useState<HelpLang>("en");
+   stored by this page. Controlled by the result screen (props lang / onLang) so the investment reasons and card change with it; alone it keeps its own state. HELP_NEEDS_REVIEW (lib/helpline.ts) marks wording not yet checked by a native speaker; the row shows nothing about it. */
+export default function Helpline({ lang: given, onLang }: { lang?: HelpLang; onLang?: (l: HelpLang) => void } = {}) {
+  const [own, setOwn] = useState<HelpLang>("en");
+  const lang = given ?? own, setLang = onLang ?? setOwn;   // the language is the result screen's when it passes one (the Why reasons and the investment card follow it)
   const id = useId();
   const s = HELP_STRINGS[lang], tag = HELP_LANGS.find((l) => l.id === lang)!.tag;
   return (

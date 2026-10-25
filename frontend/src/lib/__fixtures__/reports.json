@@ -3747,7 +3747,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -3757,7 +3757,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -4241,7 +4241,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -4261,7 +4261,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        }
       ],
@@ -4380,7 +4380,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -4400,7 +4400,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        }
       ],
@@ -4541,7 +4541,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -4551,7 +4551,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        }
       ],
@@ -4598,7 +4598,7 @@
   "report": {
    "schema_version": "5",
    "module": "messages",
-   "level": "likely_scam",
+   "level": "suspicious",
    "score": null,
    "category": null,
    "sender": null,
@@ -4620,19 +4620,19 @@
     }
    ],
    "reasons": [
-    "The link looks like known phishing links",
+    "The link looks somewhat like phishing links",
     "Claims to be from a bank, government body or company"
    ],
    "advice": [
-    "Don't reply, click the link or call back.",
-    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now."
+    "Don't click the link or share any code yet.",
+    "Contact the company through its official app or the number on your card, not the one in the message.",
+    "If you're unsure, ask someone you trust before acting."
    ],
    "children": [
     {
      "schema_version": "5",
      "module": "links",
-     "level": "likely_scam",
+     "level": "suspicious",
      "score": 0.999,
      "category": null,
      "sender": null,
@@ -4640,9 +4640,9 @@
       {
        "id": "model.url",
        "module": "links",
-       "effect": "danger",
-       "title": "The link looks like known phishing links",
-       "detail": "",
+       "effect": "caution",
+       "title": "The link looks somewhat like phishing links",
+       "detail": "The website-name check rates this link higher, but no other check agreed, so it is shown as Suspicious.",
        "quote": null,
        "span": null,
        "tag": "Risky link",
@@ -4673,7 +4673,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -4683,7 +4683,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -4726,7 +4726,7 @@
     "links"
    ],
    "link": null,
-   "risk_score": 70,
+   "risk_score": 30,
    "lowered": null,
    "meta": {
     "text_score": null,
@@ -4872,24 +4872,24 @@
   "report": {
    "schema_version": "5",
    "module": "messages",
-   "level": "likely_scam",
+   "level": "suspicious",
    "score": null,
    "category": null,
    "sender": null,
    "evidence": [],
    "reasons": [
-    "The link looks like known phishing links"
+    "The link looks somewhat like phishing links"
    ],
    "advice": [
-    "Don't reply, click the link or call back.",
-    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
-    "If you paid or shared details, call 1930 now."
+    "Don't click the link or share any code yet.",
+    "Contact the company through its official app or the number on your card, not the one in the message.",
+    "If you're unsure, ask someone you trust before acting."
    ],
    "children": [
     {
      "schema_version": "5",
      "module": "links",
-     "level": "likely_scam",
+     "level": "suspicious",
      "score": 0.973,
      "category": null,
      "sender": null,
@@ -4897,9 +4897,9 @@
       {
        "id": "model.url",
        "module": "links",
-       "effect": "danger",
-       "title": "The link looks like known phishing links",
-       "detail": "",
+       "effect": "caution",
+       "title": "The link looks somewhat like phishing links",
+       "detail": "The website-name check rates this link higher, but no other check agreed, so it is shown as Suspicious.",
        "quote": "http://sbi.co.in@totally-different.top/verify",
        "span": [
         0,
@@ -4933,7 +4933,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -4943,7 +4943,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -4986,11 +4986,1107 @@
     "links"
    ],
    "link": null,
-   "risk_score": 70,
+   "risk_score": 30,
    "lowered": null,
    "meta": {
     "text_score": null,
     "text_thresholds": null,
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-vip-group-tips",
+  "text": "Join our VIP group for daily stock tips. Guaranteed returns, zero risk!",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.987,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "rule.invest_guaranteed",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Promises guaranteed returns. No real investment can guarantee returns.",
+     "detail": "",
+     "quote": "Guaranteed returns",
+     "span": [
+      41,
+      59
+     ],
+     "tag": "Guaranteed returns",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "rule.invest_vip_group",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Invites you to a paid or VIP tips group.",
+     "detail": "",
+     "quote": "Join our VIP",
+     "span": [
+      0,
+      12
+     ],
+     "tag": "VIP tips group",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.987 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Promises guaranteed returns. No real investment can guarantee returns.",
+    "Invites you to a paid or VIP tips group.",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 99,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.987,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-personal-upi",
+  "text": "Congratulations, your VIP trading account is approved. Pay Rs 25,000 to rajesh.trade88@ybl to activate it.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.988,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "rule.invest_upi",
+     "module": "messages",
+     "effect": "danger",
+     "title": "Asks for investment money to a UPI ID that is not a SEBI @valid ID.",
+     "detail": "",
+     "quote": "rajesh.trade88@ybl",
+     "span": [
+      72,
+      90
+     ],
+     "tag": "Non-@valid UPI",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: pay, rs 25,000, <upi_id>",
+     "quote": "Pay",
+     "span": [
+      55,
+      58
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.988 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for investment money to a UPI ID that is not a SEBI @valid ID.",
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 100,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.988,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-pay-to-withdraw",
+  "text": "Your profit of Rs 3,40,000 is ready. To withdraw it you must first pay 20% income tax of Rs 68,000.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.988,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "rule.invest_pay_to_withdraw",
+     "module": "messages",
+     "effect": "danger",
+     "title": "Asks you to pay a fee or tax before you can withdraw your money.",
+     "detail": "",
+     "quote": "withdraw it you must first pay",
+     "span": [
+      40,
+      70
+     ],
+     "tag": "Pay to withdraw",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "tactic.authority",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Claims to be from a bank, government body or company",
+     "detail": "Matched: income tax",
+     "quote": "income tax",
+     "span": [
+      75,
+      85
+     ],
+     "tag": "Authority claim",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: rs 3,40,000, pay, rs 68,000",
+     "quote": "Rs 3,40,000",
+     "span": [
+      15,
+      26
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.988 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks you to pay a fee or tax before you can withdraw your money.",
+    "Claims to be from a bank, government body or company",
+    "Asks for money or payment details"
+   ],
+   "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 100,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.988,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-ipo-preallotment",
+  "text": "Our FII channel has secured pre-allotment of shares in the upcoming IPO. Apply through our app today.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "suspicious",
+   "score": 0.017,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "rule.invest_ipo_allotment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Offers IPO pre-allotment or an institutional account through a group or app.",
+     "detail": "",
+     "quote": "FII channel",
+     "span": [
+      4,
+      15
+     ],
+     "tag": "IPO allotment",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "neutral",
+     "title": "The wording does not resemble known scam messages",
+     "detail": "score 0.017 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Offers IPO pre-allotment or an institutional account through a group or app."
+   ],
+   "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
+    "Don't click the link or share any code yet.",
+    "Contact the company through its official app or the number on your card, not the one in the message.",
+    "If you're unsure, ask someone you trust before acting."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 30,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.017,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-task-prepaid",
+  "text": "Higher level tasks are prepaid: pay Rs 5,000 and get Rs 6,500 back within 30 minutes.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.988,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "rule.invest_task_prepaid",
+     "module": "messages",
+     "effect": "danger",
+     "title": "Asks for a deposit to unlock tasks or higher levels.",
+     "detail": "",
+     "quote": "level tasks are prepaid: pay Rs 5,000 and get Rs",
+     "span": [
+      7,
+      55
+     ],
+     "tag": "Prepaid task",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "tactic.urgency",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Pushes you to act quickly",
+     "detail": "Matched: within 30 minutes",
+     "quote": "within 30 minutes",
+     "span": [
+      67,
+      84
+     ],
+     "tag": "Urgency",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: pay, rs 5,000, rs 6,500",
+     "quote": "pay",
+     "span": [
+      32,
+      35
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.988 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for a deposit to unlock tasks or higher levels.",
+    "Pushes you to act quickly",
+    "Asks for money or payment details"
+   ],
+   "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 100,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.988,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-sebi-valid-template",
+  "text": "We have a validated UPI ID for payment, please pay us at examplebroker.brk@validhdfc.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.967,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: upi, payment, pay, <upi_id>",
+     "quote": "UPI",
+     "span": [
+      20,
+      23
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.967 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 93,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.967,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-valid-id-pay",
+  "text": "To add funds to your trading account, pay by UPI only to examplebroker.brk@validhdfc and check the green thumbs-up icon. Never pay to any personal account.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.894,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: pay, upi, <upi_id>",
+     "quote": "pay",
+     "span": [
+      38,
+      41
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.894 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 85,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.894,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-warning-not-promise",
+  "text": "NSE cautions investors not to subscribe to any scheme offering indicative, assured or guaranteed returns in the stock market.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "no_warning_signs",
+   "score": 0.029,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "neutral",
+     "title": "The wording does not resemble known scam messages",
+     "detail": "score 0.029 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [],
+   "advice": [
+    "Still never share an OTP, PIN or CVV, even with senders that look genuine.",
+    "If something feels off later, check it again."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 11,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.029,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-registered-analyst",
+  "text": "Research call: BUY EXAMPLE INDUSTRIES CMP 412, target 450, stop loss 395. ABC Research, SEBI RA Reg. No. INH000012345.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "suspicious",
+   "score": 0.253,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.authority",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Claims to be from a bank, government body or company",
+     "detail": "Matched: sebi",
+     "quote": "SEBI",
+     "span": [
+      88,
+      92
+     ],
+     "tag": "Authority claim",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "caution",
+     "title": "The wording is somewhat similar to known scam messages",
+     "detail": "score 0.253 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Claims to be from a bank, government body or company",
+    "The wording is somewhat similar to known scam messages"
+   ],
+   "advice": [
+    "Don't click the link or share any code yet.",
+    "Contact the company through its official app or the number on your card, not the one in the message.",
+    "If you're unsure, ask someone you trust before acting."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 53,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.253,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-prepaid-recharge",
+  "text": "Your prepaid recharge of Rs 299 was successful. Validity 28 days.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.988,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: recharge, rs 299",
+     "quote": "recharge",
+     "span": [
+      13,
+      21
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.988 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 100,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.988,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "invest-job-ad-daily",
+  "text": "Office assistant needed, salary Rs 25,000 per month, work from home option, paid daily attendance bonus.",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.988,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: rs 25,000",
+     "quote": "Rs 25,000",
+     "span": [
+      32,
+      41
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.988 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 100,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.988,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "upi-id-not-a-link",
+  "text": "pay to rajesh.trade88@ybl",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "likely_scam",
+   "score": 0.983,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "tactic.payment",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Asks for money or payment details",
+     "detail": "Matched: pay, <upi_id>",
+     "quote": "pay",
+     "span": [
+      0,
+      3
+     ],
+     "tag": "Payment ask",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "danger",
+     "title": "The wording is very similar to known scam messages",
+     "detail": "score 0.983 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [
+    "Asks for money or payment details",
+    "The wording is very similar to known scam messages"
+   ],
+   "advice": [
+    "Don't reply, click the link or call back.",
+    "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
+    "If you paid or shared details, call 1930 now."
+   ],
+   "children": [],
+   "pending": [],
+   "link": null,
+   "risk_score": 97,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.983,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
+    "escalated": false,
+    "truncated": false,
+    "lang": null,
+    "ms": null,
+    "models": {
+     "text": "muril fc3bdaf1",
+     "url": "hgb-host a8f6d9cc",
+     "gambling_lookup": "2026-10-09"
+    }
+   }
+  }
+ },
+ {
+  "label": "email-not-a-link",
+  "text": "Write to user.name@gmail.com for details, or visit example.com",
+  "report": {
+   "schema_version": "5",
+   "module": "messages",
+   "level": "no_warning_signs",
+   "score": 0.041,
+   "category": null,
+   "sender": null,
+   "evidence": [
+    {
+     "id": "model.text",
+     "module": "messages",
+     "effect": "neutral",
+     "title": "The wording does not resemble known scam messages",
+     "detail": "score 0.041 (Suspicious from 0.103, Likely scam from 0.436)",
+     "quote": null,
+     "span": null,
+     "tag": "Scam wording",
+     "source": null,
+     "sent": null
+    }
+   ],
+   "reasons": [],
+   "advice": [
+    "Still never share an OTP, PIN or CVV, even with senders that look genuine.",
+    "If something feels off later, check it again."
+   ],
+   "children": [
+    {
+     "schema_version": "5",
+     "module": "links",
+     "level": "no_warning_signs",
+     "score": 0.172,
+     "category": null,
+     "sender": null,
+     "evidence": [
+      {
+       "id": "model.url",
+       "module": "links",
+       "effect": "neutral",
+       "title": "The link does not look like known phishing links",
+       "detail": "",
+       "quote": "example.com",
+       "span": [
+        51,
+        62
+       ],
+       "tag": "Risky link",
+       "source": null,
+       "sent": null
+      },
+      {
+       "id": "link.popular",
+       "module": "links",
+       "effect": "reassuring",
+       "title": "A well-known website (#169 of the most visited)",
+       "detail": "Popular, long-established sites are rarely scam sites, though one can be hacked.",
+       "quote": "example.com",
+       "span": [
+        51,
+        62
+       ],
+       "tag": "Well-known site",
+       "source": null,
+       "sent": null
+      }
+     ],
+     "reasons": [],
+     "advice": [],
+     "children": [],
+     "pending": [
+      "registration",
+      "dns"
+     ],
+     "link": {
+      "url": "example.com",
+      "host": "example.com",
+      "shown_host": "example.com",
+      "owner": "example.com",
+      "shortener": false,
+      "expandable": false,
+      "destination": null,
+      "facts": [
+       {
+        "key": "lists",
+        "label": "Scam lists",
+        "value": "Not on OpenPhish or URLhaus",
+        "effect": "neutral",
+        "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
+        "status": "ok",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
+        "sent": null
+       },
+       {
+        "key": "popularity",
+        "label": "Popularity",
+        "value": "#169 of the top 1 million websites",
+        "effect": "reassuring",
+        "why": null,
+        "status": "ok",
+        "source": "Tranco list updated 2 days ago",
+        "sent": null
+       },
+       {
+        "key": "age",
+        "label": "Registered",
+        "value": null,
+        "effect": "unknown",
+        "why": null,
+        "status": "pending",
+        "source": null,
+        "sent": null
+       },
+       {
+        "key": "server",
+        "label": "Server",
+        "value": null,
+        "effect": "unknown",
+        "why": null,
+        "status": "pending",
+        "source": null,
+        "sent": null
+       }
+      ],
+      "sent": []
+     },
+     "risk_score": null,
+     "lowered": null,
+     "meta": {
+      "text_score": null,
+      "text_thresholds": null,
+      "escalated": false,
+      "truncated": false,
+      "lang": null,
+      "ms": null,
+      "models": {}
+     }
+    }
+   ],
+   "pending": [
+    "links"
+   ],
+   "link": null,
+   "risk_score": 16,
+   "lowered": null,
+   "meta": {
+    "text_score": 0.041,
+    "text_thresholds": [
+     0.103,
+     0.436
+    ],
     "escalated": false,
     "truncated": false,
     "lang": null,
@@ -5155,7 +6251,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -5165,7 +6261,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -5495,7 +6591,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -5505,7 +6601,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -5705,7 +6801,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -5715,7 +6811,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -5915,7 +7011,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -5925,7 +7021,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -6125,7 +7221,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -6135,7 +7231,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -6353,7 +7449,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -6363,7 +7459,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -6580,7 +7676,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -6590,7 +7686,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -6810,7 +7906,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -6820,7 +7916,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -7028,7 +8124,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -7038,7 +8134,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -7288,7 +8384,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -7298,7 +8394,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -7731,7 +8827,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -7741,7 +8837,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -7903,6 +8999,21 @@
    "sender": null,
    "evidence": [
     {
+     "id": "rule.invest_task_pay",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Promises daily pay for simple online tasks.",
+     "detail": "",
+     "quote": "₹3,000 per day",
+     "span": [
+      20,
+      34
+     ],
+     "tag": "Task pay promise",
+     "source": null,
+     "sent": null
+    },
+    {
      "id": "tactic.payment",
      "module": "messages",
      "effect": "caution",
@@ -7931,10 +9042,12 @@
     }
    ],
    "reasons": [
+    "Promises daily pay for simple online tasks.",
     "Asks for money or payment details",
     "The wording is very similar to known scam messages"
    ],
    "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
     "If you paid or shared details, call 1930 now."
@@ -8186,7 +9299,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -8196,7 +9309,7 @@
         "effect": "neutral",
         "why": "Most scam sites aren't, and neither are many small genuine businesses.",
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {
@@ -8271,6 +9384,36 @@
    "sender": null,
    "evidence": [
     {
+     "id": "rule.invest_guaranteed",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Promises guaranteed returns. No real investment can guarantee returns.",
+     "detail": "",
+     "quote": "Guaranteed 30% returns",
+     "span": [
+      31,
+      53
+     ],
+     "tag": "Guaranteed returns",
+     "source": null,
+     "sent": null
+    },
+    {
+     "id": "rule.invest_vip_group",
+     "module": "messages",
+     "effect": "caution",
+     "title": "Invites you to a paid or VIP tips group.",
+     "detail": "",
+     "quote": "Join our VIP stock tips group",
+     "span": [
+      0,
+      29
+     ],
+     "tag": "VIP tips group",
+     "source": null,
+     "sent": null
+    },
+    {
      "id": "model.text",
      "module": "messages",
      "effect": "danger",
@@ -8284,9 +9427,12 @@
     }
    ],
    "reasons": [
+    "Promises guaranteed returns. No real investment can guarantee returns.",
+    "Invites you to a paid or VIP tips group.",
     "The wording is very similar to known scam messages"
    ],
    "advice": [
+    "SEBI-registered brokers and advisers collect UPI payments only through IDs with the @valid handle (for example name.brk@validhdfc), and never promise guaranteed returns. Check any adviser at sebi.gov.in before paying.",
     "Don't reply, click the link or call back.",
     "Never share an OTP, PIN or CVV. No bank, police or company will ask for it.",
     "If you paid or shared details, call 1930 now."
@@ -8346,7 +9492,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -8356,7 +9502,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        }
       ],
@@ -8699,7 +9845,7 @@
         "effect": "neutral",
         "why": "Not listed is not proof: new scam sites take hours or days to be reported.",
         "status": "ok",
-        "source": "OpenPhish updated 4 h ago; URLhaus updated 4 h ago",
+        "source": "OpenPhish updated 2 days ago; URLhaus updated 2 days ago",
         "sent": null
        },
        {
@@ -8709,7 +9855,7 @@
         "effect": "neutral",
         "why": null,
         "status": "ok",
-        "source": "Tranco list updated 4 h ago",
+        "source": "Tranco list updated 2 days ago",
         "sent": null
        },
        {

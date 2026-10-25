@@ -18,7 +18,9 @@ import { chromium } from "playwright-core";
 import { preview } from "vite";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const jio = JSON.parse(readFileSync(join(HERE, "..", "src", "lib", "__fixtures__", "reports.json"), "utf8")).find((x) => x.label === "jio-no-sender");
+const FIXTURES = JSON.parse(readFileSync(join(HERE, "..", "src", "lib", "__fixtures__", "reports.json"), "utf8"));
+const jio = FIXTURES.find((x) => x.label === "jio-no-sender");
+const invest = FIXTURES.find((x) => x.label === "invest-vip-group-tips");   // 2026-10-25: the investment card and the translated reasons (English, Kannada)
 const PORT = 4177;
 
 async function audit(page) {
@@ -67,12 +69,17 @@ const phrase = { dark: [], light: [] };   // [over the globe, ratio] per home ru
 try {
   for (const theme of ["dark", "light"])
   for (const [w, h] of [[390, 844], [1440, 1150]])
-    for (const screen of ["home", "result"]) {
+    for (const screen of ["home", "result", "invest", "invest-kn"]) {
       const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", colorScheme: theme });
       const page = await ctx.newPage();
-      await page.route("**/api/analyse", (r) => r.fulfill({ json: jio.report }));
+      const f = screen.startsWith("invest") ? invest : jio;
+      await page.route("**/api/analyse", (r) => r.fulfill({ json: f.report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
-      if (screen === "result") { await page.fill("#msg", jio.text); await page.click("button.go"); await page.waitForSelector(".result .vword"); await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; })); }
+      if (screen !== "home") {
+        await page.fill("#msg", f.text); await page.click("button.go"); await page.waitForSelector(".result .vword"); await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
+        if (screen === "invest-kn") await page.click('.helplangbtn:has-text("ಕನ್ನಡ")');
+        if (screen.startsWith("invest") && !(await page.locator(".investcard").count())) { fails++; console.log("FAIL the investment card is missing"); }
+      }
       await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(800);
       const rows = await audit(page);
       const bad = rows.filter((r) => r.ratio < r.need);

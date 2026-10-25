@@ -21,7 +21,8 @@ const FIXTURES = JSON.parse(readFileSync(join(HERE, "..", "src", "lib", "__fixtu
 const shotsAt = process.argv.indexOf("--shots");
 const SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 const VIEWPORTS = [[360, 640], [360, 800], [390, 600], [390, 844], [430, 932], [1280, 800], [1440, 900]];
-const CASES = ["jio-no-sender", "kyc-promotional", "shortener-keywords"];
+const NO_LINK = "invest-vip-group-tips";   // 2026-10-25: the investment card and the translated Why reasons (a Report with no link, rules A3 + A5)
+const CASES = ["jio-no-sender", "kyc-promotional", "shortener-keywords", NO_LINK];
 const THEMES = ["dark", "light"];
 const PORT = 4173;
 
@@ -131,6 +132,21 @@ function measure() {
       if (r.height < 24 || r.width < 24) out.push(`help: switch button ${el.textContent} is ${Math.round(r.width)}x${Math.round(r.height)} px (< 24)`);
     }
   }
+  // Investment card (2026-10-25): above the steps, inside What to do now, text >= 14 px; the Why reasons never overflow their buttons
+  const card = document.querySelector(".investcard");
+  if (card) {
+    const todo = card.closest(".box").getBoundingClientRect(), r = card.getBoundingClientRect(), list = document.querySelector(".steplist").getBoundingClientRect();
+    if (r.left < todo.left - 1 || r.right > todo.right + 1) out.push(`invest: the card sticks out of the What to do panel (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(todo.left)}..${Math.round(todo.right)})`);
+    if (r.bottom > list.top + 1) out.push("invest: the card is not above the steps");
+    for (const el of card.querySelectorAll("b, p")) {
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      if (el.scrollWidth > el.clientWidth + 1) out.push(`invest: ${el.tagName} overflows (${el.scrollWidth} > ${el.clientWidth})`);
+      if (el.tagName === "P" && fs < 14) out.push(`invest: card text is ${fs}px (< 14)`);
+    }
+  }
+  for (const b of document.querySelectorAll(".reasons .reason")) {
+    if (b.scrollWidth > b.clientWidth + 1) out.push(`why: a reason overflows its button (${b.scrollWidth} > ${b.clientWidth}): ${b.textContent.slice(0, 40)}`);
+  }
   // Risk meter (2026-10-23): at any score the knob (moved here to 0, 1, 30, 50, 70, 99, 100) does not touch a scale number, and a number stays on the panel
   const knob = document.querySelector(".meter .knob");
   if (knob) {
@@ -173,14 +189,14 @@ async function runCase(browser, [w, h], label, theme) {
   await page.goto(`http://127.0.0.1:${PORT}/`);
   await page.fill("#msg", f.text);
   await page.click("button.go");
-  await page.waitForSelector(".result .box.link");
+  await page.waitForSelector(label === NO_LINK ? ".result .box" : ".result .box.link");
   const tag = `${theme.padEnd(5)} ${w}x${h} ${label}`;
   if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== theme) problems.push(`the page is not in the ${theme} theme`);
   const check = async (state) => {
     for (const p of await page.evaluate(measure)) problems.push(`${state}: ${p}`);
     if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: join(SHOTS, `${theme}_${label}_${w}x${h}_${state}.png`), fullPage: true }); }
   };
-  if (!(await page.locator(".frow.pending").count()) && label !== "shortener-keywords") problems.push("pending: no pending row was shown");
+  if (!(await page.locator(".frow.pending").count()) && label !== "shortener-keywords" && label !== NO_LINK) problems.push("pending: no pending row was shown");
   await check("pending");
   release();
   await page.waitForFunction(() => !document.querySelector(".frow.pending"));
@@ -207,10 +223,18 @@ async function runCase(browser, [w, h], label, theme) {
     if (links.label !== "Cyber crime helpline") problems.push(`help: label is "${links.label}"`);
     if (!links.below) problems.push("help: the row is not under the steps");
     await check("help-en");
+    if (f.report.advice.some((a) => /@valid/.test(a)) !== (await page.locator(".investcard").count() > 0)) problems.push("invest: the card does not match the SEBI advice line");
+    if (await page.locator(".steplist li", { hasText: "@valid" }).count()) problems.push("invest: the SEBI line is also a numbered step");
     for (const [name, label] of [["हिंदी", "साइबर क्राइम हेल्पलाइन"], ["ಕನ್ನಡ", "ಸೈಬರ್ ಕ್ರೈಂ ಹೆಲ್ಪ್‌ಲೈನ್"]]) {
       await page.click(`.helplangbtn:has-text("${name}")`);
       const got = await page.locator(".helplabel").textContent();
       if (got !== label) problems.push(`help: ${name} label is "${got}"`);
+      if (f.report.evidence.some((e) => e.id.startsWith("rule.invest_"))) {   // the investment reasons and the card follow the switch
+        const script = name === "हिंदी" ? /[\u0900-\u097F]/ : /[\u0C80-\u0CFF]/;
+        const why = await page.locator(".reasons .reason").first().textContent(), cardText = await page.locator(".investcard").textContent();
+        if (!script.test(why ?? "")) problems.push(`invest: the first reason is not in ${name}: "${why}"`);
+        if (!script.test(cardText ?? "")) problems.push(`invest: the card is not in ${name}`);
+      }
       await check(`help-${name}`);
     }
   }

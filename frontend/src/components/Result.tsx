@@ -10,6 +10,7 @@ import WhatToDo from "./WhatToDo";
 import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
 import { SENDER_TIP, showSenderTip } from "../lib/sender";
+import type { HelpLang } from "../lib/helpline";
 
 type Props = {
   report: Report;
@@ -44,6 +45,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
   const targets = useMemo(() => reasonTargets(report), [report]);
   const [tip, setTip] = useState<TipAt | null>(null);
   const [pulse, setPulse] = useState<Pulse | null>(null);
+  const [lang, setLang] = useState<HelpLang>("en");   // the helpline row's EN / हिंदी / ಕನ್ನಡ switch; also the language of the investment reasons and card (not remembered)
 
   const showTip = useCallback((cluster: Cluster, anchor: HTMLElement) => setTip({ cluster, anchor, show: true }), []);
   const hideTip = useCallback(() => setTip((t) => (t?.show ? { ...t, show: false } : t)), []);
@@ -82,9 +84,9 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
                                 note={raised ? "Raised after the website checks." : null}
                                 score={report.risk_score} lowered={report.lowered?.text ?? null} />;
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} />;
-  const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} />;
+  const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} lang={lang} />;
   const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;
-  const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null} />;
+  const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null} lang={lang} onLang={setLang} />;
   return (
     <section className="result" ref={root}>
       <div className="rtop">

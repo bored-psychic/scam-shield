@@ -40,6 +40,10 @@ EXACT_BRAND_CHECK = os.environ.get("SHIELD_EXACT_BRAND", "1") != "0"
 # The default for the app and the API; analyse(..., safety_cap=True / False) overrides it per call (the tests run both).
 SAFETY_ADVICE_CAP = False
 
+# The investment / trading / task-scam rules A1-A12 (shield.messages.invest_rules, docs/plans/investment_scams.md Phase A): raise-only, read the raw text.
+# analyse(..., invest_rules=True / False) overrides it per call (the evaluation in src/eval_invest_rules.py runs the app both ways).
+INVEST_RULES = True
+
 # What kind of model sits behind each path, for Report.meta.models.
 TEXT_MODEL_KIND, URL_MODEL_KIND = "tfidf-lr", "hgb-host"   # TF-IDF char n-grams + logistic regression; host-only HistGradientBoosting
 MURIL_KIND = "muril"
