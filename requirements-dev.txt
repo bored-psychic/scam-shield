@@ -1,4 +1,5 @@
 # Test runner for the main .venv (Mac). Install on top of requirements.txt (a frozen pip freeze that is not edited by hand):
 #   pip install -r requirements.txt -r requirements-dev.txt && pip install -e .
-# Run: .venv/bin/python -m pytest -q   (6 tests; see CLAUDE.md "Tests")
+# Run: .venv/bin/python -m pytest -q   (12 test files; see CLAUDE.md "Tests")
 pytest==9.1.1
+jiwer==4.0.0     # OCR character error rate: src/ocr_cer.py and typed screenshots in src/intake_screens.py (pulls rapidfuzz, click)

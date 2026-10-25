@@ -71,7 +71,16 @@
   module: text
   access: manual
   id: https://data.mendeley.com/datasets/f45bkkt8pr
-  notes: Mishra & Soni 2022 SMS Phishing Dataset; drop CSV in data/external/text/mendeley_smishing/
+  licence: CC BY 4.0 (dataset page, fetched 2026-10-25)
+  downloaded: 2026-10-25 (https://data.mendeley.com/public-api/zip/f45bkkt8pr/download/1; zip sha256 c2b5a89dd682ce4cd83d11c5f193d9f5f9d59a467f6e63d860fd38848396fb75)
+  file: data/external/text/mendeley_smishing/Dataset_5971.csv (latin-1; sha256 649844f1c62a6b27e145eaf17a65f7010c56c390e11a794ea8329993a05ba71e)
+  expected_rows: 5971
+  provenance: unknown
+  notes: >-
+    Mishra & Soni 2022 SMS Phishing Dataset (ham 4,844, smishing 638, spam 489 with case variants). Stated collection: OCR of images found on the
+    internet, messages credited to T. A. Almeida (UCI SMS Spam) and G. Sonowal. NOT ingested: src/audit_dataset.py (reports/dataset_audit.md)
+    rejects it, 76.3% of rows are near-duplicates of our train split and 1.8% carry an Indian marker (docs/plans/data_acquisition.md section 4).
+  verified: 2026-10-25
 
 - name: hinglish_conversations
   module: indic
