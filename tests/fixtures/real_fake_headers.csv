@@ -1,0 +1,5 @@
+text,label,language,collected_by,script,date_received,source,notes
+"Dear customer, FakeBank KYC expires today. Update now at https://fakebank-kyc-check.example.invalid/login4 to avoid account block.",scam,English,Asha Testperson,Latin,2026-10-20,whatsapp,first note
+Your FakeBank statement for September is ready. Login on the official app to view it.,not_scam,English,Ravi Sample,Latin,2026-10-21,sms,
+Please confirm your delivery slot for tomorrow evening in the FakeShop app.,unsure,English,Meera Dummy,Latin,2026-10-21,sms,not sure about this one
+आपका बिजली बिल बकाया है कृपया समय पर भुगतान करें,not_scam,Hindi,Meera Dummy,Devanagari,2026-10-22,Priya's phone,

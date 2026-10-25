@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<!--FAKE FIXTURE (surrogate pairs): invented numbers and names, not a real backup-->
+<smses count="3" backup_set="00000000-0000-0000-0000-000000000000" backup_date="1790000000000" type="full">
+  <sms protocol="0" address="VM-FAKEWL-P" date="1700000000000" type="1" subject="null" body="FakeWallet: you received Rs 100 cashback &#55357;&#56834; Open the app to see your rewards today&#1;" toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="1" readable_date="12 Oct 2026 10:00:00" contact_name="(Unknown)" />
+  <sms protocol="0" address="919876500010" date="1700000000000" type="1" subject="null" body="Dear customer, your FakeBank KYC expires today. Update now at https://fakebank-kyc-check.example.invalid/login2 to avoid account block." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="1" readable_date="12 Oct 2026 10:00:00" contact_name="(Unknown)" />
+  <sms protocol="0" address="AX-FAKEBK-S" date="1700000000000" type="1" subject="null" body="665544 is your OTP for login to FakeBank NetBanking. Do not share it with anyone." toa="null" sc_toa="null" service_center="null" read="1" status="-1" locked="0" date_sent="0" sub_id="1" readable_date="12 Oct 2026 10:00:00" contact_name="(Unknown)" />
+</smses>
