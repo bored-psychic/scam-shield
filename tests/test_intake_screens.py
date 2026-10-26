@@ -16,7 +16,7 @@ sys.path[:0] = [str(ROOT / "src"), str(HERE)]
 #   S4  privacy: no phone / UPI / e-mail / account / card pattern in any output, every link (text, source_url, a1_second_url) defanged,
 #       the report has no message text; a leak or a live link planted in a record stops check_outputs
 #   S5  tripwire: realguard still refuses data/real/ and data/probe/; the intake refuses an input or output folder under either
-#   S6  collisions: a near-duplicate of a data/real/ text (raw Form export and real_test_v1.csv), of a probe row, and of a messages.csv test /
+#   S6  collisions: a near-duplicate of a data/real/ text (raw Form export and real_test_v1.csv; a twin of a TEST row counts as "data/real TEST"), of a probe row, and of a messages.csv test /
 #       train row is dropped and counted by where; nothing else is
 #   S7  rerun: the same input again adds 0 rows, ids are stable, a second source with the same wording gives group_sources 2
 #   S8  the repo's own data/collected/ (if any rows exist) has 0 near-duplicates of data/real/
@@ -219,7 +219,13 @@ def s6(tmp):
     want = {"near-duplicate of data/real": 1, "near-duplicate of data/probe": 1, "near-duplicate of messages.csv train": 1,
             "near-duplicate of messages.csv test": 1, "label skip": 1}
     got = {k: v for k, v in res["drops"].items()}
-    return [] if got == want else [f"drops {got}, want {want}"]
+    bad = [] if got == want else [f"drops {got}, want {want}"]
+    # a twin of a frozen TEST row is counted as one (after the real-message freeze, real_test_v1.csv holds only the TEST half)
+    corp = S.real_corpora(tmp / "real")
+    hits = S.collisions(["Unrelated real test row about a library book due on Friday, today.", "A sentence about nothing in the real folder at all, really."], corp)
+    if [w for w, _ in corp] != ["data/real TEST", "data/real"] or hits[0] != {"data/real TEST"} or hits[1]:
+        bad.append(f"TEST twin not counted as 'data/real TEST': {hits}")
+    return bad
 
 
 def s7(tmp):

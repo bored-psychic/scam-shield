@@ -1,4 +1,5 @@
 import ast, csv, hashlib, os, re, shutil, subprocess, sys, tempfile
+from collections import Counter
 from pathlib import Path
 
 HERE = Path(os.path.abspath(globals().get("__file__", "tests/test_real_intake.py"))).parent
@@ -29,6 +30,20 @@ FIXTURE = HERE / "fixtures" / "real_fake.csv"
 #   R15 privacy: no phone number, address, contact / sender name, chat file name or timestamp in any output; report has no message text; data/real/ is ignored
 #   R16 the intake reads under data/real/ (the tripwire is for training scripts) but refuses a PROBE-ONLY folder
 #   R17 names: greeting names masked everywhere (aap / customer are not), mask_names.txt add and veto, ok / <NAME> / DROP, --freeze guards, frozen file kept
+# Label buckets, the terminal labeller and the grouped freeze split (a generated three-phone world: invented numbers, names and senders, Hindi and Kannada rows;
+# the bucket sizes are patched to 3 / 2 so a handful of groups fill all four buckets):
+#   R18 label_priority: 1 = largest, 2 = mobile_number sender, 3 = seeded random, 4 = rest; seed and "scam-enriched" in the report; a new phone file keeps every
+#       group id, bucket and label (a new smallest key, a message like two groups), buckets the new groups on arrival; a second rerun changes nothing
+#   R19 src/label_real.py on a pipe: s / g / k / b / q, progress "bucket N: x/y", the guide line, Hindi and Kannada printed intact, the freeze command at the
+#       end; killed mid-session and restarted it loses no label; a failed save leaves the old file; a sheet rewritten under it keeps the session's labels;
+#       no model import, a score-like column refused
+#   R20 --freeze: blank bucket 1-3 refused, bucket 4 left out with --allow-unlabelled; TEST / POOL share no group and no near-duplicate (brute force), the
+#       two groups a bridge message links sit on one side, <= 3 rows per group with group_size; realguard refuses TEST and lets POOL through; second freeze refused
+#   R21 after the freeze: a new phone file goes to the pool, its message of a TEST group is dropped and counted, the test file never changes; with the group
+#       registry deleted the TEST messages still stay out of the pool; near_test_flags catches a twin of a TEST message
+#   R22 privacy over every output of R18-R21 (preview, test, pool, label sheet, review, reports, state and manifest JSON, labeller output): no number, contact
+#       name, family name (also inside a link: /track/Name/, ?ref=Name123) or address; the JSON files hold ids, hashes and numbers only
+PREVIEW = "labelled_preview.csv"   # before a freeze the labelled rows go here; real_test_v1.csv is written only by --freeze
 FAKE_ROWS_IN_TRAIN = "Your package is waiting. Track at https://fake-parcel-track.example.invalid/x9 and pay the customs charge now."
 
 
@@ -89,7 +104,7 @@ def r1(tmp):
 def r2(tmp):
     bad = []
     sha, final = intake(tmp)
-    out = rows_of(tmp / "real_test_v1.csv")
+    out = rows_of(tmp / PREVIEW)
     import intake_real as I
     if list(out[0]) != I.OUT_COLS:
         bad.append(f"columns {list(out[0])}")
@@ -119,7 +134,7 @@ def r2(tmp):
 
 
 def r3(tmp):
-    rows = rows_of(tmp / "real_test_v1.csv")
+    rows = rows_of(tmp / PREVIEW)
     out = {"R0013": row_with(rows, "Your package is waiting"), "R0016": row_with(rows, "Dinner at 8"), "R0001": row_with(rows, "Dear customer, FakeBank KYC expires today")}
     bad = []
     if out["R0013"]["overlap"] != "True":
@@ -135,7 +150,7 @@ def r4(tmp):
     import intake_real as I
     bad = []
     rv = rows_of(tmp / "review_names.csv")
-    out0 = rows_of(tmp / "real_test_v1.csv")
+    out0 = rows_of(tmp / PREVIEW)
     kiran_id = row_with(out0, "Hi Kiran Pretendname")["id"]
     drop_id = row_with(out0, "Your bank statement for September")["id"]
     toks = {(r["id"], r["token"]) for r in rv}
@@ -153,7 +168,7 @@ def r4(tmp):
     rv.append({"id": drop_id, "token": "Bank", "context": "x", "replace_with": "DROP"})
     I.write_review(tmp / "review_names.csv", rv)
     I.run(FIXTURE, tmp / "real_test_v1.csv", tmp / "review_names.csv", tmp / "report.md", False, tmp / "messages.csv", label_file=tmp / "label_me.csv", names_file=tmp / "no_names.txt")
-    out = {r["id"]: r for r in rows_of(tmp / "real_test_v1.csv")}
+    out = {r["id"]: r for r in rows_of(tmp / PREVIEW)}
     if kiran_id not in out or "Kiran" in out[kiran_id]["text"] or "Pretendname" in out[kiran_id]["text"] or out[kiran_id]["text"].count("<NAME>") != 2:
         bad.append(f"name edit not applied: {out.get(kiran_id, {}).get('text', '')[:60]!r}")
     if drop_id in out:
@@ -195,7 +210,7 @@ def r6(tmp):
     import pandas as pd
     import realguard as G
     bad = []
-    real = tmp / "real_test_v1.csv"
+    real = tmp / PREVIEW   # the labelled rows of R2's run, standing in for a frozen test file
     rows = rows_of(real)
     hashes = G.real_hashes(real)
     if len(hashes) != len(rows):
@@ -238,7 +253,7 @@ def r7(tmp):
 
 
 def r8(tmp):
-    p = subprocess.run([PY, "src/eval_real.py", "--data", str(tmp / "real_test_v1.csv"), "--ledger", str(tmp / "ledger.md")], cwd=ROOT, capture_output=True, text=True)
+    p = subprocess.run([PY, "src/eval_real.py", "--data", str(tmp / PREVIEW), "--ledger", str(tmp / "ledger.md")], cwd=ROOT, capture_output=True, text=True)
     bad = []
     if p.returncode == 0 or "--final" not in (p.stderr + p.stdout):
         bad.append(f"ran without --final: exit {p.returncode}")
@@ -249,12 +264,12 @@ def r8(tmp):
 
 def r9(tmp):
     bad = []
-    cmd = [PY, "src/eval_real.py", "--final", "--data", str(tmp / "real_test_v1.csv"), "--ledger", str(tmp / "ledger.md"), "--report", str(tmp / "eval.md")]
+    cmd = [PY, "src/eval_real.py", "--final", "--data", str(tmp / PREVIEW), "--ledger", str(tmp / "ledger.md"), "--report", str(tmp / "eval.md")]
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     if p.returncode != 0:
         return [f"--final run failed: {(p.stderr + p.stdout)[-400:]}"]
     lines = [l for l in (tmp / "ledger.md").read_text().splitlines() if l.startswith("| 20")]
-    sha = hashlib.sha256((tmp / "real_test_v1.csv").read_bytes()).hexdigest()
+    sha = hashlib.sha256((tmp / PREVIEW).read_bytes()).hexdigest()
     if len(lines) != 1 or sha not in lines[0] or "MuRIL" not in lines[0] or "baseline" not in lines[0]:
         bad.append(f"ledger lines after run 1: {lines}")
     rep = (tmp / "eval.md").read_text()
@@ -336,7 +351,7 @@ def e2e(tmp, raw, tag="a", label_file=None, **kw):
     d = tmp / tag
     d.mkdir(exist_ok=True)
     tiny_messages(d / "messages.csv")
-    paths = dict(out=d / "real_test_v1.csv", review=d / "review_names.csv", report=d / "report.md", label_file=label_file or d / "label_me.csv",
+    paths = dict(out=d / "real_test_v1.csv", preview=d / PREVIEW, review=d / "review_names.csv", report=d / "report.md", label_file=label_file or d / "label_me.csv",
                  names_file=kw.pop("names_file", d / "no_names.txt"))
     res = I.run(raw, paths["out"], paths["review"], paths["report"], kw.pop("freeze", False), d / "messages.csv", label_file=paths["label_file"], names_file=paths["names_file"], **kw)
     return d, paths, res
@@ -371,13 +386,13 @@ def r11(tmp):
     d.mkdir(exist_ok=True)
     tiny_messages(d / "messages.csv")
     sha, final = I.run(FIX / "real_fake_headers.csv", d / "o.csv", d / "r.csv", d / "rep.md", False, d / "messages.csv", label_file=d / "l.csv", names_file=d / "n.txt")
-    out = rows_of(d / "o.csv")
+    out = rows_of(d / PREVIEW)
     rep = (d / "rep.md").read_text()
     if len(out) != 3 or {r["source"] for r in out} != {"form_whatsapp", "form_sms", "form_other"} or {r["label"] for r in out} != {"0", "1"}:
         bad.append(f"{len(out)} rows, sources {sorted({r['source'] for r in out})}")
     if "label unsure (excluded): 1" not in rep:
         bad.append("unsure was not counted in the report")
-    if any(n in (d / f).read_text() for n in ("Asha", "Ravi", "Meera", "Priya") for f in ("o.csv", "rep.md")):
+    if any(n in (d / f).read_text() for n in ("Asha", "Ravi", "Meera", "Priya") for f in (PREVIEW, "rep.md")):
         bad.append("a collected_by value or the free-text source reached the output")
     return bad
 
@@ -492,7 +507,7 @@ def r14(tmp):
                 break
     if any(r["label"] for r in sheet):
         bad.append("label column is not empty on the first run")
-    first = rows_of(paths["out"])
+    first = rows_of(paths["preview"])
     if {r["source_type"] for r in first} != {"form"}:
         bad.append("rows from unlabelled groups reached the test set")
     rep = (paths["report"]).read_text()
@@ -507,7 +522,7 @@ def r14(tmp):
         r["label"] = next((v for k, v in lab.items() if k in r["example_1"]), "genuine")
     write_csv(paths["label_file"], I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
     d2, paths2, (sha2, final2) = e2e(tmp, raw, "g1", label_file=paths["label_file"])
-    out = rows_of(paths2["out"])
+    out = rows_of(paths2["preview"])
     per = {}
     for r in out:
         per.setdefault(r["group_id"], []).append(r)
@@ -558,7 +573,7 @@ def r14(tmp):
     shutil.copyfile(paths["label_file"], tmp / "labels_copy.csv")
     d3, paths3, _ = e2e(tmp, raw2, "g3", label_file=tmp / "labels_copy.csv")
     ids = lambda p: sorted((r["id"], r["group_id"], r["label"]) for r in rows_of(p))
-    if ids(paths3["out"]) != ids(paths2["out"]):
+    if ids(paths3["preview"]) != ids(paths2["preview"]):
         bad.append("row ids / group ids / labels changed when the same files were named differently")
     return bad
 
@@ -574,7 +589,7 @@ def r15(tmp):
         r["label"] = "genuine"
     write_csv(paths["label_file"], I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
     d, paths, _ = e2e(tmp, raw, "p1", label_file=paths["label_file"])
-    out_rows = rows_of(paths["out"])
+    out_rows = rows_of(paths["preview"])
     if len(out_rows) < 15:
         bad.append(f"only {len(out_rows)} rows in the test set after labelling every group")
     files = {"real_test_v1.csv": "\n".join(r["text"] for r in out_rows), "label_me.csv": paths["label_file"].read_text(encoding="utf-8"),
@@ -600,7 +615,9 @@ def r15(tmp):
         bad.append("the number inside a wa.me link was kept")
     if not (wa and any("<NAME>" in r["text"] for r in out_rows)):
         bad.append("a name known from the input was not masked in a message body")
-    for f in ("data/real/label_me.csv", "data/real/raw/x.xml", "data/real/real_test_v1.csv", "data/real/review_names.csv", "data/real/mask_names.txt"):
+    for f in ("data/real/label_me.csv", "data/real/raw/x.xml", "data/real/real_test_v1.csv", "data/real/review_names.csv", "data/real/mask_names.txt",
+              "data/real/label_me_state.json", "data/real/freeze_manifest.json", "data/real/labelled_preview.csv", "data/real/auto_names.txt",
+              "data/collected/phones/pool.csv"):
         if subprocess.run(["git", "check-ignore", "-q", f], cwd=ROOT).returncode != 0:
             bad.append(f"{f} is not git-ignored")
     tracked = subprocess.run(["git", "ls-files", "data/real"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
@@ -726,7 +743,7 @@ def r17(tmp):
             r["replace_with"] = "<NAME>" if r["token"] == "zorbaxo" else "ok"
         I.write_review(paths["review"], review)
         d, paths, (sha, final) = e2e(tmp, raw, "n3", **kw)
-        out_text = "\n".join(r["text"] for r in rows_of(paths["out"]))
+        out_text = "\n".join(r["text"] for r in rows_of(paths["preview"]))
         if "zorbaxo" in out_text or "FakeMart" not in out_text:
             bad.append("<NAME> / ok edits not applied (<NAME> must mask the token, ok must keep the word)")
         if "Candidates still blank (not looked at; blank is kept as written, `ok` marks a reviewed non-name): 0" not in paths["report"].read_text():
@@ -738,22 +755,502 @@ def r17(tmp):
         except I.Stop as e:
             if "no label" not in str(e):
                 bad.append(f"freeze refusal text: {str(e)[:100]}")
+        if paths["out"].exists():
+            bad.append("real_test_v1.csv was written before the freeze")
         d, paths, (sha, final) = e2e(tmp, raw, "n3", freeze=True, **kw)
         if sha not in claude.read_text() or "Not frozen yet" in claude.read_text() or I.frozen_hash() != sha:
             bad.append("freeze did not write the hash / left the 'not frozen' sentence")
+        if paths["preview"].exists():
+            bad.append("the preview file was left next to the frozen test set")
         write_csv(tmp / "chg.csv", I.LABEL_COLS, [[r[c] if c != "label" else "scam" for c in I.LABEL_COLS] for r in sheet])
         before = paths["out"].read_bytes()
-        try:
-            e2e(tmp, raw, "n3", names_file=names, label_file=tmp / "chg.csv")
-            bad.append("a rerun replaced the frozen test set")
-        except I.Stop as e:
-            if "frozen test set" not in str(e):
-                bad.append(f"frozen-file refusal text: {str(e)[:100]}")
+        e2e(tmp, raw, "n3", names_file=names, label_file=tmp / "chg.csv")   # after the freeze a rerun goes to the pool, never to the test file
         if paths["out"].read_bytes() != before:
             bad.append("the frozen file changed")
+        if "Mode: **post**" not in paths["report"].read_text():
+            bad.append("a rerun after the freeze is not in post mode")
     finally:
         I.CLAUDE = saved
     return bad
+
+
+# ---------------------------------------------------------------------------------------------------------------- buckets, labeller, freeze split
+X_LOAN = "Get a pre-approved personal loan of Rs 2 lakh at a low interest rate with instant disbursal to your bank account today, no documents needed."
+CONTACTS = {"+91 98765 00021": "Kavya Fakename", "9876500022": "Rohan Notreal", "09876500023": "Dadi Testname", "+919876500024": "Suresh Fakeperson",
+            "9876500025": "Unknownish Caller", "9876500026": "Bunty Pretendson"}
+FAMILY = "Testfamilyname"   # stands in for a name in data/real/mask_names.txt
+NEEDLES = {"T1": "debited from", "T2": "is your OTP", "T3": "FakeCart order", "T4": "बिजली बिल", "T5": "ನೀರಿನ ಬಿಲ್", "A": "Reply STOP", "B": "nearest branch",
+           "M1": "won a lottery", "M2": "reached home safely", "M3": "KYC", "N1": "FakeFlix", "N2": "match tickets", "N3": "gas cylinder", "P1": "property tax"}
+HI = "आपका बिजली बिल ₹{n} है, कृपया अंतिम तिथि से पहले भुगतान करें। धन्यवाद, नकली बिजली विभाग"
+KN = "ನಿಮ್ಮ ನೀರಿನ ಬಿಲ್ ₹{n} ಆಗಿದೆ, ದಯವಿಟ್ಟು ಕೊನೆಯ ದಿನಾಂಕದ ಮೊದಲು ಪಾವತಿಸಿ. ಧನ್ಯವಾದಗಳು"
+
+
+def t1(amt, acct, d, ref, bal, pre=""):
+    return f"{pre}Rs {amt}.00 debited from A/c XX{acct} on {d}-10-26 by UPI ref {ref}. Avl bal Rs {bal}. Not you? Report to Fake Bank customer care at once."
+
+
+def sms_xml_full(path, rows):
+    """rows: (address, body, contact_name, type); type 1 = received, 2 = sent."""
+    from xml.sax.saxutils import quoteattr
+    els = [f'  <sms protocol="0" address={quoteattr(a)} date="1700000000000" type="{t}" subject="null" body={quoteattr(b)} contact_name={quoteattr(c)} />'
+           for a, b, c, t in rows]
+    path.write_text("<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\n" + f'<smses count="{len(els)}">\n' + "\n".join(els) + "\n</smses>\n", encoding="utf-8")
+
+
+def phone_world(raw):
+    """phone_1.xml + phone_2.xml: 5 shared / repeated templates (T1-T5, Hindi T4, Kannada T5), 5 one-off messages from mobile numbers (A, B: two halves
+    of a loan offer a later message links; M1-M3), 6 one-off sender-id messages."""
+    raw.mkdir(parents=True, exist_ok=True)
+    dlt = lambda b: ("AX-FKBANK-S", b, "(Unknown)", "1")
+    p1 = [dlt(t1(a, c, d, r, b)) for a, c, d, r, b in ((1500, 4455, 12, 6123, "20,331.50"), (250, 4455, 13, 6188, "20,081.50"), (99, 4455, 14, 6201, "19,982.50"),
+                                                       (3000, 4455, 15, 6250, "16,982.50"), (45, 4455, 16, 6299, "16,937.50"))]
+    p1 += [("VM-FKAPPS-S", f"{otp} is your OTP for login to FakeApp. Do not share it with anyone. Valid for 10 minutes.", "(Unknown)", "1") for otp in (482913, 110022, 993311, 450067)]
+    p1 += [("JD-FKCART-S", f"Your FakeCart order with {n} items has been shipped and will be delivered by Friday. Track it in the FakeCart app.", "(Unknown)", "1") for n in (2, 3, 5)]
+    p1 += [("BZ-FKPOWR-S", HI.format(n=n), "(Unknown)", "1") for n in (640, 712)] + [("BZ-FKWATR-S", KN.format(n=n), "(Unknown)", "1") for n in (220, 245)]
+    p1 += [("+91 98765 00021", X_LOAN + " Reply STOP to unsubscribe from these offers now.", CONTACTS["+91 98765 00021"], "1"),
+           ("9876500022", "Congratulations! You won a lottery of Rs 25 lakh. Pay the processing fee today to claim your prize from the claims desk.", CONTACTS["9876500022"], "1"),
+           ("09876500023", f"{FAMILY} ji, Dadi Testname here, I reached home safely, will call you after dinner tonight, take care of yourself and eat well.", CONTACTS["09876500023"], "1"),
+           ("09876500023", "This one I sent myself and it must never be read into any row at all.", CONTACTS["09876500023"], "2")]
+    p1 += [("AD-FKLIBR-S", "Your library book is due on Monday, renew it online or return it at the front desk."), ("AD-FKYOGA-S", "Join our weekend yoga class at the community hall, first session free for members."),
+           ("AD-FKWATR-S", "Water supply will be interrupted tomorrow from 10 am to 2 pm for pipeline maintenance work."), ("AD-FKAIRL-S", "Flight FK 101 is delayed by 40 minutes, new departure time will be shared at the gate."),
+           ("AD-FKPOST-S", f"Your parcel is ready for pickup, track it at https://fake-post.example.invalid/track/{FAMILY}/9?ref={FAMILY}123 before Friday.")]
+    p1 = [r if len(r) == 4 else (r[0], r[1], "(Unknown)", "1") for r in p1]
+    p2 = [dlt(t1(a, c, d, r, b)) for a, c, d, r, b in ((700, 4455, 17, 6301, "16,237.50"), (1200, 4455, 18, 6355, "15,037.50"))]
+    p2 += [("VM-FKAPPS-S", "771100 is your OTP for login to FakeApp. Do not share it with anyone. Valid for 10 minutes.", "(Unknown)", "1"),
+           ("+919876500024", X_LOAN + " Visit the nearest branch with your PAN card soon.", CONTACTS["+919876500024"], "1"),
+           ("9876500025", "Dear customer your KYC has expired, update it now at https://fake-kyc-update.example.invalid/verify or your account will be blocked today.",
+            CONTACTS["9876500025"], "1"),
+           ("AD-FKSCHL-S", "Parent teacher meeting is on Saturday at 10 am in the school auditorium, please attend.", "(Unknown)", "1"),
+           ("AD-FKMALL-S", "Weekend sale at the city mall, flat discounts on clothing and footwear for all members.", "(Unknown)", "1")]
+    sms_xml_full(raw / "phone_1.xml", p1)
+    sms_xml_full(raw / "phone_2.xml", p2)
+    return raw
+
+
+def phone_3(raw):
+    """A third phone that arrives before the freeze: a T1 message whose key sorts before every T1 key so far, the loan offer's common part (like A and
+    B, which are not like each other), a new 4-message template (bucket 1 on arrival), a new mobile one-off (bucket 2), a new sender-id one-off."""
+    rows = [("AX-FKBANK-S", t1(80, 4455, 19, 6400, "14,957.50", pre="Alert: "), "(Unknown)", "1"), ("VM-FKLOAN-S", X_LOAN, "(Unknown)", "1"),
+            ("VM-FKAPPS-S", "120034 is your OTP for login to FakeApp. Do not share it with anyone. Valid for 10 minutes.", "(Unknown)", "1"),
+            ("9876500026", "Bro, the match tickets are booked for Sunday, meet me at the stadium gate at four sharp.", CONTACTS["9876500026"], "1"),
+            ("AD-FKGASB-S", "Your gas cylinder booking is confirmed and will be delivered within 2 working days.", "(Unknown)", "1")]
+    rows += [("AD-FKFLIX-S", f"Your FakeFlix subscription renews on the 5th, amount Rs {n} will be charged to your saved card.", "(Unknown)", "1") for n in (149, 199, 499, 649)]
+    sms_xml_full(raw / "phone_3.xml", rows)
+
+
+def run_world(I, raw, d, **kw):
+    d.mkdir(parents=True, exist_ok=True)
+    tiny_messages(d / "messages.csv")
+    names = d / "mask_names.txt"
+    names.write_text(f"# family\n{FAMILY}\n", encoding="utf-8")
+    return I.run(raw, d / "real_test_v1.csv", d / "review_names.csv", d / "report.md", kw.pop("freeze", False), d / "messages.csv", label_file=d / "label_me.csv",
+                 names_file=names, **kw)
+
+
+class small_buckets:
+    """Bucket sizes 3 / 2 instead of 150 / 150, so a handful of groups fill all four buckets."""
+    def __enter__(self):
+        import intake_real as I
+        self.saved = (I.PRIORITY_N1, I.PRIORITY_N3)
+        I.PRIORITY_N1, I.PRIORITY_N3 = 3, 2
+    def __exit__(self, *exc):
+        import intake_real as I
+        I.PRIORITY_N1, I.PRIORITY_N3 = self.saved
+
+
+def by_needle(sheet):
+    return {k: find_group(sheet, v) for k, v in NEEDLES.items() if any(v in r["example_1"] or v in r["example_2"] for r in sheet)}
+
+
+def r18(tmp):
+    import intake_real as I
+    bad = []
+    with small_buckets():
+        raw = phone_world(tmp / "w18" / "raw")
+        d = tmp / "w18" / "out"
+        run_world(I, raw, d)
+        sheet = rows_of(d / "label_me.csv")
+        g = by_needle(sheet)
+        pr = {k: r["label_priority"] for k, r in g.items()}
+        if [pr[k] for k in ("T1", "T2", "T3")] != ["1"] * 3:
+            bad.append(f"the 3 largest groups are not bucket 1: {pr}")
+        if {pr[k] for k in ("A", "B", "M1", "M2", "M3")} != {"2"}:
+            bad.append(f"groups with a mobile_number sender are not bucket 2: {pr}")
+        rest = [r["label_priority"] for r in sheet if r["group_id"] not in {g[k]["group_id"] for k in ("T1", "T2", "T3", "A", "B", "M1", "M2", "M3")}]
+        if sorted(rest).count("3") != 2 or set(rest) != {"3", "4"}:
+            bad.append(f"bucket 3 should be 2 of the rest and the others bucket 4: {sorted(rest)}")
+        keyed = [(int(r["label_priority"]), -int(r["size"]), r["group_id"]) for r in sheet]
+        if keyed != sorted(keyed):
+            bad.append("label_me.csv is not ordered by bucket, then size")
+        rep = (d / "report.md").read_text()
+        if f"Fixed seed {I.PRIORITY_SEED}" not in rep or "Bucket 2 is scam-enriched by design" not in rep:
+            bad.append("the report does not state the bucket seed / that bucket 2 is scam-enriched by design")
+        if "| 1 | 3 |" not in rep or "| 2 | 5 |" not in rep or "| 3 | 2 |" not in rep:
+            bad.append("bucket sizes not in the report")
+        # label a few, then a third phone arrives
+        for r in sheet:
+            r["label"] = {g["T1"]["group_id"]: "genuine", g["M1"]["group_id"]: "scam", g["A"]["group_id"]: "scam"}.get(r["group_id"], "")
+        write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+        before = {r["group_id"]: (r["label_priority"], r["label"]) for r in sheet}
+        phone_3(raw)
+        run_world(I, raw, d)
+        sheet2 = rows_of(d / "label_me.csv")
+        after = {r["group_id"]: (r["label_priority"], r["label"]) for r in sheet2}
+        moved = [gid for gid, v in before.items() if after.get(gid) != v]
+        if moved:
+            bad.append(f"a new phone file moved / renamed / relabelled existing groups: {moved}")
+        g2 = by_needle(sheet2)
+        if g2["T1"]["group_id"] != g["T1"]["group_id"] or g2["T1"]["size"] != "8":
+            bad.append(f"T1 got a new id or did not grow ({g2['T1']['group_id']} vs {g['T1']['group_id']}, size {g2['T1']['size']})")
+        if g2["A"]["group_id"] == g2["B"]["group_id"]:
+            bad.append("the bridge message merged two existing groups")
+        rep2 = (d / "report.md").read_text()
+        if "kept apart 1" not in rep2:
+            bad.append("the report does not count the pair of groups the bridge message links")
+        if (g2["N1"]["label_priority"], g2["N2"]["label_priority"]) != ("1", "2"):
+            bad.append(f"new groups not bucketed on arrival: N1 {g2['N1']['label_priority']}, N2 {g2['N2']['label_priority']}")
+        st = I.load_state(d / "label_me_state.json")
+        want3 = "3" if I.hkey(g2["N3"]["group_id"]) <= st["b3_max_key"] else "4"
+        if g2["N3"]["label_priority"] != want3:
+            bad.append(f"new sender-id group bucket {g2['N3']['label_priority']}, the first run's cut-off says {want3}")
+        snap = (d / "label_me.csv").read_bytes(), (d / "label_me_state.json").read_bytes()
+        run_world(I, raw, d)
+        if ((d / "label_me.csv").read_bytes(), (d / "label_me_state.json").read_bytes()) != snap:
+            bad.append("a rerun with nothing new changed the label sheet or the state")
+    return bad
+
+
+def labeller(sheet, keys, *extra, timeout=60):
+    return subprocess.run([PY, "src/label_real.py", "--file", str(sheet), *extra], cwd=ROOT, input=keys.encode(), capture_output=True, timeout=timeout)
+
+
+def r19(tmp):
+    import intake_real as I
+    import label_real as L
+    bad = []
+    with small_buckets():
+        raw = phone_world(tmp / "w19" / "raw")
+        d = tmp / "w19" / "out"
+        run_world(I, raw, d)
+    fresh = d / "label_me.csv"
+    order = [r["group_id"] for r in L.order(rows_of(fresh), 3)]
+    # piped keys: s g k b g q
+    sh = d / "a.csv"
+    shutil.copyfile(fresh, sh)
+    p = labeller(sh, "s g k b g q")
+    outp = p.stdout.decode("utf-8")
+    lab = {r["group_id"]: r["label"] for r in rows_of(sh)}
+    if p.returncode != 0 or [lab[gid] for gid in order[:4]] != ["scam", "genuine", "genuine", ""] or sum(bool(v) for v in lab.values()) != 3:
+        bad.append(f"piped keys s g k b g q gave {[lab[gid] for gid in order[:4]]} (rc {p.returncode}, {p.stderr.decode()[-200:]})")
+    if L.GUIDE not in outp or "bucket 1: 0/3" not in outp or "bucket 1: 2/3" not in outp or "back (it was skip)" not in outp:
+        bad.append("guide line / progress / back message missing from the screen")
+    if "score" in outp.lower():
+        bad.append("the labeller printed something called a score")
+    # everything in buckets 1-4, then the next steps with the freeze command; Hindi and Kannada come out intact
+    sh2 = d / "b.csv"
+    shutil.copyfile(fresh, sh2)
+    p = labeller(sh2, "g" * len(rows_of(fresh)), "--max-bucket", "4")
+    outp = p.stdout.decode("utf-8")
+    hi = next(r["example_1"] for r in rows_of(fresh) if NEEDLES["T4"] in r["example_1"])
+    kn = next(r["example_1"] for r in rows_of(fresh) if NEEDLES["T5"] in r["example_1"])
+    if hi not in outp or kn not in outp:
+        bad.append("a Hindi or Kannada example did not come out byte for byte")
+    if L.FREEZE_CMD not in outp or any(not r["label"] for r in rows_of(sh2)):
+        bad.append("labelling every group did not end with the freeze command")
+    if L.show_text("a\u200db\u200cc\x1b[31md\u202ee") != "a\u200db\u200cc[31mde":
+        bad.append("show_text strips ZWJ / ZWNJ or keeps ESC / bidi controls")
+    # killed mid-session, restarted: no label lost
+    sh3 = d / "c.csv"
+    shutil.copyfile(fresh, sh3)
+    proc = subprocess.Popen([PY, "src/label_real.py", "--file", str(sh3)], cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc.stdin.write(b"sg")
+    proc.stdin.flush()
+    import time
+    t0 = time.time()
+    while time.time() - t0 < 30 and sum(bool(r["label"]) for r in rows_of(sh3)) < 2:
+        time.sleep(0.1)
+    proc.kill()
+    proc.wait()
+    got = [r["label"] for r in sorted(rows_of(sh3), key=lambda r: order.index(r["group_id"]) if r["group_id"] in order else 99)]
+    if got[:2] != ["scam", "genuine"] or sum(bool(x) for x in got) != 2:
+        bad.append(f"after a kill: {got[:4]}")
+    if list(d.glob(".c.csv.*.tmp")):
+        bad.append("a temp file was left after the kill")
+    p = labeller(sh3, "k q")
+    lab = {r["group_id"]: r["label"] for r in rows_of(sh3)}
+    if [lab[gid] for gid in order[:3]] != ["scam", "genuine", "skip"] or "bucket 1: 2/3" not in p.stdout.decode():
+        bad.append(f"the restart did not continue where the kill stopped: {[lab[gid] for gid in order[:3]]}")
+    # a save that fails half-way leaves the old file; a sheet rewritten under the labeller keeps the session's labels
+    snap = sh3.read_bytes()
+    fields, rows = L.load(sh3)
+    rows[3]["label"] = "scam"
+    saved_fsync = L.os.fsync
+    try:
+        L.os.fsync = lambda fd: (_ for _ in ()).throw(OSError("disk full (simulated)"))
+        L.save(sh3, fields, rows)
+        bad.append("a failing save did not raise")
+    except OSError:
+        pass
+    finally:
+        L.os.fsync = saved_fsync
+    if sh3.read_bytes() != snap or list(d.glob(".c.csv.*.tmp")):
+        bad.append("a failed save changed the sheet or left a temp file")
+    sheet = L.Sheet(sh3)
+    sheet.set(order[3], "scam")
+    fields, rows = L.load(sh3)
+    for r in rows:
+        if r["group_id"] == order[3]:
+            r["label"] = ""   # the intake read the sheet before that key and wrote it back after
+    rows.insert(0, {**rows[0], "group_id": "Gnewgroup", "label": "", "label_priority": "1", "size": "99"})
+    import time as _t
+    _t.sleep(0.01)
+    L.save(sh3, fields, rows)
+    sheet.set(order[4], "genuine")
+    lab = {r["group_id"]: r["label"] for r in rows_of(sh3)}
+    if lab.get(order[3]) != "scam" or lab.get(order[4]) != "genuine" or "Gnewgroup" not in lab:
+        bad.append(f"a sheet rewritten under the labeller lost a label or a new row: {lab.get(order[3])}, {lab.get(order[4])}, {'Gnewgroup' in lab}")
+    # no model output: no model import, no score-like column; a sheet with one is refused
+    src = (ROOT / "src" / "label_real.py").read_text()
+    imports = {n.names[0].name.split(".")[0] for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Import)} | \
+              {n.module.split(".")[0] for n in ast.walk(ast.parse(src)) if isinstance(n, ast.ImportFrom) and n.module}
+    if imports & {"torch", "joblib", "sklearn", "shield", "transformers", "eval_real", "app", "intake_real", "numpy", "pandas"}:
+        bad.append(f"label_real imports {imports}")
+    if any(w in c.lower() for c in rows_of(fresh)[0] for w in L.BANNED_COLUMNS):
+        bad.append("label_me.csv has a score-like column")
+    scored = d / "scored.csv"
+    write_csv(scored, I.LABEL_COLS + ["model_score"], [[r[c] for c in I.LABEL_COLS] + ["0.9"] for r in rows_of(fresh)])
+    if labeller(scored, "q").returncode == 0:
+        bad.append("the labeller accepted a sheet with a model_score column")
+    return bad
+
+
+def jac_max(a_texts, b_texts):
+    """Largest exact Jaccard between any text of a and any of b, over neardup's two views of model_text and of the digit-collapsed key (brute force)."""
+    import intake_real as I
+    from neardup import VIEWS, shingle_sets
+    best = 0.0
+    for prep in (I.model_text, I.group_key):
+        for fn in VIEWS.values():
+            A = shingle_sets([fn(prep(t)) for t in a_texts])
+            B = shingle_sets([fn(prep(t)) for t in b_texts])
+            for x in A:
+                for y in B:
+                    best = max(best, len(x & y) / len(x | y))
+    return best
+
+
+def freeze_world(tmp, tag):
+    """phone_1-2, then phone_3; buckets 1-3 labelled, one bucket-4 group labelled, the others blank, one group skip; names reviewed; CLAUDE.md pointed
+    at a copy. -> (I, raw, d, claude path, saved CLAUDE, groups by needle)."""
+    import intake_real as I
+    raw = phone_world(tmp / tag / "raw")
+    d = tmp / tag / "out"
+    run_world(I, raw, d)   # phones 1-2 first, so A and B are two groups before the message like both arrives
+    phone_3(raw)
+    run_world(I, raw, d)
+    sheet = rows_of(d / "label_me.csv")
+    g = by_needle(sheet)
+    scam = {g[k]["group_id"] for k in ("A", "B", "M1", "M3")}
+    four = [r for r in sheet if r["label_priority"] == "4"]
+    for r in sheet:
+        r["label"] = "scam" if r["group_id"] in scam else "genuine" if r["label_priority"] != "4" else ""
+    four[0]["label"] = "genuine"
+    g["M2"]["label"] = "skip"
+    next(r for r in sheet if r["group_id"] == g["M2"]["group_id"])["label"] = "skip"
+    write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+    run_world(I, raw, d)
+    review = rows_of(d / "review_names.csv")
+    for r in review:
+        r["replace_with"] = "ok"
+    I.write_review(d / "review_names.csv", review)
+    claude = tmp / tag / "CLAUDE.md"
+    claude.write_text("# CLAUDE.md\n\n## Frozen hashes (real-message test set)\n\nNot frozen yet: nothing collected.\n", encoding="utf-8")
+    saved = I.CLAUDE
+    I.CLAUDE = claude
+    return I, raw, d, claude, saved, g
+
+
+def r20(tmp):
+    import realguard as G
+    bad = []
+    with small_buckets():
+        I, raw, d, claude, saved, g = freeze_world(tmp, "w20")
+        try:
+            if (d / "real_test_v1.csv").exists() or not (d / PREVIEW).exists():
+                bad.append("before the freeze there must be a preview and no real_test_v1.csv")
+            try:
+                run_world(I, raw, d, freeze=True)
+                bad.append("--freeze without --allow-unlabelled went through with bucket 4 blank")
+            except I.Stop as e:
+                if "no label" not in str(e):
+                    bad.append(f"refusal text: {str(e)[:100]}")
+            sheet = rows_of(d / "label_me.csv")
+            keep = next(r for r in sheet if r["label_priority"] == "3")
+            lab3 = keep["label"]
+            keep["label"] = ""
+            write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+            try:
+                run_world(I, raw, d, freeze=True, allow_unlabelled=True)
+                bad.append("--allow-unlabelled let a blank bucket-3 group through")
+            except I.Stop as e:
+                if "buckets 1-3" not in str(e):
+                    bad.append(f"refusal text: {str(e)[:100]}")
+            if (d / "real_test_v1.csv").exists() or (d / I.MANIFEST_NAME).exists():
+                bad.append("a refused freeze wrote the test file or the manifest")
+            keep["label"] = lab3
+            write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+            sha, final = run_world(I, raw, d, freeze=True, allow_unlabelled=True)
+            test, pool = rows_of(d / "real_test_v1.csv"), rows_of(d / "pool" / "pool.csv")
+            man = __import__("json").loads((d / I.MANIFEST_NAME).read_text())
+            tg, pg = {r["group_id"] for r in test}, {r["group_id"] for r in pool}
+            if not test or not pool or tg & pg or tg != set(man["test_group_ids"]) or pg != set(man["pool_group_ids"]):
+                bad.append(f"TEST / POOL groups: {len(tg)} / {len(pg)}, shared {len(tg & pg)}")
+            labelled = {r["group_id"] for r in sheet if r["label"] in ("scam", "genuine")}
+            if tg | pg != labelled:
+                bad.append(f"split groups != labelled groups ({len(tg | pg)} vs {len(labelled)}); skip / blank groups must be in neither half")
+            if g["M2"]["group_id"] in tg | pg:
+                bad.append("a skip group was split")
+            jm = jac_max([r["text"] for r in test], [r["text"] for r in pool])
+            if jm >= 0.7:
+                bad.append(f"a near-duplicate pair crosses the split (Jaccard {jm:.2f})")
+            if (g["A"]["group_id"] in tg) != (g["B"]["group_id"] in tg):
+                bad.append("the two groups the bridge message links sit on different sides")
+            per = Counter(r["group_id"] for r in test)
+            if max(per.values()) > 3 or any(not r["group_size"] for r in test) or {r["source"] for r in pool} - {"phone_1", "phone_2", "phone_3"}:
+                bad.append("more than 3 rows per group / no group_size / a pool source that is not phone_N")
+            if sha not in claude.read_text() or "pool.csv" not in claude.read_text() or (d / PREVIEW).exists():
+                bad.append("the freeze did not write the hash and pool line into CLAUDE.md, or left the preview")
+            if hashlib.sha256((d / "real_test_v1.csv").read_bytes()).hexdigest() != sha or man["split_seed"] != I.SPLIT_SEED:
+                bad.append("manifest / file hash / seed mismatch")
+            rep = (d / "report.md").read_text()
+            if "## Freeze split (TEST vs POOL)" not in rep or f"Fixed seed {I.SPLIT_SEED}" not in rep:
+                bad.append("the report has no freeze-split section with its seed")
+            # realguard: TEST refused (path and rows), POOL allowed
+            import pandas as pd
+            saved_g = (G.REAL_DIR, G.REAL_TEST_PATH)
+            try:
+                G.REAL_DIR, G.REAL_TEST_PATH = d, d / "real_test_v1.csv"
+                for what, call in (("TEST path", lambda: G.guard_inputs(paths=[d / "real_test_v1.csv"])),
+                                   ("TEST rows", lambda: G.guard_inputs(frames=[("t", pd.DataFrame(test))], real_path=d / "real_test_v1.csv"))):
+                    try:
+                        call()
+                        bad.append(f"realguard let the {what} through")
+                    except G.RealDataTripwire:
+                        pass
+                G.REAL_DIR = d / "real_only"   # the pool sits in data/collected/phones/, outside data/real/
+                G.guard_inputs(paths=[d / "pool" / "pool.csv"], frames=[("p", pd.DataFrame(pool))], real_path=d / "real_test_v1.csv")
+            except G.RealDataTripwire as e:
+                bad.append(f"realguard refused the POOL: {e}")
+            finally:
+                G.REAL_DIR, G.REAL_TEST_PATH = saved_g
+            if I.POOL_DIR.relative_to(ROOT).parts[:2] != ("data", "collected"):
+                bad.append("the real pool folder is not under data/collected/")
+            try:
+                run_world(I, raw, d, freeze=True, allow_unlabelled=True)
+                bad.append("a second --freeze went through")
+            except I.Stop as e:
+                if "second --freeze is refused" not in str(e):
+                    bad.append(f"second-freeze text: {str(e)[:100]}")
+        finally:
+            I.CLAUDE = saved
+    return bad
+
+
+def r21(tmp):
+    import json
+    bad = []
+    with small_buckets():
+        I, raw, d, claude, saved, g = freeze_world(tmp, "w21")
+        try:
+            run_world(I, raw, d, freeze=True, allow_unlabelled=True)
+            frozen = (d / "real_test_v1.csv").read_bytes()
+            test = rows_of(d / "real_test_v1.csv")
+            man = json.loads((d / I.MANIFEST_NAME).read_text())
+            pool0 = rows_of(d / "pool" / "pool.csv")
+            # a fourth phone after the freeze: one message of a TEST group, one of a POOL group, a new two-message template
+            t_row, p_row = test[0], next(r for r in pool0 if r["group_size"] == "1")
+            rows = [("AX-FKNEWS-S", "Note: " + t_row["text"], "(Unknown)", "1"), ("AX-FKNEWS-S", "Note: " + p_row["text"], "(Unknown)", "1")]
+            rows += [("AD-FKCITY-S", f"Your property tax for ward {w} is due by 31 March, pay at the municipal office or online.", "(Unknown)", "1") for w in (7, 9)]
+            sms_xml_full(raw / "phone_4.xml", rows)
+            run_world(I, raw, d)
+            sheet = rows_of(d / "label_me.csv")
+            for r in sheet:
+                if NEEDLES["P1"] in r["example_1"]:
+                    r["label"] = "genuine"
+            write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+            run_world(I, raw, d)
+            review = rows_of(d / "review_names.csv")   # new rows bring new name candidates: they wait outside the pool until answered
+            for r in review:
+                r["replace_with"] = r["replace_with"] or "ok"
+            I.write_review(d / "review_names.csv", review)
+            run_world(I, raw, d)
+            pool = rows_of(d / "pool" / "pool.csv")
+            rep = (d / "report.md").read_text()
+            if (d / "real_test_v1.csv").read_bytes() != frozen:
+                bad.append("the frozen test file changed after the freeze")
+            if not any(NEEDLES["P1"] in r["text"] for r in pool) or not any(r["source"] == "phone_4" for r in pool):
+                bad.append("the new phone's labelled template did not reach the pool")
+            if {r["group_id"] for r in pool} & set(man["test_group_ids"]):
+                bad.append("a TEST group reached the pool")
+            if not re.search(r"group is in the frozen TEST half: [1-9]", rep) or "Mode: **post**" not in rep:
+                bad.append("the message of a TEST group was not dropped and counted")
+            if not any(r["text"].startswith("Note: ") for r in pool):
+                bad.append("the new message of a POOL group did not reach the pool")
+            if jac_max([r["text"] for r in test], [r["text"] for r in pool]) >= 0.7:
+                bad.append("a pool row is a near-duplicate of a TEST row")
+            # the group registry is gone: the manifest's TEST key hashes still keep the TEST messages out
+            (d / "label_me_state.json").unlink()
+            run_world(I, raw, d)
+            pool2 = rows_of(d / "pool" / "pool.csv")
+            if jac_max([r["text"] for r in test], [r["text"] for r in pool2]) >= 0.7 or (d / "real_test_v1.csv").read_bytes() != frozen:
+                bad.append("without the group registry a TEST message reached the pool")
+            flags = I.near_test_flags(["Note: " + t_row["text"], "An unrelated sentence about the monsoon arriving early in Kerala this year."], [t_row["text"]])
+            if flags != [True, False]:
+                bad.append(f"near_test_flags: {flags}")
+            try:
+                run_world(I, raw, d, freeze=True, allow_unlabelled=True)
+                bad.append("a second --freeze went through after the post-freeze runs")
+            except I.Stop:
+                pass
+        finally:
+            I.CLAUDE = saved
+    return bad
+
+
+def r22(tmp):
+    """Every output of R18-R21 (they ran before this one in the same temp folder), plus a labeller session's screen."""
+    import json
+    bad = []
+    phones = [re.sub(r"\D", "", a)[-10:] for a in CONTACTS]
+    names = list(CONTACTS.values()) + [w for n in CONTACTS.values() for w in n.split()] + [FAMILY]
+    outs = [p for w in ("w18", "w19", "w20", "w21") for p in (tmp / w / "out").rglob("*") if p.is_file() and p.suffix in (".csv", ".md", ".json")
+            and p.name not in ("messages.csv", "mask_names.txt")]
+    if len(outs) < 12 or not any(p.name == "pool.csv" for p in outs) or not any(p.name == I_MAN for p in outs):
+        bad.append(f"setup: only {len(outs)} output files found")
+    screen = labeller(tmp / "w19" / "out" / "label_me.csv", "q").stdout.decode("utf-8")
+    blobs = [(p.relative_to(tmp), p.read_text(encoding="utf-8")) for p in outs] + [("labeller screen", screen)]
+    for name, blob in blobs:
+        txt = re.sub(r"`[0-9a-f]{64}`|\b[0-9a-f]{16,64}\b|\bG[0-9a-f]{8}\b|\bR[0-9a-f]{10}\b", "", blob)   # hashes and ids are hex, not numbers
+        for ph in phones:
+            if ph in re.sub(r"[\s-]", "", txt):
+                bad.append(f"{name}: a phone number survived")
+        for who in names:
+            if re.search(rf"(?<![^\W\d_]){re.escape(who)}(?![^\W\d_])", txt):   # inside a link too: /track/Name/, ?ref=Name123
+                bad.append(f"{name}: the name {who!r} survived")
+        for rx in (r"(?<!\d)[6-9]\d{9}(?!\d)", r"\d{9,}", r"\w@[A-Za-z]", r"\+91"):
+            if re.search(rx, txt):
+                bad.append(f"{name}: pattern {rx} found")
+        if str(name).endswith(".json"):
+            def leaves(o):
+                return [x for k, v in o.items() for x in [k] + leaves(v)] if isinstance(o, dict) else [x for v in o for x in leaves(v)] if isinstance(o, list) else [o]
+            odd = [x for x in leaves(json.loads(blob)) if not (isinstance(x, (int, float)) or x is None or re.fullmatch(r"G[0-9a-f]{8}|[0-9a-f]{16}|[0-9a-f]{64}|[a-z_0-9]+|"
+                                                                                                                 r"\d+\|[a-z-]+|\d{4}-\d\d-\d\dT\d\d:\d\dZ", str(x)))]
+            if odd:
+                bad.append(f"{name}: a JSON value that is not an id, hash, number or field name ({len(odd)})")
+    return bad
+
+
+I_MAN = "freeze_manifest.json"
 
 
 CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1), ("R2", "intake on the fake fixture: drops, masks, no PII pattern", r2),
@@ -765,7 +1262,12 @@ CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1)
           ("R11", "Form: real header set, not_scam / unsure labels", r11), ("R12", "SMS XML: sender_kind, received only, nothing personal in rows", r12),
           ("R13", "WhatsApp txt: Android + iOS lines, system / media dropped, names gone", r13), ("R14", "groups + label_me.csv: label the group once, cap 3, ids stable", r14),
           ("R15", "privacy: no number / name / address / timestamp in any output", r15), ("R16", "intake reads under data/real/, refuses PROBE-ONLY", r16),
-          ("R17", "names: greeting names, mask_names.txt, review states, freeze guards", r17)]
+          ("R17", "names: greeting names, mask_names.txt, review states, freeze guards", r17),
+          ("R18", "label_priority buckets: rule, seed, stable when a new phone file arrives", r18),
+          ("R19", "label_real.py: piped keys, kill + restart, atomic save, Hindi / Kannada, no model output", r19),
+          ("R20", "--freeze: grouped 50/50 split, 0 shared groups / near-duplicates, realguard, once only", r20),
+          ("R21", "after the freeze: new phone -> pool, TEST messages dropped, test file unchanged", r21),
+          ("R22", "privacy: no number / name / address in any output, JSON holds ids and numbers only", r22)]
 
 
 def run():

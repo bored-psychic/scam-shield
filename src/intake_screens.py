@@ -27,7 +27,8 @@ Per row:
   4. checks before anything is written: no phone / UPI / e-mail / account / card pattern in the text (pii_leaks) and no live link in any column
      (live_links). Either one stops the run with the column and kind, never the value.
   5. near-duplicates (src/neardup.py's rule, both views, on textprep.model_text) against
-       data/real/   the real-message TEST set: real_test_v1.csv, label_me.csv and the raw exports under raw/, read and masked in memory only;
+       data/real/   the real-message TEST set real_test_v1.csv (counted as "data/real TEST"), and label_me.csv and the raw exports under raw/
+                    (counted as "data/real"; after the freeze their POOL half is training material, but a twin adds nothing), read and masked in memory only;
        data/probe/  the PROBE-ONLY sets;
        data/final/messages.csv, every split (a twin of a test row would leak once collected rows are trained on; a twin of a train row adds
                     nothing new).
@@ -203,6 +204,18 @@ def real_texts(real_dir):
         for p, src in intake_real.assign_labels(files["txt"], "wa", intake_real.WA_LABEL).items():
             recs += intake_real.read_whatsapp(p, src, drops, read, sens)
     return out + [intake_real.mask(r["text"]) for r in recs]
+
+
+def real_corpora(real_dir):
+    """[("data/real TEST", the frozen test rows), ("data/real", everything else of data/real/: the label sheet and the raw exports)]: a collected
+    row like either is dropped, and a twin of a TEST row is counted as such (CLAUDE.md rule 12)."""
+    test = []
+    p = Path(real_dir) / "real_test_v1.csv"
+    if p.exists():
+        with open(p, encoding="utf-8", newline="") as f:
+            test = [refang(r["text"]) for r in csv.DictReader(f) if r.get("text")]
+    other = real_texts(real_dir)[len(test):]   # real_texts reads real_test_v1.csv first, the same way
+    return [("data/real TEST", test), ("data/real", other)]
 
 
 def probe_texts(dirs):
@@ -395,7 +408,7 @@ def run(inp, out_dir=COLLECTED, report_path=REPORT, messages=MESSAGES, real_dir=
             drops["already collected (same text and page)"] += 1
         else:
             fresh.append(rec)
-    corpora = [("data/real", real_texts(real_dir)), ("data/probe", probe_texts(probe_dirs))] + message_corpora(messages)
+    corpora = real_corpora(real_dir) + [("data/probe", probe_texts(probe_dirs))] + message_corpora(messages)
     hits = collisions([r["_masked"] for r in fresh], corpora)
     new = []
     for rec, h in zip(fresh, hits):

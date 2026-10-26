@@ -8,7 +8,8 @@ completes appends ONE line to reports/real_eval_ledger.md (UTC time, git commit,
 to choose a threshold, a model or a rule: that is tuning on the test set (CLAUDE.md rule 1). The report holds numbers only, no message text.
 Metrics: flagged = router level Suspicious or Likely scam (None = not judged = not flagged); F1, recall (scams flagged), false-alarm rate (genuine
 flagged) on that; AUROC is the text head's score (the router's level is not a score). 95% intervals: Wilson for recall and false alarms,
-bootstrap (1,000 resamples, seed 0) for F1 and AUROC. Overall and per language, with and without the overlap=True rows.
+bootstrap (1,000 resamples, seed 0) for F1 and AUROC. Overall, per language and per label_priority bucket (the labelling bucket a group was in:
+1 = largest groups, 2 = groups with a mobile_number sender, SCAM-ENRICHED BY DESIGN, 3 = random, 4 = rest), with and without the overlap=True rows.
 """
 import argparse, csv, datetime as dt, hashlib, math, os, subprocess, sys
 from pathlib import Path
@@ -147,6 +148,7 @@ def main():
     y = np.array([int(r["label"]) for r in rows])
     overlap = np.array([r["overlap"] == "True" for r in rows])
     lang = np.array([r["language"] for r in rows])
+    prio = np.array([r.get("label_priority", "") or "" for r in rows])
     res = score_rows(rows, a.live)
 
     L = ["# Real-message evaluation v1 (once-only)\n",
@@ -157,12 +159,17 @@ def main():
     headline = {}
     subsets = [("all rows", np.ones(len(rows), bool)), ("without overlap rows", ~overlap)]
     langs = sorted(set(lang))
+    buckets = sorted(b for b in set(prio) if b)
+    if buckets:
+        L.append("Rows per label_priority bucket (scam / genuine): " + "; ".join(f"{b}: {int(((prio == b) & (y == 1)).sum())} / {int(((prio == b) & (y == 0)).sum())}" for b in buckets)
+                 + ". **Bucket 2 is scam-enriched by design** (groups with a mobile_number sender were labelled on purpose, so its scam share is not the inbox base rate, and "
+                   "its precision-like numbers are not comparable with the other buckets).\n")
     for head, (flags, scores, unjudged) in res.items():
         L.append(f"## {head}\n")
         L.append(f"Not judged by the router (no level): {unjudged}.\n")
         L.append("| group | rows | n scam / genuine | F1 | recall | false alarms | AUROC |\n|---|---:|---|---|---|---|---|")
         for sname, m in subsets:
-            for g, gm in [("overall", np.ones(len(rows), bool))] + [(f"lang={l}", lang == l) for l in langs]:
+            for g, gm in [("overall", np.ones(len(rows), bool))] + [(f"lang={l}", lang == l) for l in langs] + [(f"label_priority={b}", prio == b) for b in buckets]:
                 mm = m & gm
                 if mm.sum() == 0:
                     continue

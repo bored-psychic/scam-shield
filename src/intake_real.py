@@ -2,7 +2,8 @@
 Run on the Mac:
 
     .venv/bin/python src/intake_real.py                  # every file under data/real/raw/, recursively
-    .venv/bin/python src/intake_real.py --freeze         # also writes the frozen hash into CLAUDE.md
+    .venv/bin/python src/label_real.py                   # label the template groups in the terminal (s / g / k / b / q), bucket by bucket
+    .venv/bin/python src/intake_real.py --freeze --allow-unlabelled   # ONCE: grouped 50/50 split, TEST frozen (hash in CLAUDE.md), POOL for training
 
 Three kinds of input are read (folder names with spaces are fine; other file types are listed in the report and skipped):
   *.xml  SMS Backup & Restore export. Only <sms type="1"> (received) is read: body is the text; address becomes a sender_kind
@@ -15,17 +16,28 @@ Three kinds of input are read (folder names with spaces are fine; other file typ
          date_received, notes are dropped before anything else. unsure is excluded and counted. Older header sets still map by regex.
 Then, for all of them: (1) PII masks (src/pii.py + card, OTP, account-tail patterns; every phone number and contact / sender name seen in
 the input is masked wherever it appears and checked again in every output before it is written); (2) template groups: near-duplicates by
-src/neardup.py on the masked text with digits collapsed (so OTPs and amounts with different digits fall into one group), group_id is a hash
-of the group's smallest key, so it is the same on every run; (3) data/real/label_me.csv: one row per group that still has unlabelled
-messages, biggest first, two examples (links defanged), blank label column (scam / genuine / skip). No model score is ever written there;
-(4) a rerun reads your filled label_me.csv and gives every message of a group its label (labels you filled in are never overwritten);
-(5) the test set keeps at most --cap (3) messages per group, exact duplicates once, and stores group_id and group_size so eval can report
-per message and per group; (6) names are NOT masked automatically: rows with likely names go to data/real/review_names.csv, your edits
-(replace_with "<NAME>" masks the token, "DROP" drops the row, "ok" marks a reviewed non-name) are applied on rerun; --freeze needs none left blank; (7) overlap: each kept row against the TRAIN split of
-data/final/messages.csv with the same near-duplicate rule (overlap True/False, rows are never dropped for it).
+src/neardup.py on the masked text with digits collapsed (so OTPs and amounts with different digits fall into one group), a new group's id is a
+hash of its smallest key, and the registry in (8) keeps it on every later run; (3) data/real/label_me.csv: one row per group that still has unlabelled
+messages, bucket by bucket (8), biggest first, two examples (links defanged), blank label column (scam / genuine / skip). No model score is ever written there;
+(4) a rerun reads your filled label_me.csv (or the one src/label_real.py fills) and gives every message of a group its label (labels you filled in
+are never overwritten); (5) each group keeps at most --cap (3) messages, exact duplicates once, with group_id and group_size so eval can report per
+message and per group; (6) names are NOT masked automatically: rows with likely names go to data/real/review_names.csv, your edits (replace_with
+"<NAME>" masks the token, "DROP" drops the row, "ok" marks a reviewed non-name) are applied on rerun; --freeze needs none left blank; greeting names
+seen in many templates are masked everywhere and listed in data/real/auto_names.txt (never printed); (7) overlap: each candidate against the TRAIN
+split of data/final/messages.csv with the same near-duplicate rule (overlap True/False, rows are never dropped for it); (8) label_priority: every
+group in label_me.csv gets a bucket (1 = the 150 largest, 2 = every other group with a mobile_number sender, scam-enriched by design, 3 = a random
+150 of the rest, 4 = the rest), fixed by a seed and stored in label_me_state.json with the group registry (key hashes -> group_id): a rerun or a
+new phone file never renames, merges or re-buckets a group that exists; new groups are bucketed on arrival; src/label_real.py walks the buckets in
+order. Before the freeze the labelled rows go to data/real/labelled_preview.csv; real_test_v1.csv does not exist yet. (9) --freeze, once: the
+labelled groups are split 50/50 by template group (groups with a near-duplicate pair between any of their messages move together), stratified by
+label x keyword bucket (investment / task / loan / kyc-bank / delivery / other), and checked again with an independent seed. TEST half ->
+data/real/real_test_v1.csv (frozen, hash in CLAUDE.md, realguard-protected, at most 3 messages per group with group_size); POOL half ->
+data/collected/phones/pool.csv (group ids, source = phone_N; allowed for training / validation in splits-v3); data/real/freeze_manifest.json holds
+the split. --allow-unlabelled leaves out bucket 4 only. A second --freeze is refused. After the freeze a rerun never touches the test file: new
+phone files and new labels go to the pool; a message of a TEST group, or a near-duplicate of any TEST message, is dropped and counted.
 Tripwire: realguard.py. The output's source_row_hash is the key training scripts refuse on. Report: reports/real_intake_v1.md (no text).
 """
-import argparse, csv, datetime as dt, hashlib, io, re, sys, unicodedata
+import argparse, csv, datetime as dt, functools, hashlib, io, json, os, random, re, sys, unicodedata
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -36,7 +48,7 @@ import pandas as pd
 import pii
 import realguard
 from audit_investment import CRYPTO_RX, INVEST_RX, TASK_RX
-from neardup import CLUSTER_SEED, near_dup_pairs_any, shingle_sets
+from neardup import CHECK_SEED, CLUSTER_SEED, near_dup_pairs_any, shingle_sets
 from textprep import _urls, model_text, replace_urls
 
 RAW_DIR = ROOT / "data" / "real" / "raw"
@@ -49,8 +61,24 @@ CLAUDE = ROOT / "CLAUDE.md"
 MIN_CHARS = 10          # SMS and Form rows
 WA_MIN_CHARS = 20       # WhatsApp: kept only when LONGER than this
 CAP = 3                 # messages kept per template group
-OUT_COLS = ["id", "text", "label", "language", "category", "overlap", "source_row_hash", "source", "source_type", "sender_kind", "group_id", "group_size"]
-LABEL_COLS = ["group_id", "size", "example_1", "example_2", "example_similarity", "sender_kind_mix", "sources", "label"]
+POOL_DIR = ROOT / "data" / "collected" / "phones"   # the POOL half of the freeze split: training / validation material, not guarded by realguard
+MANIFEST_NAME = "freeze_manifest.json"             # next to the test file: the split (seeds, TEST / POOL group ids, TEST key hashes); its presence means "frozen"
+PREVIEW_NAME = "labelled_preview.csv"              # before the freeze the labelled rows go here, never to real_test_v1.csv
+AUTO_NAMES_NAME = "auto_names.txt"                 # the greeting names masked everywhere (names: never printed or reported)
+NOT_RECEIVED, MMS_DROP = "not a received message (type != 1)", "MMS element (only <sms> is read)"
+TEST_GROUP_DROP, TEST_NEAR_DROP = "group is in the frozen TEST half", "near-duplicate of a TEST message"
+OUT_COLS = ["id", "text", "label", "language", "category", "overlap", "source_row_hash", "source", "source_type", "sender_kind", "group_id", "group_size",
+            "label_priority", "kw_bucket"]
+POOL_COLS = OUT_COLS + ["provenance", "is_synthetic"]
+LABEL_COLS = ["group_id", "size", "label_priority", "example_1", "example_2", "example_similarity", "sender_kind_mix", "sources", "label"]
+PRIORITY_SEED = 20261025   # label_priority bucket 3 is the PRIORITY_N3 groups with the smallest md5(seed|group_id); written to the report
+PRIORITY_N1, PRIORITY_N3 = 150, 150
+SPLIT_SEED = 20261026      # freeze split: which half of each (label x keyword) stratum a group goes to; written to the manifest and the report
+KW_BUCKETS = ["investment", "task", "loan", "kyc-bank", "delivery", "other"]   # first match wins, in this order
+LOAN_RX = re.compile(r"(?i)\b(?:loans?|emi|pre-?approved|instant cash|cibil|credit score|credit limit|borrow\w*|disburs\w*|interest rate)\b")
+KYC_BANK_RX = re.compile(r"(?i)\b(?:kyc|a/c|acct?|account|debited|credited|upi|neft|imps|rtgs|bank|atm|net ?banking|ifsc|pan|aadhaar|aadhar|otp|balance|withdraw\w*|"
+                         r"transaction|txn|statement|card)\b|<ACCOUNT>|<OTP>|<UPI_ID>")
+DELIVERY_RX = re.compile(r"(?i)\b(?:deliver\w*|parcel|courier|shipment|shipped|dispatch\w*|order|tracking|awb|consignment|package|pick-?up)\b")
 SHEET_CHARS = 500
 MAX_DF = 5              # a capitalised word in more than this many different message texts is a brand or a word, not a person: not a name candidate
 
@@ -174,6 +202,15 @@ class Sensitive:
         if rx and rx.search(value):
             found.append("a contact / sender name")
         return found
+
+
+def flat(obj):
+    """Every key and leaf value of a JSON-like object, as strings (each one scanned on its own: hex ids glued together are not a number)."""
+    if isinstance(obj, dict):
+        return [x for k, v in obj.items() for x in [str(k)] + flat(v)]
+    if isinstance(obj, (list, tuple, set)):
+        return [x for v in obj for x in flat(v)]
+    return [str(obj)]
 
 
 def scan_outputs(sens, outputs):
@@ -362,10 +399,10 @@ def read_sms(path, source, drops, read, sens):
         n_elements += 1
         read[source] += 1
         if el.tag == "mms":
-            drops[(source, "MMS element (only <sms> is read)")] += 1
+            drops[(source, MMS_DROP)] += 1
             continue
         if el.get("type") != "1":
-            drops[(source, "not a received message (type != 1)")] += 1
+            drops[(source, NOT_RECEIVED)] += 1
             continue
         body = el.get("body")
         kind = sender_kind(el.get("address"))
@@ -491,15 +528,22 @@ def protect_urls(text):
 def restore_urls(text, urls):
     return re.sub(r"\x00(\d+)\x00", lambda m: urls[int(m.group(1))], text)
 
+@functools.lru_cache(maxsize=4)
+def in_link_rx(name_rx):
+    """name_rx for the inside of a link: a name ends at any non-letter there (/u/Name123/, ?ref=Name_2), not only at a non-word character."""
+    return re.compile(name_rx.pattern.replace(r"(?<!\w)", r"(?<![^\W\d_])").replace(r"(?!\w)", r"(?![^\W\d_])"), name_rx.flags)
+
 def mask(text, name_rx=None):
     """src/pii.py masks (emails and UPI ids first, then phones and accounts) with URLs kept, plus card, OTP, account-tail and long digit
-    runs, and every contact / sender name seen in the input (name_rx) as <NAME>."""
+    runs, and every contact / sender name seen in the input (name_rx) as <NAME>, inside links too (a link keeps its host and shape, never a
+    name: /u/<NAME>/orders)."""
     t = text
     for pat, tok in ADDRESS_MASKS:
         t = re.sub(pat, tok, t)
     t, urls = protect_urls(t)
     if name_rx is not None:
         t = name_rx.sub("<NAME>", t)
+        urls = [in_link_rx(name_rx).sub("<NAME>", u) for u in urls]
     t = CARD_RX.sub("<ACCOUNT>", t)
     t = OTP_RX.sub(lambda m: m.group(0)[: m.start(2) - m.start(0)] + "<OTP>", t)
     t = OTP_BEFORE_RX.sub("<OTP>", t)
@@ -508,6 +552,8 @@ def mask(text, name_rx=None):
     for pat, tok in NUMBER_MASKS:
         t = re.sub(pat, tok, t)
     t = URL_PHONE_RX.sub(lambda m: m.group(1) + "<PHONE>", restore_urls(t, urls))
+    if name_rx is not None:
+        t = name_rx.sub("<NAME>", t)   # once more over the whole text: nothing the link protection kept back may hold a name
     return LONG_RX.sub("<ACCOUNT>", URL_MOBILE_RX.sub("<PHONE>", t))
 
 def defang(text):
@@ -649,25 +695,74 @@ def group_key(masked):
     return re.sub(r"\d+", "0", model_text(masked).lower()).strip()
 
 
-def make_groups(recs):
-    """Sets rec['gkey'] and rec['group'] (a hash of the group's smallest key, so it does not depend on the order of the files). Two keys join
-    one group when src/neardup.py calls them near-duplicates (exact Jaccard >= 0.7 on char 5-grams, raw or normalised view)."""
+def key_hash(key):
+    """What the group registry stores for one template key: md5 of the key, 16 hex. Never the key itself."""
+    return hashlib.md5(key.encode()).hexdigest()[:16]
+
+
+def make_groups(recs, registry=None, stats=None):
+    """Sets rec['gkey'] and rec['group']. Two keys join one group when src/neardup.py calls them near-duplicates (exact Jaccard >= 0.7 on char
+    5-grams, raw or normalised view). registry ({key hash: group_id}, kept in label_me_state.json and updated in place) keeps a group fixed once
+    it exists: a key seen before stays in its group, two existing groups never merge (a new message like both joins the one it is most like:
+    pairs are taken from the most similar down), and only a group made of new keys gets a new id, a hash of its smallest key. On the first run
+    every group is new, so the ids do not depend on the order of the files. A new phone file therefore never renames, merges or splits a group
+    that has a label, a bucket or a side of the freeze split.
+    -> groups. stats (a dict, optional) gets new_keys, joined_existing, new_groups and kept_apart (pairs of existing groups a new message is like both of)."""
+    registry = {} if registry is None else registry
     keys = sorted({group_key(r["masked"]) for r in recs})
-    pos = {k: i for i, k in enumerate(keys)}
+    hashes = [key_hash(k) for k in keys]
     parent = list(range(len(keys)))
+    tag = {i: registry[h] for i, h in enumerate(hashes) if h in registry}   # root -> the existing group it belongs to
     def find(x):
         while parent[x] != x:
             parent[x] = parent[parent[x]]
             x = parent[x]
         return x
+    def union(a, b):
+        a, b = find(a), find(b)
+        if a == b:
+            return True
+        ta, tb = tag.get(a), tag.get(b)
+        if ta is not None and tb is not None and ta != tb:
+            return False
+        r, o = min(a, b), max(a, b)
+        parent[o] = r
+        tag.pop(o, None)
+        if (ta if ta is not None else tb) is not None:
+            tag[r] = ta if ta is not None else tb
+        return True
+    first = {}
+    for i in sorted(tag):   # the keys of one existing group stay together even when the message that linked them is gone
+        g = tag[i]
+        if g in first:
+            union(first[g], i)
+        else:
+            first[g] = i
+    best = {}
     if len(keys) > 1:
-        for i, j, _, _ in near_dup_pairs_any(keys, ["real"] * len(keys), CLUSTER_SEED):
-            a, b = find(i), find(j)
-            parent[max(a, b)] = min(a, b)
-    roots = [i for i in range(len(keys)) if find(i) == i]
-    gid = {k: "G" + hashlib.md5(keys[find(i)].encode()).hexdigest()[:8] for k, i in pos.items()}
-    if len({gid[keys[i]] for i in roots}) != len(roots):
-        stop("two template groups got the same group_id (hash collision)")
+        for i, j, jac, _ in near_dup_pairs_any(keys, ["real"] * len(keys), CLUSTER_SEED):
+            p = (min(i, j), max(i, j))
+            best[p] = max(best.get(p, 0.0), jac)
+    kept_apart = set()
+    for (i, j), _ in sorted(best.items(), key=lambda kv: (-kv[1], kv[0])):
+        if not union(i, j):
+            kept_apart.add(frozenset((tag[find(i)], tag[find(j)])))
+    used, new_ids, gid_of = set(registry.values()), set(), {}
+    for root in sorted({find(i) for i in range(len(keys))}):
+        if root in tag:
+            gid_of[root] = tag[root]
+            continue
+        g = "G" + hashlib.md5(keys[root].encode()).hexdigest()[:8]
+        if g in used or g in new_ids:
+            stop("two template groups got the same group_id (hash collision)")
+        new_ids.add(g)
+        gid_of[root] = g
+    new_keys = [i for i, h in enumerate(hashes) if h not in registry]
+    if stats is not None:
+        stats.update(new_keys=len(new_keys), joined_existing=sum(find(i) in tag for i in new_keys), new_groups=len(new_ids), kept_apart=len(kept_apart))
+    gid = {}
+    for i, (k, h) in enumerate(zip(keys, hashes)):
+        gid[k] = registry[h] = gid_of[find(i)]
     groups = defaultdict(list)
     for r in recs:
         r["gkey"] = group_key(r["masked"])
@@ -721,31 +816,258 @@ def read_label_file(path):
     return labels, by_id
 
 
-def label_rows(groups, need, old_rows):
-    """One row per group that still has an unlabelled message, biggest first. Rows already in the file keep their label; a labelled row whose
-    group no longer exists is kept at the end (orphan), never dropped."""
+def top_text(members):
+    """The most common masked text of a group (the same pick_examples makes for example 1)."""
+    cnt = Counter(r["masked"] for r in members)
+    return min(cnt, key=lambda t: (-cnt[t], realguard.norm_key(t)))
+
+
+def kw_bucket(text):
+    """Keyword bucket of one message text: investment (INVEST_RX / CRYPTO_RX), task, loan, kyc-bank, delivery, else other. Used only to
+    stratify the freeze split; a keyword hit is not a label."""
+    if INVEST_RX.search(text) or CRYPTO_RX.search(text):
+        return "investment"
+    for name, rx in (("task", TASK_RX), ("loan", LOAN_RX), ("kyc-bank", KYC_BANK_RX), ("delivery", DELIVERY_RX)):
+        if rx.search(text):
+            return name
+    return "other"
+
+
+def hkey(gid):
+    """A fixed pseudo-random number in [0, 1) per group (md5 of seed and id): the random draw behind label_priority 3."""
+    return int(hashlib.md5(f"{PRIORITY_SEED}|{gid}".encode()).hexdigest()[:12], 16) / 16 ** 12
+
+
+def load_state(path):
+    """The labelling state next to the label sheet (label_me_state.json): the bucket of every group ("assigned"), the thresholds new groups are
+    bucketed by, and the group registry ("keys": key hash -> group_id, make_groups). Ids, hashes and numbers only, no text."""
+    if path.exists():
+        st = json.loads(path.read_text(encoding="utf-8"))
+        made = (st.get("seed"), st.get("n_largest"), st.get("n_random"))
+        if made != (PRIORITY_SEED, PRIORITY_N1, PRIORITY_N3):
+            stop(f"{path.name} was made with seed / sizes {made}, this script uses {(PRIORITY_SEED, PRIORITY_N1, PRIORITY_N3)}; changing them would reshuffle the buckets")
+        st.setdefault("keys", {})
+        return st
+    return {"seed": PRIORITY_SEED, "n_largest": PRIORITY_N1, "n_random": PRIORITY_N3, "b1_min_size": None, "b3_max_key": None, "assigned": {}, "keys": {}}
+
+
+def atomic_write(path, text):
+    """Write next to the file and rename over it: a reader (src/label_real.py, a crash) sees the old file or the new one, never half of one."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def assign_priorities(infos, state, old_rows):
+    """label_priority per group: 1 = the PRIORITY_N1 largest groups; 2 = every remaining group with a mobile_number sender (scam-enriched by
+    design); 3 = a random PRIORITY_N3 of the rest (smallest hkey); 4 = the rest. infos: {group_id: (size, has_mobile_sender)}.
+    The first call assigns by that exact rule. Every later call keeps what is in `state` (or in the label sheet's own label_priority column
+    when the state file is gone) and puts only the groups it has not seen before into a bucket, by the thresholds the first call left: size
+    above the smallest bucket-1 group -> 1, mobile sender -> 2, hkey up to the largest bucket-3 key -> 3, else 4 (a bucket that was not full
+    yet is filled first). So a new phone file never moves an existing group. -> ({group_id: priority}, number of groups newly bucketed)."""
+    assigned = state["assigned"]
+    for gid, r in old_rows.items():
+        v = (r.get("label_priority") or "").strip()
+        if gid not in assigned and v in ("1", "2", "3", "4"):
+            assigned[gid] = int(v)
+    new = sorted((g for g in infos if g not in assigned), key=lambda g: (-infos[g][0], g))
+    if new and not assigned:
+        top = new[:PRIORITY_N1]
+        for g in top:
+            assigned[g] = 1
+        state["b1_min_size"] = infos[top[-1]][0]
+        rest = new[PRIORITY_N1:]
+        for g in rest:
+            if infos[g][1]:
+                assigned[g] = 2
+        pool = sorted((g for g in rest if not infos[g][1]), key=hkey)
+        b3 = pool[:PRIORITY_N3]
+        for g in b3:
+            assigned[g] = 3
+        for g in pool[PRIORITY_N3:]:
+            assigned[g] = 4
+        state["b3_max_key"] = hkey(b3[-1]) if b3 else -1.0
+    else:
+        n1 = sum(v == 1 for v in assigned.values())
+        n3 = sum(v == 3 for v in assigned.values())
+        for g in new:
+            size, mobile = infos[g]
+            if n1 < PRIORITY_N1 or size > (state["b1_min_size"] or 0):
+                assigned[g] = 1
+                n1 += 1
+                state["b1_min_size"] = size if state["b1_min_size"] is None else min(state["b1_min_size"], size)
+            elif mobile:
+                assigned[g] = 2
+            elif n3 < PRIORITY_N3 or hkey(g) <= (state["b3_max_key"] if state["b3_max_key"] is not None else -1.0):
+                assigned[g] = 3
+                n3 += 1
+                state["b3_max_key"] = max(hkey(g), state["b3_max_key"] if state["b3_max_key"] is not None else -1.0)
+            else:
+                assigned[g] = 4
+    return {g: assigned[g] for g in infos}, len(new)
+
+
+def label_rows(groups, need, old_rows, prio=None):
+    """One row per group that still has an unlabelled message, bucket by bucket (label_priority), biggest first inside a bucket. Rows already in
+    the file keep their label; a labelled row whose group no longer exists is kept at the end (orphan), never dropped."""
+    prio = prio or {}
     rows = []
     for gid in need:
         members = groups[gid]
         e1, e2, sim = pick_examples(members)
-        rows.append({"group_id": gid, "size": len(members), "example_1": sheet_text(e1), "example_2": sheet_text(e2) if e2 else "", "example_similarity": sim,
-                     "sender_kind_mix": mix(Counter(r["sender_kind"] for r in members)), "sources": mix(Counter(r["source"] for r in members)),
+        rows.append({"group_id": gid, "size": len(members), "label_priority": prio.get(gid, 4), "example_1": sheet_text(e1), "example_2": sheet_text(e2) if e2 else "",
+                     "example_similarity": sim, "sender_kind_mix": mix(Counter(r["sender_kind"] for r in members)), "sources": mix(Counter(r["source"] for r in members)),
                      "label": (old_rows.get(gid, {}).get("label") or "").strip()})
-    rows.sort(key=lambda r: (-r["size"], r["group_id"]))
+    rows.sort(key=lambda r: (r["label_priority"], -r["size"], r["group_id"]))
     listed = {x["group_id"] for x in rows}
     orphans = [r for gid, r in old_rows.items() if gid not in listed and (r.get("label") or "").strip()]
     return rows, [{k: o.get(k, "") for k in LABEL_COLS} for o in orphans]
 
 
+# ---------------------------------------------------------------------------------------------------------------- the freeze split
+
+def text_pairs(texts, owners, seeds):
+    """{(i, j)}: index pairs of texts with different owners (template groups, or the two sides of the split) that src/neardup.py calls
+    near-duplicates under any of `seeds`, on two views: the text with links as <URL> (textprep.model_text) and the digit-collapsed group key."""
+    out = set()
+    if len(texts) < 2:
+        return out
+    for view in (model_text, group_key):
+        vt = [view(t) for t in texts]
+        for seed in seeds:
+            for i, j, _, _ in near_dup_pairs_any(vt, ["real"] * len(vt), seed, skip=lambda i, j: owners[i] == owners[j]):
+                out.add((min(i, j), max(i, j)))
+    return out
+
+
+def grouped_split(final, keys_by_group, seed=SPLIT_SEED):
+    """Split the labelled groups 50/50 into TEST and POOL. The unit is the template group, and groups with a near-duplicate pair between them are
+    one unit: every message of every labelled group is looked at (its digit-collapsed key, keys_by_group), not only the <= 3 stored rows, under
+    the grouping seed and an independent one (CHECK_SEED). Groups can be near-duplicates of each other when a later phone file brought a message
+    like two existing groups (make_groups keeps them apart). Units are stratified by label x keyword bucket: inside a stratum they are sorted by
+    size, taken in pairs, and a seeded coin decides which of the pair goes to TEST (an odd one out is a coin flip too).
+    -> {"test": group ids, "pool": group ids, "strata": {(label, kw): [test units, pool units]}, "merged_units": n, "mixed_units": n}."""
+    gids = sorted({r["group"] for r in final})
+    parent = {g: g for g in gids}
+    def find(g):
+        while parent[g] != g:
+            parent[g] = parent[parent[g]]
+            g = parent[g]
+        return g
+    texts = [r["final"] for r in final] + [k for g in gids for k in sorted(keys_by_group[g])]
+    owners = [r["group"] for r in final] + [g for g in gids for _ in keys_by_group[g]]
+    for i, j in sorted(text_pairs(texts, owners, (CLUSTER_SEED, CHECK_SEED))):
+        a, b = find(owners[i]), find(owners[j])
+        if a != b:
+            parent[max(a, b)] = min(a, b)
+    units = defaultdict(list)
+    for g in gids:
+        units[find(g)].append(g)
+    by_group = defaultdict(list)
+    for r in final:
+        by_group[r["group"]].append(r)
+    size_of = lambda g: by_group[g][0]["group_size"]
+    strata, mixed = defaultdict(list), 0
+    for u, gs in units.items():
+        lab = Counter(r["label"] for g in gs for r in by_group[g])
+        if len(lab) > 1:
+            mixed += 1
+        label = max(lab, key=lambda l: (lab[l], l))
+        big = max(gs, key=lambda g: (size_of(g), g))
+        strata[(label, by_group[big][0]["kw_bucket"])].append((u, sum(size_of(g) for g in gs)))
+    test, pool, counts = set(), set(), {}
+    for key in sorted(strata, key=str):
+        us = sorted(strata[key], key=lambda x: (-x[1], x[0]))
+        rng = random.Random(f"{seed}|{key[0]}|{key[1]}")
+        t = p = 0
+        for k in range(0, len(us), 2):
+            pair = [x[0] for x in us[k:k + 2]]
+            if len(pair) == 2:
+                rng.shuffle(pair)
+                to_test, to_pool = [pair[0]], [pair[1]]
+            else:
+                to_test, to_pool = ([pair[0]], []) if rng.random() < 0.5 else ([], [pair[0]])
+            for u in to_test:
+                test.update(units[u]); t += 1
+            for u in to_pool:
+                pool.update(units[u]); p += 1
+        counts[key] = [t, p]
+    return {"test": test, "pool": pool, "strata": counts, "merged_units": len(gids) - len(units), "mixed_units": mixed}
+
+
+def verify_disjoint(test_rows, pool_rows, keys_by_group):
+    """(groups on both sides, near-duplicate pairs across the two sides), by an independent look: a seed neither the grouping nor the split used,
+    over the stored rows and every message key of the groups on each side."""
+    tg, pg = {r["group"] for r in test_rows}, {r["group"] for r in pool_rows}
+    texts = [r["final"] for r in test_rows] + [k for g in sorted(tg) for k in sorted(keys_by_group[g])]
+    owners = ["test"] * len(texts)
+    texts += [r["final"] for r in pool_rows] + [k for g in sorted(pg) for k in sorted(keys_by_group[g])]
+    owners += ["pool"] * (len(texts) - len(owners))
+    return len(tg & pg), len(text_pairs(texts, owners, (CHECK_SEED + 1,)))
+
+
+def near_test_flags(texts, test_texts):
+    """True for each text that is a near-duplicate of a TEST text (raw and digit-collapsed views, the grouping seed and the independent one)."""
+    flags = [False] * len(texts)
+    if not texts or not test_texts:
+        return flags
+    n0 = len(test_texts)
+    for view in (model_text, group_key):
+        allt = [view(t) for t in test_texts + texts]
+        for seed in (CLUSTER_SEED, CHECK_SEED):
+            for i, j, _, _ in near_dup_pairs_any(allt, ["real"] * len(allt), seed, skip=lambda i, j: (i < n0) == (j < n0), queries=range(n0, len(allt))):
+                flags[max(i, j) - n0] = True
+    return flags
+
+
+def read_rows(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
 # ---------------------------------------------------------------------------------------------------------------- the run
 
 def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messages=MESSAGES, label_file=LABEL_ME, cap=CAP, allow_unlabelled=False, names_file=NAMES_FILE,
-        allow_open_names=False):
+        allow_open_names=False, pool_dir=None):
+    """Three modes. preview (before the freeze): the labelled rows go to labelled_preview.csv next to `out`, nothing is split and `out` is not
+    written. freeze (freeze=True, once): the labelled groups are split 50/50 (grouped_split); freeze_manifest.json (next to `out`) records the
+    split, the TEST half goes to `out` and its SHA-256 into CLAUDE.md, the POOL half to pool_dir/pool.csv. post (a manifest exists): `out` is never
+    touched; labelled messages go to the pool, except a message of a TEST group or a near-duplicate of any TEST message (dropped and counted), and
+    a row with a name candidate not reviewed yet (held back until review_names.csv has an answer). A second freeze is refused.
+    -> (SHA-256 of the file written for the test side: the preview, the new test file, or the frozen one; the rows kept)."""
     inputs = [RAW_DIR] if inputs is None else ([inputs] if isinstance(inputs, (str, Path)) else list(inputs))
     for p in inputs:
         if not Path(p).exists():
             stop(f"{p} does not exist (the exports go in data/real/raw/; the folder is git-ignored)")
         check_input_path(p)
+    out = Path(out)
+    real_target = out.resolve() == OUT.resolve()
+    claude_is_real = Path(CLAUDE).resolve() == (ROOT / "CLAUDE.md").resolve()
+    if freeze and not real_target and claude_is_real:
+        stop(f"a freeze of {out} (not data/real/real_test_v1.csv) would write its hash into the project's CLAUDE.md; point intake_real.CLAUDE at a copy first")
+    claude_hash = frozen_hash() if (real_target or not claude_is_real) else None
+    manifest_path = out.parent / MANIFEST_NAME
+    preview_path = out.with_name(PREVIEW_NAME)
+    pool_dir = Path(pool_dir) if pool_dir else (POOL_DIR if real_target else out.parent / "pool")
+    pool_path = pool_dir / "pool.csv"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
+    if freeze and (manifest or claude_hash):
+        stop(f"already frozen ({manifest_path.name if manifest else 'CLAUDE.md'} holds the split): a second --freeze is refused. Changing the frozen test set needs a decision, "
+             "not a rerun. New phones and screenshots go to the pool by a plain rerun.")
+    if claude_hash and not manifest:
+        stop(f"CLAUDE.md freezes a real test set but {manifest_path.name} is missing; restore it (it holds the split) before any rerun")
+    if manifest and (not out.exists() or hashlib.sha256(out.read_bytes()).hexdigest() != manifest["test_sha256"]):
+        stop(f"{out.name} is missing or no longer matches the hash in {manifest_path.name}; the frozen test set must not change. Restore it, do not rerun over it")
+    mode = "post" if manifest else "freeze" if freeze else "preview"
     files = discover(inputs)
     if not (files["csv"] or files["xml"] or files["txt"]):
         stop(f"no .csv, .xml or .txt file under {', '.join(str(Path(p)) for p in inputs)}")
@@ -761,6 +1083,7 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
         recs += read_whatsapp(p, src, drops, read, sens)
     print(f"read {sum(read.values())} rows from {len(files['csv'])} Form file(s), {len(files['xml'])} SMS file(s), {len(files['txt'])} WhatsApp file(s)"
           + (f"; {len(files['other'])} other file(s) not read" if files["other"] else ""))
+    received = {src: n - sum(v for (s_, why), v in drops.items() if s_ == src and why in (NOT_RECEIVED, MMS_DROP)) for src, n in read.items()}
 
     for r in recs:
         r["masked"] = mask(r["text"])
@@ -775,9 +1098,19 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
     if nrx:
         for r in recs:
             r["masked"] = mask(r["text"], nrx)
-    if auto:
-        print(f"names masked everywhere because they follow a greeting in many messages (a wrong one: add '-word' to {names_file}): {', '.join(auto)}")
-    groups = make_groups(recs)
+    auto_path = label_file.with_name(AUTO_NAMES_NAME)
+    if auto:   # the words themselves go to a git-ignored file, never to the terminal or the report
+        atomic_write(auto_path, "# words masked as names everywhere because they follow a greeting in many messages; written by src/intake_real.py on every run.\n"
+                                f"# a wrong one: add '-word' to {Path(names_file).name}\n" + "".join(w + "\n" for w in auto))
+        print(f"{len(auto)} words masked as names everywhere because they follow a greeting in many messages: listed in {auto_path.name} (a wrong one: add '-word' to {Path(names_file).name})")
+    elif auto_path.exists():
+        auto_path.unlink()
+    state_path = label_file.with_name(label_file.stem + "_state.json")
+    state = load_state(state_path)
+    known_before = set(state["keys"].values())
+    gstats = {}
+    groups = make_groups(recs, state["keys"], gstats)
+    vanished = sorted(known_before - set(groups))
 
     # exact duplicates once, at most `cap` messages per group (a stable pseudo-random pick: the md5 order of the masked text)
     cands = []
@@ -814,7 +1147,10 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
             r["label"] = 1 if v == "scam" else 0
         final_pre.append(r)
     unlabelled_groups = [gid for gid in need if gid not in labels]
-    sheet, orphans = label_rows(groups, need, old_rows)
+    infos = {gid: (len(groups[gid]), any(r["sender_kind"] == "mobile_number" for r in groups[gid])) for gid in need}
+    prio, n_new_prio = assign_priorities(infos, state, old_rows)
+    kw = {gid: kw_bucket(top_text(m)) for gid, m in groups.items()}
+    sheet, orphans = label_rows(groups, need, old_rows, prio)
     stale = [gid for gid in labels if gid not in groups]
 
     # names: candidates to review for the rows that are kept; edits from the review file are applied
@@ -826,9 +1162,11 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
             ctx = contexts(r["masked"], tok)
             if ctx:
                 current[(r["id"], tok)] = {"id": r["id"], "token": tok, "context": ctx[0], "replace_with": ""}
+    all_cands_names = Counter(r["id"] for r in cands for _ in name_tokens(r["masked"], vocab))   # counts only: what the review will ask once every group is labelled
     new_rows = [v for k, v in current.items() if k not in review_rows]
     merged = {**review_rows, **{k: v for k, v in current.items() if k not in review_rows}}
-    open_names = sum(1 for k, v in merged.items() if k in current and not v["replace_with"].strip())   # blank = not looked at yet
+    open_ids = {k[0] for k, v in merged.items() if k in current and not v["replace_with"].strip()}   # blank = not looked at yet
+    open_names = sum(1 for k, v in merged.items() if k in current and not v["replace_with"].strip())
     applied, final = Counter(), []
     for r in final_pre:
         edits = [v for (rid, tok), v in review_rows.items() if rid == r["id"]]
@@ -842,6 +1180,8 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
                 t, n = re.subn(rf"(?<!\w){re.escape(e['token'])}(?!\w)", rep, t)
                 applied[rep] += n
         r["final"] = t
+        r["label_priority"] = prio.get(r["group"], "")
+        r["kw_bucket"] = kw[r["group"]]
         final.append(r)
 
     # overlap with TRAIN for every candidate (the report counts unlabelled groups too); rows are never dropped for it
@@ -851,54 +1191,123 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
     for r in final:
         r["hash"] = realguard.norm_key(r["final"])
     final.sort(key=lambda r: (-r["group_size"], r["group"], r["hash"]))
+    keys_by_group = {gid: {r["gkey"] for r in m} for gid, m in groups.items()}
+
+    # after a freeze nothing reaches the test set: a message of a TEST group (by id, or by a key that was in a TEST group at the freeze) or a
+    # near-duplicate of any TEST message is dropped; a row whose name candidates are not reviewed yet waits; the rest is the pool
+    if mode == "post":
+        test_gids, test_kh = set(manifest["test_group_ids"]), set(manifest.get("test_key_hashes", []))
+        in_test = lambda r: r["group"] in test_gids or key_hash(r["gkey"]) in test_kh
+        ref = [r["text"] for r in read_rows(out)] + sorted({r["gkey"] for r in recs if in_test(r)})
+        near = near_test_flags([r["final"] for r in final], ref)
+        keep = []
+        for r, nr in zip(final, near):
+            if in_test(r):
+                drops[(r["source"], TEST_GROUP_DROP)] += 1
+            elif nr:
+                drops[(r["source"], TEST_NEAR_DROP)] += 1
+            elif r["id"] in open_ids and not allow_open_names:
+                drops[(r["source"], "name candidate not reviewed yet (review_names.csv): held back from the pool")] += 1
+            else:
+                keep.append(r)
+        final = keep
 
     if sum(read.values()) != len(final) + sum(drops.values()):
         stop(f"row accounting does not balance: read {sum(read.values())}, kept {len(final)}, dropped {sum(drops.values())}")
+
+    freeze_error = None
+    if freeze:
+        blank_123 = [g for g in unlabelled_groups if prio.get(g, 4) <= 3]
+        if not final:
+            freeze_error = "--freeze needs at least one labelled row"
+        elif unlabelled_groups and not allow_unlabelled:
+            freeze_error = (f"--freeze: {len(unlabelled_groups)} groups in {label_file.name} still have no label (scam / genuine / skip). Label them, or pass --allow-unlabelled "
+                            "to freeze without bucket 4 (its messages are then left out of both halves)")
+        elif blank_123:
+            freeze_error = (f"--freeze: {len(blank_123)} groups in label_priority buckets 1-3 still have no label; --allow-unlabelled leaves out bucket 4 only. "
+                            "Label them with src/label_real.py first")
+        elif open_names and not allow_open_names:
+            freeze_error = (f"--freeze: {open_names} name candidates in {review.name} are still blank. Write <NAME> to mask a token, DROP to drop its row, or ok when it is not a name "
+                            "(fill the column with ok, then fix the real names); or pass --allow-open-names to freeze with them as written")
+
+    split = None
+    test_final, pool_final = final, []
+    if mode == "freeze" and not freeze_error:
+        split = grouped_split(final, keys_by_group)
+        test_final = [r for r in final if r["group"] in split["test"]]
+        pool_final = [r for r in final if r["group"] in split["pool"]]
+        both, cross = verify_disjoint(test_final, pool_final, keys_by_group)
+        if both or cross or len(test_final) + len(pool_final) != len(final):
+            stop(f"the split failed its own check ({both} groups on both sides, {cross} near-duplicate pairs across it); nothing was written")
+    elif mode == "post":
+        test_final, pool_final = [], final
+
     inv = {"investment": INVEST_RX, "crypto": CRYPTO_RX, "task": TASK_RX}
     inv_groups = {k: sum(any(rx.search(r["masked"]) for r in m) for m in groups.values()) for k, rx in inv.items()}
     inv_groups["any"] = sum(any(rx.search(r["masked"]) for rx in inv.values() for r in m) for m in groups.values())
 
-    out_rows = [{"id": r["id"], "text": r["final"], "label": r["label"], "language": r["language"], "category": r["category"], "overlap": r["overlap"],
-                 "source_row_hash": r["hash"], "source": r["source"], "source_type": r["source_type"], "sender_kind": r["sender_kind"],
-                 "group_id": r["group"], "group_size": r["group_size"]} for r in final]
+    to_row = lambda r: {"id": r["id"], "text": r["final"], "label": r["label"], "language": r["language"], "category": r["category"], "overlap": r["overlap"],
+                        "source_row_hash": r["hash"], "source": r["source"], "source_type": r["source_type"], "sender_kind": r["sender_kind"],
+                        "group_id": r["group"], "group_size": r["group_size"], "label_priority": r["label_priority"], "kw_bucket": r["kw_bucket"],
+                        "provenance": "real_circulating", "is_synthetic": False}
+    out_rows = [to_row(r) for r in test_final]
+    pool_rows = [to_row(r) for r in pool_final]
     out_text = csv_text(OUT_COLS, out_rows)
+    pool_text = csv_text(POOL_COLS, pool_rows)
     sheet_text_csv = csv_text(LABEL_COLS, sheet + orphans)
+    state_text = json.dumps(state, indent=1, sort_keys=True)
     review_rows_out = list(merged.values())
+    man = None
+    if mode == "freeze" and not freeze_error:
+        man = {"version": 1, "frozen_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "split_seed": SPLIT_SEED, "priority_seed": PRIORITY_SEED, "cap": cap,
+               "test_sha256": hashlib.sha256(out_text.encode("utf-8")).hexdigest(), "test_rows": len(out_rows), "pool_rows_at_freeze": len(pool_rows),
+               "pool_sha256_at_freeze": hashlib.sha256(pool_text.encode("utf-8")).hexdigest(), "test_group_ids": sorted(split["test"]), "pool_group_ids": sorted(split["pool"]),
+               "test_key_hashes": sorted({key_hash(k) for g in split["test"] for k in keys_by_group[g]}),
+               "strata": {f"{k[0]}|{k[1]}": v for k, v in sorted(split["strata"].items(), key=str)}}
+    pinfo = dict(prio=prio, state=state, new=n_new_prio, need=need, labels=labels, groups=groups, gstats=gstats, vanished=vanished)
     summary = summarise(files, read, drops, groups, need, labels, unlabelled_groups, stale, orphans, cands, final, inv_groups, current, review_rows, new_rows, applied,
                         form_info, open_names, sens_counts=(len(sens.phones), len(sens.names), len(auto), len(extra)))
-    sha = hashlib.sha256(out_text.encode("utf-8")).hexdigest() if final else None
+    summary.update(mode=mode, split=split, test_final=test_final, pool_final=pool_final, pinfo=pinfo, manifest=manifest or man, received=received,
+                   all_cands_names=all_cands_names, preview_name=preview_path.name)
+    sha = manifest["test_sha256"] if mode == "post" else (hashlib.sha256(out_text.encode("utf-8")).hexdigest() if test_final else None)
     report_text = write_summary(summary, sha, out)
 
     # nothing is written until every output has been checked for the phone numbers and names that were in the input
-    scan_outputs(sens, {out.name: [r["text"] for r in out_rows], label_file.name: [r[c] for r in sheet + orphans for c in ("example_1", "example_2")],
-                        review.name: [r["context"] for r in review_rows_out], report.name: report_text.splitlines()})
-    frozen_now = frozen_hash()
-    if frozen_now and out.exists() and hashlib.sha256(out.read_bytes()).hexdigest() == frozen_now and (not final or sha != frozen_now):
-        stop(f"{out.name} is the frozen test set (CLAUDE.md); a rerun would replace it. Move it aside deliberately if that is what you want")
-    label_file.parent.mkdir(parents=True, exist_ok=True)
-    label_file.write_text(sheet_text_csv, encoding="utf-8", newline="")
+    scan_outputs(sens, {out.name: [r["text"] for r in out_rows], pool_path.name: [r["text"] for r in pool_rows],
+                        label_file.name: [r[c] for r in sheet + orphans for c in ("example_1", "example_2")],
+                        review.name: [r["context"] for r in review_rows_out], report.name: report_text.splitlines(),
+                        state_path.name: flat(state), MANIFEST_NAME: flat(man or {})})
+    atomic_write(label_file, sheet_text_csv)
+    atomic_write(state_path, state_text)
     write_review(review, review_rows_out)
-    if final:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(out_text, encoding="utf-8", newline="")
+    shown = lambda p: p.relative_to(ROOT) if p.is_relative_to(ROOT) else p
+    if mode == "freeze" and not freeze_error:
+        atomic_write(manifest_path, json.dumps(man, indent=1))   # first: from here on a rerun is "post", and stops until the test file below matches it
+        atomic_write(pool_path, pool_text)
+        atomic_write(out, out_text)
+        if preview_path.exists():
+            preview_path.unlink()
+        freeze_hash(sha, len(out_rows), f"- `{shown(pool_path)}`: the POOL half ({len(pool_rows)} rows at freeze, {len(split['pool'])} template groups; grows when a new phone or screenshots are added). "
+                    f"Allowed for training / validation in splits-v3; shares no template group and no near-duplicate with the test file (`{shown(manifest_path)}`).")
+    elif mode == "post":
+        atomic_write(pool_path, pool_text)
+    elif final:
+        atomic_write(preview_path, out_text)
+    elif preview_path.exists():
+        preview_path.unlink()
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(report_text, encoding="utf-8")
-    shown = lambda p: p.relative_to(ROOT) if p.is_relative_to(ROOT) else p
     print(f"{len(cands)} candidate messages in {len(groups)} template groups; {len(need)} groups need a label ({len(unlabelled_groups)} still blank) -> {shown(label_file)}")
-    if final:
-        print(f"kept {len(final)} labelled rows -> {shown(out)}\nsha256 {sha}")
+    if mode == "post":
+        print(f"frozen test set untouched ({manifest['test_rows']} rows, sha256 {sha}); pool: {len(pool_rows)} rows -> {shown(pool_path)}")
+    elif mode == "freeze" and not freeze_error:
+        print(f"FROZEN: test {len(out_rows)} rows from {len(split['test'])} groups -> {shown(out)}\nsha256 {sha}\npool {len(pool_rows)} rows from {len(split['pool'])} groups -> {shown(pool_path)}")
+    elif final:
+        print(f"{len(final)} labelled rows -> {shown(preview_path)} (a preview: nothing is split and {out.name} is written only by --freeze)")
     else:
-        print(f"no group is labelled yet, so {shown(out)} was not written")
-    if freeze:
-        if not final:
-            stop("--freeze needs at least one labelled row")
-        if unlabelled_groups and not allow_unlabelled:
-            stop(f"--freeze: {len(unlabelled_groups)} groups in {label_file.name} still have no label (scam / genuine / skip). Label them, or pass --allow-unlabelled "
-                 "to freeze without them (their messages are then left out, which favours the templates you did label)")
-        if open_names and not allow_open_names:
-            stop(f"--freeze: {open_names} name candidates in {review.name} are still blank. Write <NAME> to mask a token, DROP to drop its row, or ok when it is not a name "
-                 "(fill the column with ok, then fix the real names); or pass --allow-open-names to freeze with them as written")
-        freeze_hash(sha, len(final))
+        print("no group is labelled yet: next, label with src/label_real.py")
+    if freeze_error:
+        stop(freeze_error)
     return sha, final
 
 
@@ -909,24 +1318,32 @@ def summarise(files, read, drops, groups, need, labels, unlabelled_groups, stale
 
 def write_summary(s, sha, out):
     final, cands, groups, drops, read = s["final"], s["cands"], s["groups"], s["drops"], s["read"]
+    mode, split, pinfo = s["mode"], s["split"], s["pinfo"]
+    test_final, pool_final = s["test_final"], s["pool_final"]
     L = ["# Real-message intake v1\n",
          f"*Generated by `src/intake_real.py` on {dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC. No message text, no file name, no number and no name "
-         "in this report: texts are in `data/real/real_test_v1.csv` and `data/real/label_me.csv` (git-ignored).*\n",
+         "in this report: texts are in `data/real/` (label_me.csv, the preview or the test file) and the pool file (all git-ignored).*\n",
+         f"Mode: **{mode}** ({'not frozen: the labelled rows go to ' + s['preview_name'] + ' as a preview, nothing is split, real_test_v1.csv is not written' if mode == 'preview' else 'the labelled groups were split 50/50 into TEST and POOL just now' if mode == 'freeze' else 'the test set is frozen and untouched; new messages go to the pool only'}).\n",
          f"Files read: {len(s['files']['csv'])} Form CSV, {len(s['files']['xml'])} SMS Backup & Restore XML, {len(s['files']['txt'])} WhatsApp text. "
          f"Not read (other file types): {len(s['files']['other'])}.\n"]
     for roles, dropped_cols in s["form_info"]:
         L.append(f"Form columns mapped: {', '.join(f'{r} <- {c!r}' for r, c in roles.items())}. Dropped before anything else: {', '.join(repr(c) for c in dropped_cols) or 'none'}.\n")
     L.append("## Rows read per source\n")
-    kept = Counter(r["source"] for r in final)
+    kept_t, kept_p, cand = Counter(r["source"] for r in test_final), Counter(r["source"] for r in pool_final), Counter(r["source"] for r in cands)
     dropped = Counter()
     for (src, _), n in drops.items():
         dropped[src] += n
-    L += ["| source | type | read | kept | dropped |", "|---|---|---:|---:|---:|"]
+    rec = s["received"]
+    L += [f"| source | type | read | received | candidates (before labelling) | kept: {'labelled (preview)' if mode == 'preview' else 'test'} | kept: pool | dropped |",
+          "|---|---|---:|---:|---:|---:|---:|---:|"]
     for src in sorted(read):
-        L.append(f"| {src} | {'sms' if src.startswith('phone_') else 'whatsapp' if src.startswith('wa_') else 'form'} | {read[src]} | {kept[src]} | {dropped[src]} |")
-    L.append(f"| **all** | | {sum(read.values())} | {len(final)} | {sum(drops.values())} |\n")
+        L.append(f"| {src} | {'sms' if src.startswith('phone_') else 'whatsapp' if src.startswith('wa_') else 'form'} | {read[src]} | {rec[src]} | {cand[src]} | {kept_t[src]} | {kept_p[src]} | {dropped[src]} |")
+    L.append(f"| **all** | | {sum(read.values())} | {sum(rec.values())} | {len(cands)} | {len(test_final)} | {len(pool_final)} | {sum(drops.values())} |\n")
+    L.append("*read = every <sms> / <mms> element (SMS), chat line (WhatsApp) or row (Form); received = read minus sent messages and MMS. Candidates = what is left "
+             "after the read filters, exact duplicates and the per-group cap: the rows that get a label from their group. read = kept + dropped; before labelling, "
+             "every candidate is dropped as 'group not labelled yet'.*\n")
     L.append("## Kept vs dropped, and why\n")
-    L.append(f"- Read {sum(read.values())}. **Kept {len(final)}** in the test set. Dropped {sum(drops.values())} (read = kept + dropped).")
+    L.append(f"- Read {sum(read.values())}. **Kept {len(test_final) + len(pool_final)}** (test {len(test_final)}, pool {len(pool_final)}). Dropped {sum(drops.values())}.")
     by_reason = defaultdict(Counter)
     for (src, reason), n in drops.items():
         by_reason[reason][src] += n
@@ -942,13 +1359,52 @@ def write_summary(s, sha, out):
     if sizes:
         L.append("- Labelling the biggest groups first covers: " + "; ".join(f"{n} groups = {100 * sum(sizes[:n]) / sum(sizes):.0f}% of messages" for n in (25, 50, 100, 200, 400) if n < len(sizes))
                  + f"; all {len(sizes)} groups = 100%.")
-    L.append(f"- The test set keeps at most {CAP} messages per group (exact duplicates once): {len(final)} rows from {len({r['group'] for r in final})} groups; "
-             f"`group_size` in the file is the whole group, so eval can report per message and per group.")
+    phone_span = sum(len({r["source"] for r in m if r["source"].startswith("phone_")}) >= 2 for m in groups.values())
+    L.append(f"- Groups that appear on two or more phones: **{phone_span}** of {len(groups)}.")
+    L.append(f"- Each group keeps at most {CAP} messages (exact duplicates once), in the test file and in the pool alike: {len(final)} rows from {len({r['group'] for r in final})} groups; "
+             f"`group_size` in the files is the whole group, so eval can report per message and per group and training can weight.")
     L.append(f"- Groups with a message to label: {len(s['need'])}. Labelled in `label_me.csv`: {sum(g in s['labels'] for g in s['need'])} "
              f"(skip: {sum(s['labels'].get(g) == 'skip' for g in s['need'])}), still blank: **{len(s['unlabelled_groups'])}**. "
              f"Labels in the file that match no group: {len(s['stale'])} (kept at the end of the file: {len(s['orphans'])}).")
     L.append(f"- Phone numbers and names seen in the input and masked wherever they appear: {s['sens'][0]} numbers, {s['sens'][1]} names "
              f"({s['sens'][2]} found after greetings, {s['sens'][3]} from `mask_names.txt`; values are not written anywhere).\n")
+    L.append("## Labelling buckets (label_priority)\n")
+    prio = pinfo["prio"]
+    gs_ = pinfo["gstats"]
+    L.append(f"- Fixed seed {PRIORITY_SEED}. 1 = the {PRIORITY_N1} largest groups; 2 = every other group with a `mobile_number` sender; 3 = a random {PRIORITY_N3} of the rest "
+             f"(smallest md5(seed|group_id)); 4 = the rest. Buckets are stored in `label_me_state.json` and `label_me.csv`: a rerun or a new phone file never moves a group that "
+             f"has a bucket; {pinfo['new']} groups were bucketed for the first time in this run. A new group later is bucketed by the first run's cut-offs "
+             f"(bigger than the smallest bucket-1 group: 1; a `mobile_number` sender: 2; md5 key up to bucket 3's largest: 3; else 4), so bucket 1 can grow past {PRIORITY_N1}.")
+    L.append(f"- Group registry (`label_me_state.json`, key hashes only): keys new in this run {gs_.get('new_keys', 0)}, of which joined an existing group "
+             f"{gs_.get('joined_existing', 0)}; new groups {gs_.get('new_groups', 0)}; pairs of existing groups a new message is like both of, kept apart "
+             f"{gs_.get('kept_apart', 0)} (the freeze puts such groups on one side); groups seen before with no message in this run {len(pinfo['vanished'])}.")
+    L.append("- **Bucket 2 is scam-enriched by design** (messages from ordinary mobile numbers are much more often scams than messages from bank / DLT sender ids): "
+             "do not read bucket 2's scam share as the base rate, and read results over buckets 1+3 for something closer to the inbox.")
+    L += ["", "| bucket | groups | messages | labelled groups (scam / genuine / skip) | still blank |", "|---|---:|---:|---|---:|"]
+    for b in (1, 2, 3, 4):
+        gs = [g for g in pinfo["need"] if prio.get(g) == b]
+        lab = Counter(pinfo["labels"].get(g) for g in gs)
+        L.append(f"| {b} | {len(gs)} | {sum(len(groups[g]) for g in gs)} | {lab['scam'] + lab['genuine'] + lab['skip']} ({lab['scam']} / {lab['genuine']} / {lab['skip']}) | {lab[None]} |")
+    L.append("")
+    if split:
+        L.append("## Freeze split (TEST vs POOL)\n")
+        L.append(f"- Fixed seed {SPLIT_SEED}. Unit = template group; {split['merged_units']} groups were merged into a neighbour's unit because a near-duplicate look over all their "
+                 f"messages (grouping seed and an independent one) found them similar ({split['mixed_units']} units hold both labels). Stratified by label x keyword bucket "
+                 f"({' / '.join(KW_BUCKETS)}; first match wins), 50/50 by units inside each stratum. Only labelled groups are split; skip and blank groups are in neither half.")
+        L.append(f"- **TEST**: {len(test_final)} rows from {len(split['test'])} groups ({sum(r['label'] == 1 for r in test_final)} scam / {sum(r['label'] == 0 for r in test_final)} genuine rows). "
+                 f"**POOL**: {len(pool_final)} rows from {len(split['pool'])} groups ({sum(r['label'] == 1 for r in pool_final)} scam / {sum(r['label'] == 0 for r in pool_final)} genuine rows).")
+        L.append("- Checked after the split with a seed neither the grouping nor the split used, over the stored rows and every message of each side: 0 groups on both "
+                 "sides and 0 near-duplicate pairs across it (the run stops otherwise).\n")
+        L += ["| label | keyword bucket | test groups | pool groups |", "|---|---|---:|---:|"]
+        for (lab, kwb), (t, p_) in sorted(split["strata"].items(), key=lambda kv: (kv[0][0], KW_BUCKETS.index(kv[0][1]))):
+            L.append(f"| {'scam' if lab == 1 else 'genuine'} | {kwb} | {t} | {p_} |")
+        L.append("")
+    if mode == "post":
+        m = s["manifest"]
+        L.append("## After the freeze\n")
+        L.append(f"- Frozen on {m['frozen_utc']}: test {m['test_rows']} rows, SHA-256 `{m['test_sha256']}` (unchanged). Pool at freeze: {m['pool_rows_at_freeze']} rows; now {len(pool_final)}.")
+        L.append(f"- Dropped on this run because of the TEST half: {sum(n for (_, r), n in drops.items() if r == TEST_GROUP_DROP)} (message of a TEST group) + "
+                 f"{sum(n for (_, r), n in drops.items() if r == TEST_NEAR_DROP)} (near-duplicate of a TEST message: a stored TEST row or any message of a TEST group).\n")
     L.append("## Label counts: language x sender_kind\n")
     L += ["| language | sender_kind | scam | genuine | not labelled yet (candidates) |", "|---|---|---:|---:|---:|"]
     c = Counter((r["language"], r["sender_kind"], r["label"]) for r in final)
@@ -970,12 +1426,20 @@ def write_summary(s, sha, out):
              f"(investment {s['inv']['investment']}, crypto {s['inv']['crypto']}, task {s['inv']['task']}; a group can match more than one). A keyword hit is not a label.\n")
     L.append("## Names\n")
     ids = {r["id"] for r in final}
+    acn = s["all_cands_names"]
     L.append(f"- Kept rows with a likely name (capitalised word not in the common-word list): {len({k[0] for k in s['current']})}. Candidate tokens: {len(s['current'])}.")
+    L.append(f"- Over all {len(cands)} candidate rows (labelled or not): {sum(acn.values())} name candidates in {len(acn)} rows. `review_names.csv` asks only about labelled rows, "
+             "so this is the most it can grow to.")
     L.append(f"- Edits applied from `review_names.csv`: masks {sum(s['applied'].values())} (replacement values are not written here).")
     L.append(f"- Candidates still blank (not looked at; blank is kept as written, `ok` marks a reviewed non-name): {s['open_names']}; new since last run: {len(s['new_rows'])}; "
              f"entries for rows no longer in the set: {sum(1 for k in s['review_rows'] if k[0] not in ids)}.\n")
     L.append("## Output\n")
-    L.append(f"- `{out.name}`: {len(final)} rows" + (f", SHA-256 `{sha}`." if sha else " (not written: no labelled group yet)."))
+    if mode == "preview":
+        L.append(f"- `{s['preview_name']}`: {len(test_final)} labelled rows" + (f", SHA-256 `{sha}` (a preview, not frozen)." if sha else " (not written: no labelled group yet).")
+                 + f" `{out.name}` is written only by `--freeze`.")
+    else:
+        L.append(f"- `{out.name}`: {len(test_final) if mode == 'freeze' else s['manifest']['test_rows']} rows, SHA-256 `{sha}`" + (" (frozen just now)." if mode == "freeze" else " (frozen, unchanged)."))
+        L.append(f"- pool: {len(pool_final)} rows from {len({r['group'] for r in pool_final})} groups.")
     return "\n".join(L) + "\n"
 
 
@@ -987,10 +1451,12 @@ def frozen_hash():
     m = re.search(r"SHA-256 `([0-9a-f]{64})`", CLAUDE.read_text(encoding="utf-8").split(FREEZE_HEAD, 1)[1])
     return m.group(1) if m else None
 
-def freeze_hash(sha, n):
+def freeze_hash(sha, n, extra_line=""):
     """Write (or replace) the frozen-hashes section of CLAUDE.md. Refuses to replace a different hash: that needs a human decision."""
     text = CLAUDE.read_text(encoding="utf-8")
-    line = f"- `data/real/real_test_v1.csv`: {n} rows, SHA-256 `{sha}` (frozen {dt.date.today().isoformat()}). TEST ONLY: never a training, tuning or calibration input (src/realguard.py)."
+    line = f"- `data/real/real_test_v1.csv`: {n} rows, SHA-256 `{sha}` (frozen {dt.date.today().isoformat()}, the TEST half of a grouped 50/50 split). TEST ONLY: never a training, tuning or calibration input (src/realguard.py)."
+    if extra_line:
+        line += "\n" + extra_line
     if FREEZE_HEAD in text:
         block = text.split(FREEZE_HEAD, 1)[1]
         old = re.search(r"SHA-256 `([0-9a-f]{64})`", block)
@@ -1014,11 +1480,12 @@ def main():
     ap.add_argument("--cap", type=int, default=CAP, help="messages kept per template group")
     ap.add_argument("--names-file", type=Path, default=NAMES_FILE, help="optional: names to mask everywhere, one per line; '-word' keeps an auto-detected word")
     ap.add_argument("--messages", type=Path, default=MESSAGES, help="the training corpus for the overlap check (tests pass a tiny file)")
-    ap.add_argument("--freeze", action="store_true", help="write the SHA-256 into CLAUDE.md's frozen-hashes section (needs every group labelled)")
-    ap.add_argument("--allow-unlabelled", action="store_true", help="with --freeze: freeze although some groups have no label (their messages are left out)")
+    ap.add_argument("--freeze", action="store_true", help="split the labelled groups 50/50 (TEST -> real_test_v1.csv + its SHA-256 in CLAUDE.md, POOL -> data/collected/phones/pool.csv); once only")
+    ap.add_argument("--allow-unlabelled", action="store_true", help="with --freeze: blank groups in bucket 4 are left out of both halves (buckets 1-3 must be labelled)")
+    ap.add_argument("--pool-dir", type=Path, default=None, help=f"where the POOL half goes (default {POOL_DIR.relative_to(ROOT)}/)")
     ap.add_argument("--allow-open-names", action="store_true", help="with --freeze: freeze although name candidates in review_names.csv are still blank")
     a = ap.parse_args()
-    run(a.input, a.out, a.review, a.report, a.freeze, a.messages, a.label_file, a.cap, a.allow_unlabelled, a.names_file, a.allow_open_names)
+    run(a.input, a.out, a.review, a.report, a.freeze, a.messages, a.label_file, a.cap, a.allow_unlabelled, a.names_file, a.allow_open_names, a.pool_dir)
 
 
 if __name__ == "__main__":
