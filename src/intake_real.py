@@ -28,7 +28,8 @@ split of data/final/messages.csv with the same near-duplicate rule (overlap True
 group in label_me.csv gets a bucket (1 = the 150 largest, 2 = every other group with a mobile_number sender, scam-enriched by design, 3 = a random
 150 of the rest, 4 = the rest), fixed by a seed and stored in label_me_state.json with the group registry (key hashes -> group_id): a rerun or a
 new phone file never renames, merges or re-buckets a group that exists; new groups are bucketed on arrival; src/label_real.py walks the buckets in
-order. Before the freeze the labelled rows go to data/real/labelled_preview.csv; real_test_v1.csv does not exist yet. (9) --freeze, once: the
+order. --trim-bucket2 N (once, before the freeze; seconds, reads no input) keeps bucket 2's labelled groups plus a seeded random sample of its
+unlabelled ones up to N groups and moves the rest to bucket 4. Before the freeze the labelled rows go to data/real/labelled_preview.csv; real_test_v1.csv does not exist yet. (9) --freeze, once: the
 labelled groups are split 50/50 by template group (groups with a near-duplicate pair between any of their messages move together), stratified by
 label x keyword bucket (investment / task / loan / kyc-bank / delivery / other), and checked again with an independent seed. TEST half ->
 data/real/real_test_v1.csv (frozen, hash in CLAUDE.md, realguard-protected, at most 3 messages per group with group_size); POOL half ->
@@ -73,6 +74,7 @@ POOL_COLS = OUT_COLS + ["provenance", "is_synthetic"]
 LABEL_COLS = ["group_id", "size", "label_priority", "example_1", "example_2", "example_similarity", "sender_kind_mix", "sources", "label"]
 PRIORITY_SEED = 20261025   # label_priority bucket 3 is the PRIORITY_N3 groups with the smallest md5(seed|group_id); written to the report
 PRIORITY_N1, PRIORITY_N3 = 150, 150
+B2_TRIM_SEED = 20261027    # --trim-bucket2: which unlabelled bucket-2 groups stay (smallest md5(seed|group_id)); written to the state and the report
 SPLIT_SEED = 20261026      # freeze split: which half of each (label x keyword) stratum a group goes to; written to the manifest and the report
 KW_BUCKETS = ["investment", "task", "loan", "kyc-bank", "delivery", "other"]   # first match wins, in this order
 LOAN_RX = re.compile(r"(?i)\b(?:loans?|emi|pre-?approved|instant cash|cibil|credit score|credit limit|borrow\w*|disburs\w*|interest rate)\b")
@@ -833,9 +835,10 @@ def kw_bucket(text):
     return "other"
 
 
-def hkey(gid):
-    """A fixed pseudo-random number in [0, 1) per group (md5 of seed and id): the random draw behind label_priority 3."""
-    return int(hashlib.md5(f"{PRIORITY_SEED}|{gid}".encode()).hexdigest()[:12], 16) / 16 ** 12
+def hkey(gid, seed=PRIORITY_SEED):
+    """A fixed pseudo-random number in [0, 1) per group (md5 of seed and id): the random draw behind label_priority 3 (with B2_TRIM_SEED: the
+    bucket-2 sample of --trim-bucket2)."""
+    return int(hashlib.md5(f"{seed}|{gid}".encode()).hexdigest()[:12], 16) / 16 ** 12
 
 
 def load_state(path):
@@ -873,8 +876,11 @@ def assign_priorities(infos, state, old_rows):
     The first call assigns by that exact rule. Every later call keeps what is in `state` (or in the label sheet's own label_priority column
     when the state file is gone) and puts only the groups it has not seen before into a bucket, by the thresholds the first call left: size
     above the smallest bucket-1 group -> 1, mobile sender -> 2, hkey up to the largest bucket-3 key -> 3, else 4 (a bucket that was not full
-    yet is filled first). So a new phone file never moves an existing group. -> ({group_id: priority}, number of groups newly bucketed)."""
+    yet is filled first). After --trim-bucket2 (state["b2_trim"]) a new mobile-sender group goes to 2 only when its trim key is up to the
+    sample's largest (the same rate as the trim), else to 4, like the groups the trim moved. So a new phone file never moves an existing group.
+    -> ({group_id: priority}, number of groups newly bucketed)."""
     assigned = state["assigned"]
+    trim = state.get("b2_trim")
     for gid, r in old_rows.items():
         v = (r.get("label_priority") or "").strip()
         if gid not in assigned and v in ("1", "2", "3", "4"):
@@ -905,8 +911,10 @@ def assign_priorities(infos, state, old_rows):
                 assigned[g] = 1
                 n1 += 1
                 state["b1_min_size"] = size if state["b1_min_size"] is None else min(state["b1_min_size"], size)
-            elif mobile:
+            elif mobile and (trim is None or hkey(g, trim["seed"]) <= trim["max_key"]):
                 assigned[g] = 2
+            elif mobile:
+                assigned[g] = 4
             elif n3 < PRIORITY_N3 or hkey(g) <= (state["b3_max_key"] if state["b3_max_key"] is not None else -1.0):
                 assigned[g] = 3
                 n3 += 1
@@ -914,6 +922,54 @@ def assign_priorities(infos, state, old_rows):
             else:
                 assigned[g] = 4
     return {g: assigned[g] for g in infos}, len(new)
+
+
+def trim_bucket2(label_file=LABEL_ME, total=400, out=OUT, seed=B2_TRIM_SEED):
+    """Once, before the freeze: bucket 2 keeps every group that has a label in label_file now (scam / genuine / skip) and the unlabelled ones
+    with the smallest md5(seed|group_id) until it holds `total` groups; the other unlabelled bucket-2 groups move to bucket 4 (not 3: bucket 3
+    stays the draw it was). Only the label_priority column of label_file and label_me_state.json change (seconds, no input file is read); a
+    label saved by src/label_real.py while this runs makes it start again, and an open labeller reads the new buckets at its next key. The
+    record (seed, total, counts, the moved ids, the sample's largest key for new groups) stays in the state. Same total again: no change;
+    a different one: refused. -> that record."""
+    label_file = Path(label_file)
+    state_path = label_file.with_name(label_file.stem + "_state.json")
+    if (Path(out).parent / MANIFEST_NAME).exists():
+        stop("already frozen: the buckets are part of the frozen split and do not change")
+    if not label_file.exists() or not state_path.exists():
+        stop(f"{label_file.name} or {state_path.name} is missing: run src/intake_real.py first")
+    if total < 0:
+        stop("--trim-bucket2 needs a number of groups >= 0")
+    stamp = lambda: (lambda st: (st.st_mtime_ns, st.st_size, st.st_ino))(os.stat(label_file))
+    for _ in range(10):
+        seen = stamp()
+        state = load_state(state_path)
+        old = state.get("b2_trim")
+        if old:
+            if (old["total"], old["seed"]) == (total, seed):
+                return old
+            stop(f"bucket 2 was trimmed on {old['utc']} to {old['total']} groups (seed {old['seed']}); a second trim would reshuffle it")
+        labels, by_id = read_label_file(label_file)
+        assigned = state["assigned"]
+        odd = [g for g, r in by_id.items() if g in assigned and str(assigned[g]) != (r.get("label_priority") or "").strip()]
+        if odd:
+            stop(f"{label_file.name} and {state_path.name} disagree on the bucket of {len(odd)} groups: rerun src/intake_real.py first")
+        b2 = sorted(g for g, v in assigned.items() if v == 2)
+        kept = [g for g in b2 if g in labels]
+        blank = sorted((g for g in b2 if g not in labels), key=lambda g: (hkey(g, seed), g))
+        sample, moved = blank[:max(0, total - len(kept))], blank[max(0, total - len(kept)):]
+        for g in moved:
+            assigned[g] = 4
+            if g in by_id:
+                by_id[g]["label_priority"] = "4"
+        state["b2_trim"] = {"utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "total": total, "seed": seed, "labelled_kept": len(kept),
+                            "unlabelled_before": len(blank), "sampled": len(sample), "moved_to_4": moved, "max_key": hkey(sample[-1], seed) if sample else -1.0}
+        sheet_csv = csv_text(LABEL_COLS, list(by_id.values()))
+        if stamp() != seen:   # the labeller saved a label meanwhile: start again from the file as it is now
+            continue
+        atomic_write(state_path, json.dumps(state, indent=1, sort_keys=True))
+        atomic_write(label_file, sheet_csv)
+        return state["b2_trim"]
+    stop(f"{label_file.name} kept changing while the trim ran; close src/label_real.py and try again")
 
 
 def label_rows(groups, need, old_rows, prio=None):
@@ -1378,6 +1434,13 @@ def write_summary(s, sha, out):
     L.append(f"- Group registry (`label_me_state.json`, key hashes only): keys new in this run {gs_.get('new_keys', 0)}, of which joined an existing group "
              f"{gs_.get('joined_existing', 0)}; new groups {gs_.get('new_groups', 0)}; pairs of existing groups a new message is like both of, kept apart "
              f"{gs_.get('kept_apart', 0)} (the freeze puts such groups on one side); groups seen before with no message in this run {len(pinfo['vanished'])}.")
+    tr = pinfo["state"].get("b2_trim")
+    if tr:
+        L.append(f"- **Bucket 2 trimmed** ({tr['utc']}, `--trim-bucket2 {tr['total']}`, seed {tr['seed']}): the {tr['labelled_kept']} bucket-2 groups labelled at that time stay "
+                 f"(src/label_real.py walks a bucket biggest first, so these are mostly its largest groups), {tr['sampled']} of the {tr['unlabelled_before']} unlabelled ones were drawn "
+                 f"(smallest md5(seed|group_id)) and the other {len(tr['moved_to_4'])} moved to bucket 4. So bucket 2 is no longer every mobile-sender group, and bucket 4 now "
+                 f"holds {len(tr['moved_to_4'])} mobile-sender groups that were never eligible for bucket 3 (bucket 3 is a random draw of the non-mobile groups only). "
+                 f"A new mobile-sender group joins bucket 2 only when its key is up to {tr['max_key']:.4f} (the trim's rate), else bucket 4.")
     L.append("- **Bucket 2 is scam-enriched by design** (messages from ordinary mobile numbers are much more often scams than messages from bank / DLT sender ids): "
              "do not read bucket 2's scam share as the base rate, and read results over buckets 1+3 for something closer to the inbox.")
     L += ["", "| bucket | groups | messages | labelled groups (scam / genuine / skip) | still blank |", "|---|---:|---:|---|---:|"]
@@ -1484,7 +1547,16 @@ def main():
     ap.add_argument("--allow-unlabelled", action="store_true", help="with --freeze: blank groups in bucket 4 are left out of both halves (buckets 1-3 must be labelled)")
     ap.add_argument("--pool-dir", type=Path, default=None, help=f"where the POOL half goes (default {POOL_DIR.relative_to(ROOT)}/)")
     ap.add_argument("--allow-open-names", action="store_true", help="with --freeze: freeze although name candidates in review_names.csv are still blank")
+    ap.add_argument("--trim-bucket2", type=int, metavar="N", help="once, before the freeze: bucket 2 keeps its labelled groups plus a seeded random sample of the "
+                    "unlabelled ones up to N groups, the rest move to bucket 4; changes only label_me.csv's label_priority and its state, reads no input")
     a = ap.parse_args()
+    if a.trim_bucket2 is not None:
+        if a.freeze:
+            ap.error("--trim-bucket2 and --freeze are separate steps")
+        tr = trim_bucket2(a.label_file, a.trim_bucket2, a.out)
+        print(f"bucket 2 ({tr['utc']}, seed {tr['seed']}): {tr['labelled_kept']} labelled groups kept + {tr['sampled']} of {tr['unlabelled_before']} unlabelled drawn = "
+              f"{tr['labelled_kept'] + tr['sampled']} groups; {len(tr['moved_to_4'])} moved to bucket 4 -> {a.label_file.name}, {a.label_file.stem}_state.json")
+        return
     run(a.input, a.out, a.review, a.report, a.freeze, a.messages, a.label_file, a.cap, a.allow_unlabelled, a.names_file, a.allow_open_names, a.pool_dir)
 
 

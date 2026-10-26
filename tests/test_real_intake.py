@@ -41,7 +41,10 @@ FIXTURE = HERE / "fixtures" / "real_fake.csv"
 #       two groups a bridge message links sit on one side, <= 3 rows per group with group_size; realguard refuses TEST and lets POOL through; second freeze refused
 #   R21 after the freeze: a new phone file goes to the pool, its message of a TEST group is dropped and counted, the test file never changes; with the group
 #       registry deleted the TEST messages still stay out of the pool; near_test_flags catches a twin of a TEST message
-#   R22 privacy over every output of R18-R21 (preview, test, pool, label sheet, review, reports, state and manifest JSON, labeller output): no number, contact
+#   R23 --trim-bucket2: labelled bucket-2 groups stay, a seeded sample of the unlabelled ones fills bucket 2 to N, the rest go to bucket 4; only the
+#       label_priority column changes; same result from the same files; an intake rerun keeps it; a new mobile group follows the sample's cut-off; a labeller
+#       open across the trim keeps its labels; N below the labelled count keeps them all; a second, different trim and a trim after the freeze are refused
+#   R22 privacy over every output of R18-R21 and R23 (preview, test, pool, label sheet, review, reports, state and manifest JSON, labeller output): no number, contact
 #       name, family name (also inside a link: /track/Name/, ?ref=Name123) or address; the JSON files hold ids, hashes and numbers only
 PREVIEW = "labelled_preview.csv"   # before a freeze the labelled rows go here; real_test_v1.csv is written only by --freeze
 FAKE_ROWS_IN_TRAIN = "Your package is waiting. Track at https://fake-parcel-track.example.invalid/x9 and pay the customs charge now."
@@ -1217,13 +1220,114 @@ def r21(tmp):
     return bad
 
 
+def r23(tmp):
+    import json
+    import intake_real as I
+    import label_real as L
+    bad = []
+    with small_buckets():
+        raw = phone_world(tmp / "w23" / "raw")
+        d = tmp / "w23" / "out"
+        run_world(I, raw, d)
+        sheet = rows_of(d / "label_me.csv")
+        g = by_needle(sheet)
+        b2 = {r["group_id"] for r in sheet if r["label_priority"] == "2"}
+        if b2 != {g[k]["group_id"] for k in ("A", "B", "M1", "M2", "M3")}:
+            bad.append("setup: bucket 2 is not A, B, M1-M3")
+        lab = {g["A"]["group_id"]: "scam", g["M1"]["group_id"]: "skip", g["T1"]["group_id"]: "genuine"}
+        for r in sheet:
+            r["label"] = lab.get(r["group_id"], "")
+        write_csv(d / "label_me.csv", I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet])
+        def copy_pre(name, manifest=False):   # the two files as they were before any trim
+            q = tmp / "w23" / name
+            q.mkdir()
+            for f in ("label_me.csv", "label_me_state.json"):
+                shutil.copy(d / f if name == "pre" else tmp / "w23" / "pre" / f, q / f)
+            if manifest:
+                (q / I.MANIFEST_NAME).write_text("{}")
+            return q
+        copy_pre("pre")
+        tr = I.trim_bucket2(d / "label_me.csv", 3, d / "real_test_v1.csv")
+        after = rows_of(d / "label_me.csv")
+        a2 = {r["group_id"] for r in after if r["label_priority"] == "2"}
+        blank = sorted(b2 - set(lab), key=lambda x: I.hkey(x, I.B2_TRIM_SEED))
+        if a2 != {g["A"]["group_id"], g["M1"]["group_id"], blank[0]}:
+            bad.append("bucket 2 after the trim is not the 2 labelled groups + the unlabelled one with the smallest trim key")
+        if {r["group_id"] for r in after if r["label_priority"] == "4"} != {r["group_id"] for r in sheet if r["label_priority"] == "4"} | set(blank[1:]):
+            bad.append("the unlabelled bucket-2 groups left out of the sample did not all move to bucket 4 (or something else moved)")
+        same = all(r1[c] == r2[c] for r1, r2 in zip(sheet, after) for c in I.LABEL_COLS if c != "label_priority") and len(sheet) == len(after)
+        if not same:
+            bad.append("the trim changed something besides label_priority")
+        st = I.load_state(d / "label_me_state.json")
+        if (tr["labelled_kept"], tr["sampled"], len(tr["moved_to_4"]), tr["seed"]) != (2, 1, 2, I.B2_TRIM_SEED) or st["b2_trim"]["moved_to_4"] != sorted(blank[1:], key=lambda x: (I.hkey(x, I.B2_TRIM_SEED), x)):
+            bad.append(f"trim record wrong: {tr}")
+        if any(str(st["assigned"][r["group_id"]]) != r["label_priority"] for r in after):
+            bad.append("the state and the sheet disagree after the trim")
+        twin = copy_pre("twin")
+        I.trim_bucket2(twin / "label_me.csv", 3, twin / "real_test_v1.csv")
+        strip = lambda p: {k: v for k, v in json.loads(p.read_text()).items() if k != "b2_trim"} | {"trim": {k: v for k, v in json.loads(p.read_text())["b2_trim"].items() if k != "utc"}}
+        if (twin / "label_me.csv").read_bytes() != (d / "label_me.csv").read_bytes() or strip(twin / "label_me_state.json") != strip(d / "label_me_state.json"):
+            bad.append("the same files trimmed twice gave different results (the draw is not seeded)")
+        snap = (d / "label_me.csv").read_bytes(), (d / "label_me_state.json").read_bytes()
+        if I.trim_bucket2(d / "label_me.csv", 3, d / "real_test_v1.csv")["total"] != 3 or ((d / "label_me.csv").read_bytes(), (d / "label_me_state.json").read_bytes()) != snap:
+            bad.append("the same trim again changed something")
+        try:
+            I.trim_bucket2(d / "label_me.csv", 4, d / "real_test_v1.csv")
+            bad.append("a second trim with a different size was not refused")
+        except SystemExit:
+            pass
+        # a labeller open across the trim: its next key reads the new buckets and keeps the labels it gave
+        op = copy_pre("open")
+        lab_sheet = L.Sheet(op / "label_me.csv")
+        lab_sheet.set(g["M2"]["group_id"], "genuine")
+        I.trim_bucket2(op / "label_me.csv", 3, op / "real_test_v1.csv")
+        lab_sheet.set(g["T2"]["group_id"], "genuine")
+        got = {r["group_id"]: (r["label_priority"], r["label"]) for r in rows_of(op / "label_me.csv")}
+        if got[g["M2"]["group_id"]] != ("2", "genuine") or got[g["T2"]["group_id"]] != ("1", "genuine") or got[g["A"]["group_id"]] != ("2", "scam") \
+                or sum(v[0] == "2" for v in got.values()) != 3:
+            bad.append("a labeller open across the trim lost a label or did not pick up the new buckets")
+        # N below the number of labelled groups: every labelled group stays, no unlabelled one
+        low = copy_pre("low")
+        trl = I.trim_bucket2(low / "label_me.csv", 1, low / "real_test_v1.csv")
+        if (trl["labelled_kept"], trl["sampled"]) != (2, 0) or trl["max_key"] != -1.0 or sum(r["label_priority"] == "2" for r in rows_of(low / "label_me.csv")) != 2:
+            bad.append(f"a size below the labelled count did not keep exactly the labelled groups: {trl}")
+        # an intake rerun keeps the trim; a third phone's new mobile group follows the sample's cut-off
+        before = {r["group_id"]: (r["label_priority"], r["label"]) for r in rows_of(d / "label_me.csv")}
+        phone_3(raw)
+        run_world(I, raw, d)
+        sheet3 = rows_of(d / "label_me.csv")
+        now = {r["group_id"]: (r["label_priority"], r["label"]) for r in sheet3}
+        if any(now.get(k) != v for k, v in before.items()):
+            bad.append("an intake rerun with a new phone undid the trim or changed a label")
+        n2 = by_needle(sheet3)["N2"]
+        want = "2" if I.hkey(n2["group_id"], I.B2_TRIM_SEED) <= tr["max_key"] else "4"
+        if n2["label_priority"] != want:
+            bad.append(f"new mobile-sender group got bucket {n2['label_priority']}, the trim's cut-off says {want}")
+        rep = (d / "report.md").read_text()
+        if "Bucket 2 trimmed" not in rep or f"seed {I.B2_TRIM_SEED}" not in rep or "Bucket 2 is scam-enriched by design" not in rep:
+            bad.append("the report does not describe the trim (seed, counts) next to the scam-enriched note")
+        frozen = copy_pre("frozen", manifest=True)
+        try:
+            I.trim_bucket2(frozen / "label_me.csv", 3, frozen / "real_test_v1.csv")
+            bad.append("a trim after the freeze was not refused")
+        except SystemExit:
+            pass
+        main = ("import sys; sys.path.insert(0, 'src'); import intake_real as I; I.PRIORITY_N1, I.PRIORITY_N3 = 3, 2; "   # the state was made with the patched sizes
+                "sys.argv = ['intake_real.py'] + sys.argv[1:]; I.main()")
+        cli = subprocess.run([PY, "-c", main, "--trim-bucket2", "3", "--label-file", str(d / "label_me.csv"), "--out", str(d / "real_test_v1.csv")],
+                             cwd=ROOT, capture_output=True, text=True, timeout=60)
+        if cli.returncode != 0 or "2 labelled groups kept + 1 of 3 unlabelled drawn = 3 groups; 2 moved to bucket 4" not in cli.stdout:
+            bad.append(f"the command line does not report the trim: {cli.returncode} {cli.stdout[-200:]} {cli.stderr[-200:]}")
+    return bad
+
+
 def r22(tmp):
-    """Every output of R18-R21 (they ran before this one in the same temp folder), plus a labeller session's screen."""
+    """Every output of R18-R21 and R23 (they ran before this one in the same temp folder), plus a labeller session's screen."""
     import json
     bad = []
     phones = [re.sub(r"\D", "", a)[-10:] for a in CONTACTS]
     names = list(CONTACTS.values()) + [w for n in CONTACTS.values() for w in n.split()] + [FAMILY]
-    outs = [p for w in ("w18", "w19", "w20", "w21") for p in (tmp / w / "out").rglob("*") if p.is_file() and p.suffix in (".csv", ".md", ".json")
+    outs = [p for w in ("w18", "w19", "w20", "w21", "w23") for p in (tmp / w / "out").rglob("*") if p.is_file() and p.suffix in (".csv", ".md", ".json")
             and p.name not in ("messages.csv", "mask_names.txt")]
     if len(outs) < 12 or not any(p.name == "pool.csv" for p in outs) or not any(p.name == I_MAN for p in outs):
         bad.append(f"setup: only {len(outs)} output files found")
@@ -1267,6 +1371,7 @@ CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1)
           ("R19", "label_real.py: piped keys, kill + restart, atomic save, Hindi / Kannada, no model output", r19),
           ("R20", "--freeze: grouped 50/50 split, 0 shared groups / near-duplicates, realguard, once only", r20),
           ("R21", "after the freeze: new phone -> pool, TEST messages dropped, test file unchanged", r21),
+          ("R23", "--trim-bucket2: labelled stay, seeded sample to N, rest -> bucket 4, kept by reruns, refused twice / after the freeze", r23),
           ("R22", "privacy: no number / name / address in any output, JSON holds ids and numbers only", r22)]
 
 

@@ -9,7 +9,8 @@ to choose a threshold, a model or a rule: that is tuning on the test set (CLAUDE
 Metrics: flagged = router level Suspicious or Likely scam (None = not judged = not flagged); F1, recall (scams flagged), false-alarm rate (genuine
 flagged) on that; AUROC is the text head's score (the router's level is not a score). 95% intervals: Wilson for recall and false alarms,
 bootstrap (1,000 resamples, seed 0) for F1 and AUROC. Overall, per language and per label_priority bucket (the labelling bucket a group was in:
-1 = largest groups, 2 = groups with a mobile_number sender, SCAM-ENRICHED BY DESIGN, 3 = random, 4 = rest), with and without the overlap=True rows.
+1 = largest groups, 2 = groups with a mobile_number sender, SCAM-ENRICHED BY DESIGN (since --trim-bucket2: the labelled ones + a seeded
+sample), 3 = random, 4 = rest), with and without the overlap=True rows.
 """
 import argparse, csv, datetime as dt, hashlib, math, os, subprocess, sys
 from pathlib import Path
