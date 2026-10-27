@@ -1,0 +1,27 @@
+{
+  "old_commit": "06f402e",
+  "new_commit": "30ec91f",
+  "files": [
+    "textprep.py",
+    "pii.py",
+    "url_features.py"
+  ],
+  "sources": {
+    "uci_sms_spam": {
+      "rows": 1032,
+      "changed": 0
+    },
+    "india_fraud_final": {
+      "rows": 660,
+      "changed": 0
+    },
+    "scam_ham_india": {
+      "rows": 428,
+      "changed": 0
+    },
+    "synth_india": {
+      "rows": 821,
+      "changed": 0
+    }
+  }
+}

@@ -41,9 +41,12 @@ from realguard import guard_inputs   # tripwire: the real-message TEST set (data
 # predictions_{test,adv_test}.csv are copied to the Mac for evaluation.
 #
 # LOSO fold (--exclude-source SRC; src/eval_loso.py reads the folds): "does the model rank a source it has never seen?" Same settings as the shipped
-# bundle (LOSO_REFERENCE; anything else is refused), SRC removed from train AND val (the best epoch and both cut-offs are chosen on val, so val must not
-# hold SRC either), plus every translated_indic row whose English parent is an SRC row (a translation carries its parent into training). After the
-# best epoch is chosen, only SRC's val + test rows are tokenised and scored -> predictions_loso.csv; every other test row stays unread, as always.
+# bundle (LOSO_REFERENCE; anything else is refused). Rule "cluster-strict" (LOSO_RULE): every row of train AND val whose cluster_id is in any near-duplicate
+# cluster that holds a row of SRC is dropped, whatever its source (the best epoch and both cut-offs are chosen on val, so val must be as clean as train).
+# That removes SRC's own rows, the translations of its parents (a translation joins its parent's cluster, but a preview parent attached to an SRC row as a
+# near twin has a different translation_of, which an earlier version of this rule missed) and the other sources' near copies (e.g. ealvaradob_phishing
+# rows that repeat uci_sms_spam messages). The scored set is unchanged: SRC's own val + test rows. After the best epoch is chosen, only those rows are
+# tokenised and scored -> predictions_loso.csv; every other test row stays unread, as always.
 # The test rows of SRC are the same ones the shipped model was evaluated on (already opened); nothing is chosen on them. The fold is not an app
 # bundle: shield_meta.json says loso: true and MurilScorer refuses it. --no-save-model keeps the best epoch in memory only (no model/, no epoch_*/;
 # ~1 GB each), which is all a fold needs. Not combinable with --score-held-out or --aug.
@@ -56,6 +59,9 @@ GROUP_KEYS = ("cluster_id", "template_family", "company_key", "translation_of") 
 # tests/test_loso.py compares this dict with the bundle's shield_meta.json whenever the bundle is on disk.
 LOSO_REFERENCE = {"model": "muril", "epochs": 3, "batch": 16, "lr": 2e-5, "max_len": 128, "seed": 42, "warmup": 0.06, "aug": False,
                   "weight_decay": 0.01, "grad_clip": 1.0, "optimizer": "AdamW", "schedule": "linear warmup + linear decay"}
+LOSO_REFERENCE_PRECISION = "fp16"   # the bundle was trained on a Kaggle T4 (fp16 autocast + GradScaler); src/eval_loso.py refuses a fold with another precision
+LOSO_RULE = "cluster-strict-v1"     # what a fold drops, recorded in shield_meta.json and checked by eval_loso.py; a change of rule is a new version
+LOSO_FOLDS = ["uci_sms_spam", "india_fraud_final", "scam_ham_india", "synth_india"]   # the sources the MuRIL and baseline LOSO report (the baseline's row definition)
 
 
 def sha256(path):
@@ -104,26 +110,42 @@ def check_loso_args(args):
 
 
 def split_loso(df, src):
-    """Split `df` (train + val rows, and only SRC's test rows) for a fold without `src`. Returns (train, val, held_val, held_test, counts):
-    train / val without any SRC row and without any translation of an SRC parent; held_val / held_test = SRC's own val / test rows (set aside, to
-    be tokenised and scored only after the best epoch); counts = what was dropped."""
+    """Split `df` (train + val rows, and only SRC's test rows) for a fold without `src`, rule "cluster-strict": train / val keep no row whose cluster_id is
+    shared with any SRC row. Returns (train, val, held_val, held_test, counts); held_val / held_test = SRC's own val / test rows (set aside, to be tokenised and
+    scored only after the best epoch). counts = what was dropped: SRC's train rows, the held-out val / test sizes, the translated_indic rows (all train) and the
+    other sources' rows by split."""
+    df = df[(df["split"] != "test") | (df["source"] == src)]   # the Mac checks pass the whole messages.csv; another source's test rows are never part of a fold
     own = df["source"] == src
-    src_hashes = set(df.loc[own, "text_hash"])
-    transl = df["translation_of"].isin(src_hashes) & ~own
-    assert (df.loc[transl, "split"] == "train").all(), "a translation of an SRC parent outside train"
-    keep = ~own & ~transl
+    cid = df["cluster_id"].astype(str)
+    src_clusters = set(cid[own])
+    twin = cid.isin(src_clusters) & ~own   # another source's row (a translation included) in a cluster that holds an SRC row
+    transl = twin & (df["source"] == "translated_indic")
+    assert (df.loc[transl, "split"] == "train").all(), "a translation in an SRC cluster outside train"
+    keep = ~own & ~twin
     tr, va = (df[keep & (df["split"] == s)] for s in ("train", "val"))
     held_va, held_te = (df[own & (df["split"] == s)] for s in ("val", "test"))
-    counts = {"train": int((own & (df["split"] == "train")).sum()), "val": len(held_va), "test": len(held_te), "translations": int(transl.sum())}
-    assert_loso_clean(tr, va, held_va, held_te, src, src_hashes)
+    others = df[twin & ~transl]
+    counts = {"train": int((own & (df["split"] == "train")).sum()), "val": len(held_va), "test": len(held_te), "translations": int(transl.sum()),
+              "other_sources": {sp: {k: int(v) for k, v in sorted(others.loc[others["split"] == sp, "source"].value_counts().items())} for sp in ("train", "val")}}
+    assert len(df) == len(tr) + len(va) + len(held_va) + len(held_te) + counts["train"] + int(twin.sum()), "a row of the fold is neither kept, held out nor dropped"
+    assert_loso_clean(tr, va, held_va, held_te, src, df[own])
     return tr, va, held_va, held_te, counts
 
 
-def assert_loso_clean(tr, va, held_va, held_te, src, src_hashes):
-    """No SRC row and no translation of an SRC parent in train or val; the held-out rows are all SRC's, val / test, and disjoint from train / val."""
+def assert_loso_clean(tr, va, held_va, held_te, src, src_rows):
+    """The cluster rule, checked directly: no row of train / val has a cluster_id that any SRC row has (that covers SRC's own rows, their translations and
+    other sources' near copies), and none shares a translation parent, template family or company with an SRC row either. The held-out rows are all SRC's,
+    val / test, and disjoint from train / val."""
+    clusters = set(src_rows["cluster_id"].astype(str))
+    hashes = set(src_rows["text_hash"])
+    fams = {k: set(src_rows[k].dropna().astype(str)) - {""} for k in ("template_family", "company_key")}
     for name, d in (("train", tr), ("val", va)):
         assert not (d["source"] == src).any(), f"{src} rows in {name}"
-        assert not d["translation_of"].isin(src_hashes).any(), f"translations of {src} parents in {name}"
+        n = int(d["cluster_id"].astype(str).isin(clusters).sum())
+        assert n == 0, f"{n} {name} rows share a cluster_id with an {src} row"
+        assert not d["translation_of"].isin(hashes).any(), f"translations of {src} parents in {name}"
+        for k, vals in fams.items():
+            assert not d[k].dropna().astype(str).isin(vals).any(), f"{name} rows share a {k} with an {src} row"
     for name, d, sp in (("held-out val", held_va, "val"), ("held-out test", held_te, "test")):
         assert (d["source"] == src).all() and (d["split"] == sp).all(), f"{name} rows are not all {src} / {sp}"
     assert not (set(held_va["text_hash"]) | set(held_te["text_hash"])) & (set(tr["text_hash"]) | set(va["text_hash"])), "a held-out row is also in train / val"
@@ -347,8 +369,10 @@ def main():
         src = args.exclude_source
         tr, va, held_va, held_te, loso = split_loso(df, src)
         te = te.iloc[0:0]   # the held-out test rows wait in held_te until the best epoch is chosen
-        log(f"LOSO fold, held-out source {src}: dropped from train {loso['train']} {src} rows + {loso['translations']} translated_indic rows translated from {src} rows; "
-            f"dropped from val {loso['val']} {src} rows (set aside); {loso['test']} {src} test rows set aside; "
+        oth = {sp: sum(v.values()) for sp, v in loso["other_sources"].items()}
+        log(f"LOSO fold ({LOSO_RULE}), held-out source {src}: dropped from train {loso['train']} {src} rows + {loso['translations']} translated_indic rows + {oth['train']} rows of other sources "
+            f"{loso['other_sources']['train']}, all in a cluster with an {src} row; dropped from val {oth['val']} rows of other sources {loso['other_sources']['val']} "
+            f"(and {loso['val']} {src} rows set aside); {loso['test']} {src} test rows set aside; 0 train / val rows share a cluster_id with an {src} row (asserted); "
             f"val and the cut-offs are chosen without {src}. The set-aside val + test rows are scored once, after the best epoch.")
     if aug is not None:
         tr = pd.concat([tr, aug[["text", "label", "source", "split"]].assign(text_hash=None)], ignore_index=True)
@@ -511,7 +535,7 @@ def main():
         "created_utc": stamp, "command": " ".join(sys.argv),
     }
     if loso:   # keys only a fold has; a normal run's shield_meta.json is unchanged
-        meta.update({"loso": True, "exclude_source": args.exclude_source, "no_save_model": args.no_save_model,
+        meta.update({"loso": True, "loso_rule": LOSO_RULE, "exclude_source": args.exclude_source, "no_save_model": args.no_save_model,
                      "loso_dropped": loso, "loso_held_out_rows": {"val": len(held_va), "test": len(held_te)}})
     (out / "shield_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     log(f"wrote {'' if args.no_save_model else str(out / 'model') + ', '}shield_meta.json, val_metrics.csv, predictions_val.csv"

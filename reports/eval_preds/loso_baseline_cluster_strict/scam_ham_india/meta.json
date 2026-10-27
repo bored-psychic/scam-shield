@@ -1,0 +1,42 @@
+{
+  "rule": "cluster-strict-v1",
+  "exclude_source": "scam_ham_india",
+  "split_map_sha256": "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c",
+  "messages_sha256": "1390562409576bd3bb369bce27d9d6709b856c2809f89f0c3f40d112a1588700",
+  "textprep": {
+    "url_token": "<URL>",
+    "max_chars": 2000
+  },
+  "tfidf": {
+    "analyzer": "char_wb",
+    "ngram_range": [
+      2,
+      4
+    ],
+    "min_df": 3,
+    "max_features": 200000,
+    "sublinear_tf": true
+  },
+  "logistic_regression": {
+    "max_iter": 2000,
+    "class_weight": "balanced"
+  },
+  "trained_on": "train split only (as sanity_checks.py)",
+  "rows": {
+    "train": 37070,
+    "scored": 428
+  },
+  "loso_dropped": {
+    "train": 1812,
+    "val": 223,
+    "test": 205,
+    "translations": 70,
+    "other_sources": {
+      "train": {
+        "uci_sms_spam": 1
+      },
+      "val": {}
+    }
+  },
+  "score": "decision function; F1 at the 0.5-probability cut-off = score >= 0"
+}

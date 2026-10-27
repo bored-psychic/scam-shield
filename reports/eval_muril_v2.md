@@ -240,16 +240,27 @@ At the likely cut-off muril misses 150 test scams (fake_job_postings 80, phishin
 
 ## 9. Leave-one-source-out
 
-**LOSO for muril: code ready, runs pending** (`src/finetune.py --exclude-source`, `notebooks/kaggle_finetune.ipynb` with `LOSO_SOURCES`, then `src/eval_loso.py` fills this section; 4 folds: uci_sms_spam, india_fraud_final, scam_ham_india, synth_india). The baseline's LOSO, from `reports/sanity.md` section 5 (`sanity_checks.py` on splits-v2; LOSO rows = the held-out source's val+test rows):
+**Rule (`cluster-strict-v1`).** For a held-out source, every row of train **and** val that sits in a near-duplicate cluster (`cluster_id`) holding a row of that source is dropped, whatever its source: the source's own rows, the translations of its parents (including the preview parents that were attached to one of its rows as a near twin, which `translation_of` alone does not find), and other sources' near copies (e.g. `ealvaradob_phishing` rows that repeat `uci_sms_spam` messages). Val is cleaned too because the best epoch and the cut-offs are chosen on it. The scored rows are the source's own val + test rows, as in `reports/sanity.md` section 5. Other sources' test rows are never loaded, so their twins there are not counted. Both the MuRIL fold and the baseline refit below use this rule; the "old rule" columns are `reports/sanity.md` section 5, which dropped only the source's own rows (and kept the translations and the other sources' twins), so they are the optimistic reference.
 
-| held-out source | train rows left | val+test n | val+test scam | scam rate | in-dist F1 | LOSO F1 | in-dist AUROC | LOSO AUROC | in-dist PR-AUC | LOSO PR-AUC | LOSO scam recall | LOSO benign acc | LOSO F1 (all rows) | F1 drop |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| phishing_email | 24945 | 3491 | 1334 | 0.382 | 0.951 | 0.377 | 0.992 | 0.599 | 0.988 | 0.501 | 0.301 | 0.816 | 0.367 | 0.574 |
-| fake_job_postings | 26877 | 3890 | 154 | 0.040 | 0.317 | 0.083 | 0.837 | 0.570 | 0.282 | 0.063 | 0.409 | 0.650 | 0.096 | 0.235 |
-| uci_sms_spam | 34844 | 1032 | 110 | 0.107 | 0.881 | 0.523 | 0.987 | 0.944 | 0.962 | 0.810 | 0.927 | 0.807 | 0.551 | 0.358 |
-| india_fraud_final | 36413 | 660 | 308 | 0.467 | 0.909 | 0.701 | 0.985 | 0.776 | 0.989 | 0.765 | 0.942 | 0.349 | 0.699 | 0.208 |
-| scam_ham_india | 37141 | 428 | 150 | 0.350 | 0.958 | 0.860 | 0.997 | 0.968 | 0.994 | 0.944 | 0.860 | 0.924 | 0.886 | 0.098 |
-| scam_dialogue | 37691 | 336 | 162 | 0.482 | 0.997 | 0.127 | 1.000 | 0.812 | 1.000 | 0.785 | 0.068 | 1.000 | 0.127 | 0.870 |
-| synth_india | 38197 | 821 | 477 | 0.581 | 0.890 | 0.822 | 0.935 | 0.921 | 0.925 | 0.919 | 0.734 | 0.927 | 0.813 | 0.069 |
-| ealvaradob_phishing | 38496 | 116 | 79 | 0.681 | 0.968 | 0.919 | 0.994 | 0.982 | 0.997 | 0.992 | 0.861 | 0.973 | 0.913 | 0.049 |
+What the rule drops, per held-out source (counts from `messages.csv`, checked against every cached fold):
+
+| held-out source | source's train rows dropped | translations dropped | other-source train rows dropped | other-source val rows dropped | source's val rows (scored, out of val) | source's test rows (scored) | train rows left | val rows left |
+|---|---|---|---|---|---|---|---|---|
+| uci_sms_spam | 4109 | 6 | ealvaradob_phishing 191, scam_ham_india 1 | ealvaradob_phishing 30 | 508 | 524 | 34646 | 4729 |
+| india_fraud_final | 2540 | 84 | web_scams 1 | 0 | 350 | 310 | 36328 | 4917 |
+| scam_ham_india | 1812 | 70 | uci_sms_spam 1 | 0 | 223 | 205 | 37070 | 5044 |
+| synth_india | 756 | 0 | 0 | 0 | 0 | 821 | 38197 | 5267 |
+
+The TF-IDF baseline refit under the same rule (`src/loso_baseline.py`, the settings of `sanity_checks.py` section 5, train split only; F1 at the 0.5-probability cut-off; cached predictions in `reports/eval_preds/loso_baseline_cluster_strict/`) against the old rule:
+
+| held-out source | val+test n | scam rate | train rows left (old rule) | train rows left (cluster-strict) | baseline F1 old rule | baseline F1 cluster-strict | AUROC old rule | AUROC cluster-strict | PR-AUC old rule | PR-AUC cluster-strict | baseline in-dist AUROC |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| uci_sms_spam | 1032 | 0.107 | 34844 | 34646 | 0.523 | 0.490 | 0.944 | 0.901 | 0.810 | 0.662 | 0.987 |
+| india_fraud_final | 660 | 0.467 | 36413 | 36328 | 0.701 | 0.683 | 0.776 | 0.766 | 0.765 | 0.751 | 0.985 |
+| scam_ham_india | 428 | 0.350 | 37141 | 37070 | 0.860 | 0.870 | 0.968 | 0.969 | 0.944 | 0.945 | 0.997 |
+| synth_india | 821 | 0.581 | 38197 | 38197 | 0.822 | 0.822 | 0.921 | 0.921 | 0.919 | 0.919 | 0.935 |
+
+**MuRIL LOSO: code ready, runs pending** (`src/finetune.py --exclude-source`, `notebooks/kaggle_finetune.ipynb` with `LOSO_SOURCES`, then `src/eval_loso.py` fills the MuRIL table here; 4 folds: uci_sms_spam, india_fraud_final, scam_ham_india, synth_india).
+
+Preprocessing drift: `textprep.model_text` (with `pii.py`, `url_features.py`) gives the same input under the current code (30ec91f) as under 06f402e, the commit the shipped bundle was trained with, for all 2941 val + test rows scored here (uci_sms_spam 0 of 1032; india_fraud_final 0 of 660; scam_ham_india 0 of 428; synth_india 0 of 821), so the in-distribution and LOSO columns see identical text.
 
