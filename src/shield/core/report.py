@@ -2,6 +2,7 @@ import re
 from shield.config import model_versions
 from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Lowered, Meta, Report, Sender
 from shield.core.advice import advice_for
+from shield.core.lang import LANG_CAP_LINE
 from shield.core.risk import risk_score
 from shield.core.sender_rule import RISKY_THING
 from shield.messages.invest_rules import SEBI_ADVICE
@@ -22,7 +23,7 @@ _TAGS = {"rule.otp_request": "OTP request", "rule.pin_to_receive": "PIN to recei
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
          "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice", "sender.registered": "Registered sender",
-         "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number"}
+         "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number", "lang.cap": "Less-tested language"}
 # D23 link checks bring their own tags (shield.links.reputation); this one replaces the model's link rating when a positive check overrides it
 _URL_TITLE_OVERRIDDEN = "The address pattern looked unusual to the model, but who owns the site is known"
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
@@ -163,6 +164,9 @@ def to_report(text: str, r: dict) -> Report:
         title = (_TEXT_TITLE_PROMO if promo and r["text_level"] else _TEXT_TITLE_CAPPED if capped and not promo else _TEXT_TITLES[r["text_level"]])
         ev.append(Evidence(id="model.text", module="messages", effect=Effect.NEUTRAL if capped or promo else _BY_LEVEL[r["text_level"]],
                            title=title, tag=_TAGS["model.text"], detail=f"score {r['text_score']:.3f} (Suspicious from {lo:.3f}, Likely scam from {hi:.3f})"))
+    if r.get("lang_cap"):   # D5 + D6: the language cap lowered Likely scam to Suspicious; the wording score above stays as it was, this says why the verdict is lower
+        ev.append(Evidence(id="lang.cap", module="messages", effect=Effect.CAUTION, title=LANG_CAP_LINE["en"], tag=_TAGS["lang.cap"],
+                           detail="Likely scam was lowered to Suspicious: only the wording score pointed that way, and this language has little real test data."))
     s = r.get("sender")   # D22: None unless a sender was given
     sender_ev = _sender_evidence(s, flagged) if s else None
     if sender_ev:
@@ -182,13 +186,15 @@ def to_report(text: str, r: dict) -> Report:
     # last warning) where it was.
     # D23 P1 cap (router.apply_positives): the brand line takes a free place like the sender reason, never pushing a warning out; with three
     # warnings already there it is still on the link panel, as the link's reassuring evidence.
+    if r.get("lang_cap"):   # the cap line is always shown (it explains why the verdict is not Likely scam): it takes the third place if the three are taken
+        reasons = reasons[:2] + [LANG_CAP_LINE["en"]]
     if r.get("positive_cap") and len(reasons) < 3 and not promo:
         reasons = reasons + [r["positive_cap"]]
     if sender_ev and promo:
         reasons = [sender_ev.title] + [x for x in reasons if x != sender_ev.title][:2]
     elif sender_ev and len(reasons) < 3:
         reasons = reasons + [sender_ev.title]
-    meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False),
+    meta = Meta(text_score=r["text_score"], text_thresholds=r.get("text_thresholds"), escalated=r["escalated"], truncated=r.get("truncated", False), lang=r.get("lang"),
                 models=dict(model_versions()))
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
     low = r.get("lowered")   # D24: only if the level shown is still the one the P1 lowering produced (a later step, e.g. the sender rule, may have moved it)

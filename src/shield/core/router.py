@@ -13,6 +13,7 @@ from shield.links.platforms import assess_link
 from shield.links import live as live_checks
 from shield.links.lists import load_lists
 from shield.links.reputation import assess as assess_background
+from shield.core.lang import detect_lang
 from shield.core.sender_rule import apply_sender, hard_risks
 from shield.messages.sender import parse_sender
 
@@ -71,21 +72,35 @@ def apply_positives(text, r):
             r["lowered"] = {"from": before, "text": f"Lowered from {LEVELS[before]}: " + p1["lowered"].replace("{}", "the link", 1) + "."}
 
 
-def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None):
+def apply_language_cap(r):
+    """D5 language cap (docs/decisions/D5_operating_point.md section 6: "Where no real dev data exists (Hindi, Kannada, Hinglish), the text model alone can
+    reach at most Suspicious ... Link evidence and checked rules are unaffected"). Lowers Likely scam to Suspicious when the message is in a capped language
+    (config.LANG_CAP_LANGS) and the text head is the only thing that made it Likely: its own level is Likely scam, no link is rated Suspicious or higher on
+    the phishing side (r["url_level"], after the D23 positives; a URL-model Suspicious beside a text Suspicious is the fusion's second head, so a text
+    Likely beside it is not "alone"), and no investment rule with a Likely-scam floor fired. The OTP / PIN / CVV, PIN-to-receive and gambling rules only
+    floor at Suspicious, so they never made a Likely scam and need no exemption. Sets r["lang_cap"] when it lowers the level."""
+    if (r["level"] == 2 and r["text_level"] == 2 and (r["url_level"] or 0) < 1 and r["lang"] in config.LANG_CAP_LANGS
+            and not any(h["floor"] >= 2 for h in r["invest_rules"])):
+        r["level"], r["lang_cap"] = 1, True
+
+
+def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None, lang_cap=None):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
     (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender).
     live: run the network link checks (D23: shield.links.live, only registered domains leave the machine, <= 4 s); False = the offline
     analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal.
     invest_rules: apply the investment-scam rules A1-A12 (None = config.INVEST_RULES). r["invest_rules"] holds the hits (shield.messages.invest_rules).
-    explain: fill r["grams"] with the text head's strongest pieces of text (only the Gradio app shows them; the Report does not carry them, and
-    for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
+    lang_cap: apply the D5 language cap (None = config.LANG_CAP); r["lang"] always holds the detected language (shield.core.lang).
+    explain: fill r["grams"] with the text head's strongest pieces of text (nothing shows them since the Gradio app was retired on 2026-10-28; the Report does not
+    carry them, and for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
     cred, pin_recv = cred_requests(text), pin_to_receive(text)
     r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "invest_rules": [], "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
-         "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": []}
+         "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": [],
+         "lang": detect_lang(text), "lang_cap": False}
     if prose_words >= MIN_PROSE_WORDS:
         prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
         r["text_thresholds"] = tuple(r3(t) for t in text_model.thresholds)
@@ -149,6 +164,8 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
             if r["level"] is None or r["level"] < floor:
                 r["level"] = floor
     apply_positives(text, r)   # D23 P1 / P2: only without a hard-risk signal, so after every floor above
+    if config.LANG_CAP if lang_cap is None else lang_cap:   # D5 language cap: after the floors and positives, so it sees the level they left
+        apply_language_cap(r)
     # safety-advice cap: last, so every hard rule and floor above has already had its say (the conditions refuse a message any of them fired on)
     if config.SAFETY_ADVICE_CAP if safety_cap is None else safety_cap:
         phrases, blockers = safety_advice_cap(text, r)

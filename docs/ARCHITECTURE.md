@@ -17,7 +17,7 @@ The target: *a person pastes or screenshots a message in English, Hindi, Kannada
 
 1. **Verdict first, details later [fast].** The page asks for an offline analysis first (no network call), shows the verdict, then asks for the live link checks and updates the link cards. A slow registry never delays the verdict (`src/shield/api/main.py`: `AnalyseRequest.live`).
 2. **Five verdict levels [correct, few-FA]:** `Likely scam` / `Suspicious` / `No warning signs found` / `Promotional` (D22) / `Can't judge`. Can't judge is returned when there is too little text to read (fewer than 3 words once links are removed, `router.MIN_PROSE_WORDS`) and no link that could be scored, or when the only links cannot be judged (a free-hosted site, a shortener not expanded). Never "Safe". Promotional exists only with a sender (D22), which the UI no longer asks for (D18).
-3. **Rules and link checks only raise a verdict, with two narrow exceptions [few-FA].** Hard rules act as floors after the model (`src/shield/messages/rules.py`, `core/router.py`): the OTP / PIN / CVV request rule and the PIN-to-receive rule (R2) force at least Suspicious; the gambling floor (G1) forces Suspicious on a link. The exceptions lower: positive link evidence P1 / P2 (D23) applies only without a hard-risk signal, and P1 can take a Likely scam message to Suspicious ("Lowered from..." line, D24). Floor strengths are in D16.
+3. **Rules and link checks only raise a verdict, with narrow exceptions [few-FA].** Hard rules act as floors after the model (`src/shield/messages/rules.py`, `core/router.py`): the OTP / PIN / CVV request rule and the PIN-to-receive rule (R2) force at least Suspicious; the gambling floor (G1) forces Suspicious on a link. The exceptions lower: positive link evidence P1 / P2 (D23) applies only without a hard-risk signal, and P1 can take a Likely scam message to Suspicious ("Lowered from..." line, D24). The other exception is the language cap (D5 + D6, `core/lang.py`, `router.apply_language_cap`): in Hindi, Kannada and Hinglish a Likely scam that only the text head produced is shown Suspicious, with a reason line saying the language is less tested; link evidence, checked rules and the investment rules are not capped, and the cap lifts per language only by decision (>= 150 real-dev hard-legit messages). Floor strengths are in D16.
 4. **Reasons do not depend on the model [reasons].** The top three reasons come from rules, link evidence, tactic tags and then the text model, in that order (`core/report.py`), so explanations survive a text-head swap.
 5. **Exactly one code path may touch the network.** `src/shield/core/net.py`: https only, exact host allowlist, IP literals refused, redirects never followed, no cookies or proxies, at most 2 s per call and 4 s per message. This turns CLAUDE.md rule 8 (never visit a link from a message) into a property of the code. `tests/test_api.py` T7 patches sockets and checks that link-bearing input analysed offline makes zero attempts. List downloads belong to `src/update_link_lists.py`; the API process calls `net.forbid_updates()` at start-up.
 6. **No user content touches the disk or the logs.** Details in §5.4.
@@ -35,7 +35,7 @@ src/shield/
   config.py           # paths, active text head, switches (SAFETY_ADVICE_CAP, CRTSH_CHECK, URL_ALONE_MAX_LEVEL, URL_FLAG_THRESHOLD, INVEST_RULES)
   examples.py
   api/       main.py (FastAPI: /api/health, /api/analyse, /api/ocr), upload.py (hard-capped in-memory multipart reader)
-  core/      router.py (analyse(): entities -> engines -> levels), verdict.py (level_of, fuse), report.py (router result -> Report: evidence,
+  core/      router.py (analyse(): entities -> engines -> levels), lang.py (detect_lang + the D5 cap line in en / hi / kn), verdict.py (level_of, fuse), report.py (router result -> Report: evidence,
              top-3 reasons, advice), risk.py (0-100 warning-sign meter, D24), advice.py (what to do, per level), sender_rule.py (D22),
              net.py (the only outbound HTTP)
   messages/  text_head.py (TextScorer: MurilScorer, TF-IDF baseline), rules.py (OTP / PIN / CVV, PIN-to-receive, advisory phrases),
@@ -48,7 +48,7 @@ frontend/    React + Vite + Tailwind + Motion (D9); src/update_link_lists.py and
 tests/       test_*.py wrappers (contract, API, OCR, links, gambling, risk, sender, demo, investment rules), tricky_inputs.py
 ```
 
-**Not built:** language detection (`lang.py`; `Report.meta.lang` exists in the contract and nothing sets it), a lexicon in YAML, `transactions/` and `apps/` engines (§7), study mode (D13).
+**Not built:** a lexicon in YAML, `transactions/` and `apps/` engines (§7), study mode (D13).
 
 ### Stable interfaces
 
@@ -70,7 +70,7 @@ image --OCR (local Tesseract, in memory)--> text the user checks and edits --> P
 text --> links extracted (textprep) --> model_text(text) --> text head (calibrated) --> text level
       --> rules (OTP / PIN / CVV, PIN-to-receive, investment A1-A12) --> floors
       --> each link: host-only URL model + offline checks (lists, lookalike, homograph, gambling) [+ live checks when live=true]
-      --> fuse(text level, URL level) --> link positives P1 / P2 --> optional sender rule (dormant) --> level, risk score, reasons, advice
+      --> fuse(text level, URL level) --> link positives P1 / P2 --> language cap (hi / kn / hinglish) --> optional sender rule (dormant) --> level, risk score, reasons, advice
 ```
 
 **Fusion.** The shipped fusion is the max rule (`core/verdict.py` `fuse`): the higher of the text and URL levels, and both at least Suspicious gives Likely scam. The host-only URL model alone is capped at Suspicious; Likely scam from the URL side needs a link-check red flag R1-R9 (C2). The draft's fitted logistic-regression fusion was not built; the max rule stays unless a fitted one beats it on val and per source.
@@ -82,7 +82,7 @@ text --> links extracted (textprep) --> model_text(text) --> text head (calibrat
 - **Backend: FastAPI + uvicorn**, one process, bound to 127.0.0.1:8000. Models and link lists load at start-up (`lifespan`). No request-body logging, no docs or OpenAPI page, CORS only for the Vite dev server.
 - **Frontend: React + Vite + Tailwind + Motion (D9)**, replacing the draft's server-rendered HTMX + Jinja plan. FastAPI serves the `Report` as JSON; the approved design is `docs/design/` (V1: dark stage with a dotted globe, bento result layout, radar meter; light theme and fonts D25). Every asset is bundled or self-hosted: no CDN or Google Fonts at runtime. The globe animation is simulated from published rankings and labelled "not live" (G2).
 - **Where it runs (D1):** on the Mac, `./run.sh` starts the API and the Vite dev server; the dev server listens on all interfaces so a phone on the same hotspot can open the page, while the API stays on 127.0.0.1 behind the dev server's `/api` proxy. Hosting (Hugging Face Spaces) is a later option and would change the privacy statement.
-- **Gradio** (`src/app.py`) is still in the repository as a dev console; D9 says it is retired once the new UI reaches parity, and that deletion has not been done.
+- **Gradio** was retired on 2026-10-28 as D9 says: `src/app.py` is deleted and Gradio is out of `requirements.txt` and `pyproject.toml`. `./run.sh` is the only way to start the app.
 
 ---
 
@@ -156,7 +156,7 @@ The link panel breaks the address into parts and highlights the registered domai
 
 **Input:** a paste box with live detection chips, or a screenshot (paste, drop, picker); the OCR text is shown for the user to correct (§4). The optional sender field was removed from the UI (D18); the backend keeps the sender rule.
 
-**Languages (D6, D17).** The UI is English. Reasons and advice are to be offered also in Hindi and Kannada, marked "translated, under review" until a native speaker has reviewed them (D15); the Hindi / Kannada / Hinglish results carry an "experimental" note until real numbers exist (D6). Today only the helpline row and the investment card and reasons switch language, with no review mark, and the rest is English. This is frontend work scheduled after splits-v3 and the backend.
+**Languages (D6, D17).** The UI is English. Reasons and advice are to be offered also in Hindi and Kannada, marked "translated, under review" until a native speaker has reviewed them (D15); the Hindi / Kannada / Hinglish results carry an "experimental" note until real numbers exist (D6). The backend half of D6 is built: `Report.meta.lang` is set on every Report and the language cap (§1.3) lowers a text-only Likely scam to Suspicious with the English reason line; the Hindi and Kannada versions of that line are in `core/lang.py` (marked needs-review) but not in the Report, so the UI cannot show them yet. Today only the helpline row and the investment card and reasons switch language, with no review mark, and the rest is English. This is frontend work scheduled after splits-v3 and the backend.
 
 **Study mode (D13).** A small user study in mid / late November (about 8-10 people, about 10 messages each, with and without the app). Its design, including a way to hide the reasons and advice and what is logged (only the participant's answers on prepared stimuli, never pasted content), is a later session. Not built.
 
@@ -193,10 +193,10 @@ All decided; the log (`docs/decisions/README.md`) has the full text, dates and e
 | D3 | Shortener expansion only on a button press | user; built |
 | D4 | No percentage; four-zone meter that never contradicts the verdict | user; built (D24) |
 | D5 (+b, c) | Operating-point targets (Likely scam <= 1%, Suspicious+ <= 5% of hard-legit templates), promo_gray, dispute button stores nothing by default | user; design targets until real-dev exists |
-| D6 | Hindi / Kannada / Hinglish "experimental" in the app and the report until real numbers exist; consent-based collection asked of the Dean | user 2026-10-28; note not built |
+| D6 | Hindi / Kannada / Hinglish "experimental" in the app and the report until real numbers exist; consent-based collection asked of the Dean | user 2026-10-28; cap built in the backend, UI note not built |
 | D7 | Real-dev and final sets: TEST / POOL grouped freeze (D-a), POOL-val = real-dev (splits-v3 D-v3.1) | by build |
 | D8 | URL head stays host-only; the full-URL view is the last item | user 2026-10-28 |
-| D9 | React + Vite + Tailwind + Motion on FastAPI JSON; Gradio retired at parity | user; built |
+| D9 | React + Vite + Tailwind + Motion on FastAPI JSON; Gradio retired (done 2026-10-28) | user; built |
 | D10 | OCR: Tesseract only; user checks amounts and links (CER 24.3%) | by build (D19, D19b) |
 | D11 | Rules and lexicon match on a folded view; models read only `model_text` | user 2026-10-28; to be built next |
 | D12 | Live-check cache in memory only, TTL per check, failures never cached | by build (D23) |

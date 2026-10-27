@@ -105,7 +105,7 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 - [x] TF-IDF text head (`src/baseline.py`); fine-tuned MuRIL text head still to do
 - [ ] Fusion, calibration, explanations
 - [x] Adversarial suite (held-out attack types, `messages_adv_test.csv`)
-- [x] Gradio MVP (`src/app.py`)
+- [x] Gradio MVP (`src/app.py`, retired 2026-10-28: replaced by the React frontend + FastAPI API, D9; start the app with `./run.sh`)
 - [x] Screenshot input, backend: `POST /api/ocr`, local Tesseract (decision D19; the UI part is still to do)
 - [ ] User study
 - [ ] Report, slides, viva

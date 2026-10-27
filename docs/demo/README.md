@@ -15,7 +15,7 @@ uvicorn shield.api.main:app --host 127.0.0.1 --port 8000     # the checker (the 
 cd frontend && npm run dev                                    # the web page, open http://localhost:5173
 ```
 
-Fallback if the web page misbehaves: `python src/app.py` (a plainer page at http://127.0.0.1:7860, same checker). Nothing needs the internet.
+If the web page misbehaves, the same checker answers `POST /api/analyse` on http://127.0.0.1:8000 (`./run.sh` starts both). The old Gradio fallback page (`src/app.py`) was retired on 2026-10-28. Nothing needs the internet.
 
 Paste the texts below into the box, or open `demo_set.json` and copy from it (the JSON is the source if they ever differ).
 

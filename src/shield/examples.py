@@ -1,4 +1,4 @@
-# Made-up example messages (none is a real message). The Gradio demo offers them as clickable examples and tests/test_contracts.py runs them
+# Made-up example messages (none is a real message). The retired Gradio demo offered them as clickable examples; tests/test_contracts.py runs them
 # through the Report checks; they live here so that neither needs the other.
 EXAMPLES = [
     ["Dear SBI customer, your account will be blocked within 24 hours. Complete KYC immediately: http://sbi-kyc-verify-now.xyz/login"],

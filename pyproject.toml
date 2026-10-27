@@ -12,7 +12,6 @@ dependencies = [
     "anthropic==1.11.0",
     "datasketch==2.0.0",
     "fastapi==0.143.0",
-    "gradio==6.29.1",
     "httpx==0.28.1",   # shield/core/net.py, the live link checks (D23); also fastapi.testclient
     "huggingface_hub==1.33.0",   # < 2 because tokenizers 0.23.2 requires it; the same as .venv-finetune
     "safetensors==0.8.0",

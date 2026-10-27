@@ -44,6 +44,12 @@ SAFETY_ADVICE_CAP = False
 # analyse(..., invest_rules=True / False) overrides it per call (the evaluation in src/eval_invest_rules.py runs the app both ways).
 INVEST_RULES = True
 
+# Language cap (D5 section 6 + D6; shield.core.lang, router.apply_language_cap): in a language with no real dev data the text model alone reaches at most
+# Suspicious; link evidence, checked rules and the investment rules are unaffected. A language leaves LANG_CAP_LANGS only when real-dev holds >= 150 independent
+# hard-legit messages in it (a decision, not a default). analyse(..., lang_cap=True / False) overrides the switch per call; SHIELD_LANG_CAP=0 turns it off.
+LANG_CAP = os.environ.get("SHIELD_LANG_CAP", "1") != "0"
+LANG_CAP_LANGS = ("hi", "kn", "hinglish")
+
 # What kind of model sits behind each path, for Report.meta.models.
 TEXT_MODEL_KIND, URL_MODEL_KIND = "tfidf-lr", "hgb-host"   # TF-IDF char n-grams + logistic regression; host-only HistGradientBoosting
 MURIL_KIND = "muril"
