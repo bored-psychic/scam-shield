@@ -1,8 +1,9 @@
 # splits-v3: one rebuild for the known data gaps, with pre-registered gates
 
 **Status: APPROVED in part (2026-10-27).** Decided by the user: D-v3.1 (50 / 50), D-v3.3 (label), D-v3.4, D-v3.5 (full mask set), D-v3.7
-(defer), D-v3.8 (D-a, row added to `docs/decisions/README.md`), G4 report-only, the answers in section 8. D-v3.2 (frozen test) stands as
-recommended, not separately confirmed; D-v3.6 is decided on 1 Nov. Code (B0) may be written 28-30 Oct with dry-run counts only, no data
+(defer), D-v3.8 (D-a, row added to `docs/decisions/README.md`), G4 report-only, the answers in section 8, D-v3.2 (frozen internal test,
+confirmed 2026-10-27), and pushing `split_map.csv` with the `splits-v3` tag on 2 Nov (section 7 item 10). Only D-v3.6 remains: go / no-go on
+1 Nov. Code (B0) may be written 28-30 Oct with dry-run counts only, no data
 written; nothing else is built yet. The build starts after the real-message freeze (planned 31 Oct); the retrain must finish before 6 Nov. Nothing here reads `data/real/real_test_v1.csv` or any score of it (it does not exist
 yet). The gates in section 4 are written **before** any v3 model exists; this file's commit is the proof of the order (git history).
 
@@ -96,7 +97,7 @@ dropped and counted (train side), never moved into test.
 **Alternative:** re-split, letting POOL (and new synthetic families) into test. It gives real Indian rows in the internal test but breaks
 comparability with every v2 number, takes POOL rows from val / train, and duplicates the job of `real_test_v1.csv`.
 
-**Status:** recommendation stands (frozen test); not separately confirmed by the user.
+**Decided (user, 2026-10-27):** frozen internal test, as recommended.
 
 ### D-v3.3 UPI-collect and Indian alert coverage
 
@@ -304,7 +305,7 @@ diff for leakage and split mistakes (CLAUDE.md).
 | 1 Nov AM | Phase B go / no-go; decisions D-v3.1-8 recorded in `docs/decisions/README.md` | Opus high | go / no-go line |
 | 1 Nov PM | **B1** `build_text.py` (~7 min, 10 GB peak) -> `split_audit.py` -> `augment.py` -> `baseline.py` -> `sanity_checks.py`; row ledger (section 6) | Sonnet high (build), Haiku low (reruns) | 0 audit violations; every row accounted for |
 | 2 Nov AM | **Review** of the B0 / B1 diff and the split audit by a fresh session; interpret sanity (shortcuts, section 3) | Opus high | go for freeze |
-| 2 Nov AM | **Freeze splits-v3:** `split_map.csv` `git add -f`, tag `splits-v3`; new SHA-256 into `finetune.SPLIT_MAP_SHA256`, the notebook's `EXPECTED_SPLIT_MAP_SHA256` and CLAUDE.md; notebook `LOSO_SOURCES = ["india_fraud_final"]`, `MAX_LENS = [128]`, `USE_AUG = False`; commit; **push code only** (approved for 2 Nov; the notebook clones from GitHub; see section 7 item 10 for `split_map.csv`) | Sonnet high | tag, hashes in three places agree |
+| 2 Nov AM | **Freeze splits-v3:** `split_map.csv` `git add -f`, tag `splits-v3`; new SHA-256 into `finetune.SPLIT_MAP_SHA256`, the notebook's `EXPECTED_SPLIT_MAP_SHA256` and CLAUDE.md; notebook `LOSO_SOURCES = ["india_fraud_final"]`, `MAX_LENS = [128]`, `USE_AUG = False`; commit; **push code + `split_map.csv` (hashes only) + the `splits-v3` tag** (approved for 2 Nov; the notebook clones from GitHub; `git push` then `git push origin splits-v3`) | Sonnet high | tag, hashes in three places agree |
 | 2 Nov PM | New **private** Kaggle dataset version, masked data only (`split_map.csv`, `messages.csv`, `messages_adv_test.csv`, `messages_aug.csv` at the root; approved, both phone owners consented); smoke run; full run + LOSO fold (~23 min each, `reports/eval_muril_v2.md` section 9 training s) | you (upload); Sonnet high | bundle + fold, `split_map_sha256` = v3 |
 | 3 Nov | Copy back; `calibrate_text_head.py` on v3 val; re-score the shipped bundle on v3 val; `gates_v3.py` -> G1-G5 | Sonnet high | `reports/gates_v3.md` (val only) |
 | 4 Nov | If the gates pass: `eval_text_head.py` (test once) + `eval_loso.py` (full); write-up; app switch as decision D28 (demo / test locks per head, `frontend/scripts/dump_fixture.py`). If they fail: write-up, shipped bundle stays | Sonnet high; Opus high for the write-up | `reports/eval_muril_v3.md` |
@@ -348,9 +349,8 @@ are regenerated (`augment.py`, seeded per (split, attack)); POOL train scam rows
 9. **Rule 4.** The synthetic UPI family and any investment templates are `is_synthetic = True` and reported apart; real-only evaluation
    excludes them.
 10. **"Push code only" vs `split_map.csv`.** CLAUDE.md says `split_map.csv` is committed to git (force-added) and tagged for every splits
-    version. In v3 it also holds the text hashes (md5 of masked text, no text) of the POOL rows. Commit and tag it locally as for v1 / v2; whether
-    the commit holding it is pushed on 2 Nov needs a yes from the user (Kaggle does not need it from git: the notebook checks the hash of the
-    dataset's copy).
+    version. In v3 it also holds the text hashes (md5 of masked text, no text) of the POOL rows. **Resolved (user, 2026-10-27):** push
+    `split_map.csv` with the `splits-v3` tag on 2 Nov (hashes only, private repo), as for v1 / v2. No message text goes to git.
 
 ## 8. Questions answered (user, 2026-10-27)
 
@@ -362,9 +362,10 @@ are regenerated (`augment.py`, seeded per (split, attack)); POOL train scam rows
 6. G4 is **report-only.**
 7. **Full mask set for every source.**
 8. B0 code on 28-30 Oct: **yes, dry-run counts only, no data written.**
-9. Push on 2 Nov: **yes, code only** (see section 7 item 10 for `split_map.csv`).
+9. Push on 2 Nov: **yes, code plus `split_map.csv` (hashes only) with the `splits-v3` tag**; no data files, no message text.
+10. Internal test: **frozen** (D-v3.2), confirmed.
 
-Still open: D-v3.2 (frozen test) is recommended but not separately confirmed; D-v3.6 go / no-go on 1 Nov; section 7 item 10.
+Still open: D-v3.6 go / no-go on 1 Nov.
 
 ## Sources read for this plan
 
