@@ -132,6 +132,7 @@ def main():
         print("wrote", export_backup(a.run, meta).relative_to(ROOT))
         return
     assert meta["split_map_sha256"] == SPLIT_MAP_SHA256 == sha256(ROOT / "data/final/split_map.csv"), "not splits-v2"
+    assert not meta.get("loso"), "a leave-one-source-out fold is not an app bundle (loso: true); nothing to calibrate"
     assert not meta["settings"]["aug"] and not meta["settings"]["smoke"] and meta["settings"]["limit"] is None
 
     # ---- val

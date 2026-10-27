@@ -240,7 +240,7 @@ At the likely cut-off muril misses 150 test scams (fake_job_postings 80, phishin
 
 ## 9. Leave-one-source-out
 
-**Open for muril**: not run (one fine-tune per held-out source, 8 folds, too expensive for now). The baseline's LOSO, from `reports/sanity.md` section 5 (`sanity_checks.py` on splits-v2; LOSO rows = the held-out source's val+test rows):
+**LOSO for muril: code ready, runs pending** (`src/finetune.py --exclude-source`, `notebooks/kaggle_finetune.ipynb` with `LOSO_SOURCES`, then `src/eval_loso.py` fills this section; 4 folds: uci_sms_spam, india_fraud_final, scam_ham_india, synth_india). The baseline's LOSO, from `reports/sanity.md` section 5 (`sanity_checks.py` on splits-v2; LOSO rows = the held-out source's val+test rows):
 
 | held-out source | train rows left | val+test n | val+test scam | scam rate | in-dist F1 | LOSO F1 | in-dist AUROC | LOSO AUROC | in-dist PR-AUC | LOSO PR-AUC | LOSO scam recall | LOSO benign acc | LOSO F1 (all rows) | F1 drop |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |

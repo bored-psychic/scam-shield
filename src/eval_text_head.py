@@ -11,6 +11,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_sco
 
 from textprep import model_text, URL_TOKEN, MAX_CHARS
 from finetune import SPLIT_MAP_SHA256, sha256, thresholds   # the same splits-v2 hash and the same val cut-off rule as training
+from eval_loso import section9_body   # section 9 (LOSO) is rendered from reports/eval_preds/loso_muril/, so a regenerated report keeps it
 
 # Mac-side evaluation of a fine-tuned text head (src/finetune.py bundle) against the splits-v2 TF-IDF baseline. One command per model:
 #   .venv-finetune/bin/python src/eval_text_head.py models/finetune/muril_len128_20261021T135255Z --report reports/eval_muril_v2.md \
@@ -119,6 +120,7 @@ def verify_bundle(run, args, files):
         ("messages.csv SHA-256 = local file", meta["data_sha256"]["messages.csv"] == files["messages.csv"]),
         ("textprep marker = this textprep", meta["textprep"] == {"url_token": URL_TOKEN, "max_chars": MAX_CHARS}),
         ("not a smoke / --limit run", not st["smoke"] and st["limit"] is None),
+        ("not a leave-one-source-out fold (src/eval_loso.py reads those)", not meta.get("loso")),
         ("git tree clean at training", meta["git_dirty"] is False),
         ("test not scored during training", not st.get("score_held_out")),
         ("model/ present", (run / "model" / "model.safetensors").exists()),
@@ -483,12 +485,7 @@ def report(path, run, meta, checks, df, adv_df, PB, IB, PM, IM, spd, notes):
         w(table(["#", "hash", "source", "language", "model", "baseline", "group rows", "text", "why (guess)"], rows) + "\n")
 
     w("## 9. Leave-one-source-out\n")
-    w(f"**Open for {meta['short_name']}**: not run (one fine-tune per held-out source, 8 folds, too expensive for now). The baseline's LOSO, from "
-      "`reports/sanity.md` section 5 (`sanity_checks.py` on splits-v2; LOSO rows = the held-out source's val+test rows):\n")
-    san = (ROOT / "reports/sanity.md").read_text(encoding="utf-8")
-    assert SPLIT_MAP_SHA256[:16] in san.split("\n## ")[0], "reports/sanity.md is not on splits-v2"
-    sec = san.split("## 5. Leave-one-source-out")[1].split("\n## ")[0]
-    w("\n".join(l for l in sec.splitlines() if l.startswith("|")) + "\n")
+    w(section9_body(df, shipped=run.name == "muril_len128_20261021T135255Z"))   # src/eval_loso.py: the cached MuRIL folds, or the "runs pending" text with the baseline's LOSO
 
     path.write_text("\n".join(L) + "\n", encoding="utf-8")
     print(f"wrote {path}")

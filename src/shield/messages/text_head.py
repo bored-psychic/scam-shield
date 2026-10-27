@@ -62,6 +62,7 @@ class MurilScorer:
         st, cal = meta.get("settings", {}), meta.get("calibration")
         problems = [m for m, bad in (
             ("a smoke run", st.get("smoke")), (f"a --limit {st.get('limit')} run", st.get("limit") is not None),
+            (f"a leave-one-source-out fold (loso: true, held-out source {meta.get('exclude_source')}): it has no source it was not trained without, and no model/", meta.get("loso")),
             ("trained on another textprep", meta.get("textprep") != {"url_token": URL_TOKEN, "max_chars": MAX_CHARS}),
             ("not calibrated: run `python src/calibrate_text_head.py` first", not cal),
             ("calibrated on something other than val", cal and cal.get("fit_on") != "val")) if bad]

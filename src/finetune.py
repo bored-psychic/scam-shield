@@ -21,6 +21,7 @@ from realguard import guard_inputs   # tripwire: the real-message TEST set (data
 #   python src/finetune.py --limit 50 --device cpu     # Mac dry run: 50 rows per split, no GPU
 #   python src/finetune.py --data-dir /kaggle/input/scam-shield-data --out /kaggle/working/models/muril_run1   # the notebook finds the folder
 #   python src/finetune.py --score-held-out            # also score test + adv_test at the end (off by default: that happens on the Mac)
+#   python src/finetune.py --exclude-source uci_sms_spam --no-save-model   # one leave-one-source-out (LOSO) fold, see below
 #
 # Precision (--precision, default auto): bf16 autocast on GPUs with compute capability >= 8.0 (RTX 5050, A100), fp16 autocast
 # + GradScaler below that (T4 7.5, P100 6.0), fp32 on CPU. Weights and optimizer state stay fp32 in every mode; the loss and
@@ -38,10 +39,23 @@ from realguard import guard_inputs   # tripwire: the real-message TEST set (data
 # Output (--out): model/ (best epoch, HF format) + shield_meta.json is the bundle a MurilScorer loads; epoch_<k>/ are the
 # per-epoch checkpoints; predictions_val.csv, val_metrics.csv (overall / per source / per language) and, with --score-held-out,
 # predictions_{test,adv_test}.csv are copied to the Mac for evaluation.
+#
+# LOSO fold (--exclude-source SRC; src/eval_loso.py reads the folds): "does the model rank a source it has never seen?" Same settings as the shipped
+# bundle (LOSO_REFERENCE; anything else is refused), SRC removed from train AND val (the best epoch and both cut-offs are chosen on val, so val must not
+# hold SRC either), plus every translated_indic row whose English parent is an SRC row (a translation carries its parent into training). After the
+# best epoch is chosen, only SRC's val + test rows are tokenised and scored -> predictions_loso.csv; every other test row stays unread, as always.
+# The test rows of SRC are the same ones the shipped model was evaluated on (already opened); nothing is chosen on them. The fold is not an app
+# bundle: shield_meta.json says loso: true and MurilScorer refuses it. --no-save-model keeps the best epoch in memory only (no model/, no epoch_*/;
+# ~1 GB each), which is all a fold needs. Not combinable with --score-held-out or --aug.
 
 SPLIT_MAP_SHA256 = "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c"   # splits-v2 (2026-10-21); keep in step with CLAUDE.md
 MODELS = {"muril": "google/muril-base-cased", "mdeberta": "microsoft/mdeberta-v3-base", "xlmr": "FacebookAI/xlm-roberta-base"}
 GROUP_KEYS = ("cluster_id", "template_family", "company_key", "translation_of")   # rows sharing any of these must share a split
+# The settings of the shipped bundle models/finetune/muril_len128_20261021T135255Z (shield_meta.json "settings"): a LOSO fold must train exactly like it,
+# so the only difference is the dropped source. Kept here, not read from the bundle, because the bundle is git-ignored and Kaggle does not have it;
+# tests/test_loso.py compares this dict with the bundle's shield_meta.json whenever the bundle is on disk.
+LOSO_REFERENCE = {"model": "muril", "epochs": 3, "batch": 16, "lr": 2e-5, "max_len": 128, "seed": 42, "warmup": 0.06, "aug": False,
+                  "weight_decay": 0.01, "grad_clip": 1.0, "optimizer": "AdamW", "schedule": "linear warmup + linear decay"}
 
 
 def sha256(path):
@@ -77,10 +91,49 @@ def pick_precision(requested, device):
     return requested
 
 
-def load_data(data_dir, use_aug, held_out):
+def check_loso_args(args):
+    """A LOSO fold is refused unless it trains exactly like the shipped bundle (and nothing that reads the held-out test split is switched on)."""
+    if args.score_held_out:
+        raise SystemExit("--exclude-source cannot be combined with --score-held-out: a fold scores only the held-out source's val + test rows")
+    if args.aug:
+        raise SystemExit("--exclude-source cannot be combined with --aug: the shipped bundle was trained without augmentation, and a fold must differ from it only by the dropped source")
+    mism = [f"--{k.replace('_', '-')} {getattr(args, k)} (shipped bundle: {v})" for k, v in LOSO_REFERENCE.items()
+            if k in vars(args) and getattr(args, k) != v and not (k == "epochs" and args.smoke)]   # --smoke is 1 epoch by definition
+    if mism:
+        raise SystemExit("--exclude-source needs the shipped bundle's settings; differs: " + "; ".join(mism))
+
+
+def split_loso(df, src):
+    """Split `df` (train + val rows, and only SRC's test rows) for a fold without `src`. Returns (train, val, held_val, held_test, counts):
+    train / val without any SRC row and without any translation of an SRC parent; held_val / held_test = SRC's own val / test rows (set aside, to
+    be tokenised and scored only after the best epoch); counts = what was dropped."""
+    own = df["source"] == src
+    src_hashes = set(df.loc[own, "text_hash"])
+    transl = df["translation_of"].isin(src_hashes) & ~own
+    assert (df.loc[transl, "split"] == "train").all(), "a translation of an SRC parent outside train"
+    keep = ~own & ~transl
+    tr, va = (df[keep & (df["split"] == s)] for s in ("train", "val"))
+    held_va, held_te = (df[own & (df["split"] == s)] for s in ("val", "test"))
+    counts = {"train": int((own & (df["split"] == "train")).sum()), "val": len(held_va), "test": len(held_te), "translations": int(transl.sum())}
+    assert_loso_clean(tr, va, held_va, held_te, src, src_hashes)
+    return tr, va, held_va, held_te, counts
+
+
+def assert_loso_clean(tr, va, held_va, held_te, src, src_hashes):
+    """No SRC row and no translation of an SRC parent in train or val; the held-out rows are all SRC's, val / test, and disjoint from train / val."""
+    for name, d in (("train", tr), ("val", va)):
+        assert not (d["source"] == src).any(), f"{src} rows in {name}"
+        assert not d["translation_of"].isin(src_hashes).any(), f"translations of {src} parents in {name}"
+    for name, d, sp in (("held-out val", held_va, "val"), ("held-out test", held_te, "test")):
+        assert (d["source"] == src).all() and (d["split"] == sp).all(), f"{name} rows are not all {src} / {sp}"
+    assert not (set(held_va["text_hash"]) | set(held_te["text_hash"])) & (set(tr["text_hash"]) | set(va["text_hash"])), "a held-out row is also in train / val"
+
+
+def load_data(data_dir, use_aug, held_out, loso_source=None):
     """messages.csv (+ messages_aug.csv) after the split checks; raises before anything is trained if a check fails.
     Test rows are in messages.csv, so they are read here for the checks; unless held_out they are dropped before returning
-    and messages_adv_test.csv (test parents only) is not opened at all."""
+    and messages_adv_test.csv (test parents only) is not opened at all. With loso_source, the one test exception is that source's own test rows
+    (a LOSO fold scores them after training); every other test row is still dropped."""
     guard_inputs([data_dir])
     sm_path = data_dir / "split_map.csv"
     got = sha256(sm_path)
@@ -98,7 +151,9 @@ def load_data(data_dir, use_aug, held_out):
         assert not (n > 1).any(), f"{key}: {(n > 1).sum()} groups straddle splits, e.g. {list(n[n > 1].index[:3])}"
     test_hashes = set(frozen.index[frozen == "test"])
     if not held_out:
-        df = df[df["split"] != "test"]
+        df = df[(df["split"] != "test") | ((df["source"] == loso_source) if loso_source else False)]
+        if loso_source:
+            assert set(df.loc[df["split"] == "test", "source"]) <= {loso_source}, "a test row of another source survived"
     df = df.reset_index(drop=True)
     guard_inputs([], [("messages.csv", df)])
 
@@ -229,6 +284,9 @@ def main():
     ap.add_argument("--aug", action="store_true", help="also train on messages_aug.csv (off by default: like-for-like with baseline.py)")
     ap.add_argument("--score-held-out", action="store_true", help="also score test + adv_test after the best epoch is chosen "
                     "(off: the test split is never tokenised or scored; evaluation happens on the Mac)")
+    ap.add_argument("--exclude-source", metavar="SRC", help="leave-one-source-out fold: drop SRC (and translations of its parents) from train and val, then score only "
+                    "SRC's val + test rows into predictions_loso.csv. Needs the shipped bundle's settings; not with --score-held-out or --aug")
+    ap.add_argument("--no-save-model", action="store_true", help="do not write model/ or epoch_*/ (~1 GB each); the best epoch is kept in memory. For LOSO folds")
     ap.add_argument("--smoke", action="store_true", help="1 epoch, 2,000 train rows, val/test/adv capped at 500: a setup check, not a model")
     ap.add_argument("--limit", type=int, help="at most N rows per split (Mac dry run)")
     ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto")
@@ -243,9 +301,20 @@ def main():
     model_id = MODELS.get(args.model, args.model)
     short = args.model if args.model in MODELS else model_id.split("/")[-1]
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = Path(args.out or f"models/finetune/{short}_{stamp}{'_smoke' if args.smoke else ''}").expanduser().resolve()
+    run_name = f"{short}_loso_{args.exclude_source}_{stamp}" if args.exclude_source else f"{short}_{stamp}"
+    out = Path(args.out or f"models/finetune/{run_name}{'_smoke' if args.smoke else ''}").expanduser().resolve()
     data_dir = Path(args.data_dir).expanduser().resolve()
     guard_inputs([data_dir])   # before anything is created: data/real/ is never an input
+    if args.exclude_source:
+        check_loso_args(args)
+        srcs = pd.read_csv(data_dir / "messages.csv", usecols=["source", "split", "label"], low_memory=False)
+        if args.exclude_source not in set(srcs["source"]):
+            raise SystemExit(f"--exclude-source {args.exclude_source!r} is not a source in messages.csv; one of {sorted(set(srcs['source']))}")
+        h = srcs[(srcs["source"] == args.exclude_source) & srcs["split"].isin(["val", "test"])]
+        if h["label"].nunique() < 2:
+            raise SystemExit(f"--exclude-source {args.exclude_source}: its val + test rows hold {len(h)} rows and {h['label'].nunique()} class(es); a fold needs both labels to score")
+    elif args.no_save_model:
+        raise SystemExit("--no-save-model is for --exclude-source folds only: a normal run exists to produce the model/ bundle")
     if out.exists() and any(out.iterdir()):
         raise SystemExit(f"{out} exists and is not empty; pick another --out")
     out.mkdir(parents=True, exist_ok=True)
@@ -267,18 +336,29 @@ def main():
     seed_everything(args.seed)
 
     # ---------------------------------------------------------------- data
-    df, aug, adv, data_files, test_hashes = load_data(data_dir, args.aug, args.score_held_out)
+    df, aug, adv, data_files, test_hashes = load_data(data_dir, args.aug, args.score_held_out, args.exclude_source)
     log(f"device {device}{f' ({gpu}, compute capability {cap})' if gpu else ''}; precision {precision} "
         f"(requested {args.precision}){'; fp16 GradScaler on' if scaler else ''}")
     log(f"data {data_dir} -> run {out}")
     log(f"split_map.csv SHA-256 ok (splits-v2); messages.csv matches it row for row; no {'/'.join(GROUP_KEYS)} straddles splits")
-    tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))   # te is empty unless --score-held-out
+    tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))   # te is empty unless --score-held-out (or a LOSO fold: only SRC's test rows)
+    loso = held_va = held_te = None
+    if args.exclude_source:
+        src = args.exclude_source
+        tr, va, held_va, held_te, loso = split_loso(df, src)
+        te = te.iloc[0:0]   # the held-out test rows wait in held_te until the best epoch is chosen
+        log(f"LOSO fold, held-out source {src}: dropped from train {loso['train']} {src} rows + {loso['translations']} translated_indic rows translated from {src} rows; "
+            f"dropped from val {loso['val']} {src} rows (set aside); {loso['test']} {src} test rows set aside; "
+            f"val and the cut-offs are chosen without {src}. The set-aside val + test rows are scored once, after the best epoch.")
     if aug is not None:
         tr = pd.concat([tr, aug[["text", "label", "source", "split"]].assign(text_hash=None)], ignore_index=True)
     caps = {"train": 2000, "val": 500, "test": 500, "adv": 500} if args.smoke else {}
     if args.limit:
         caps = {k: min(caps.get(k, args.limit), args.limit) for k in ("train", "val", "test", "adv")}
     tr, va, te = sample(tr, caps.get("train"), args.seed), sample(va, caps.get("val"), args.seed), sample(te, caps.get("test"), args.seed)
+    if args.exclude_source:
+        held_va, held_te = sample(held_va, caps.get("val"), args.seed), sample(held_te, caps.get("test"), args.seed)
+        assert held_te["text_hash"].isin(test_hashes).all() and not held_va["text_hash"].isin(test_hashes).any()
     assert_no_test_rows(tr, va, test_hashes)
     sets = {"train": tr, "val": va}
     if args.score_held_out:
@@ -288,7 +368,9 @@ def main():
         assert len(te) == 0 and adv is None
     log(f"train {len(tr)} ({int(tr['label'].sum())} scam = {tr['label'].mean():.1%}{', incl. aug' if aug is not None else ''}), val {len(va)} "
         f"({int(va['label'].sum())} scam = {va['label'].mean():.1%})"
-        + (f", test {len(te)}, adv_test {len(adv)}" if args.score_held_out else "; test and adv_test rows: not loaded, not scored"))
+        + (f", test {len(te)}, adv_test {len(adv)}" if args.score_held_out else
+           (f"; held out: {len(held_va)} val + {len(held_te)} test rows of {args.exclude_source}, other test and adv_test rows: not loaded, not scored" if loso
+            else "; test and adv_test rows: not loaded, not scored")))
     log("val rows by language: " + ", ".join(f"{k} {v}" for k, v in va["language"].value_counts().items())
         + ("" if {"hindi", "kannada"} & set(va["language"]) else "  (no hindi / kannada rows in val, as expected)"))
 
@@ -316,7 +398,7 @@ def main():
     y_va = va["label"].astype(int).to_numpy()
 
     # ---------------------------------------------------------------- train
-    history, best = [], None
+    history, best, best_state = [], None, None
     t_train = time.time()
     for ep in range(1, epochs + 1):
         model.train()
@@ -346,23 +428,43 @@ def main():
         rec = {"epoch": ep, "train_loss": round(total / max(n, 1), 4), "val_f1_at_0.5": round(f1_score(y_va, s_va >= 0.5, zero_division=0), 4),
                "val_auroc": round(roc_auc_score(y_va, s_va), 4) if len(set(y_va)) == 2 else None, "seconds": round(time.time() - t0)}
         history.append(rec)
-        ck = out / f"epoch_{ep}"
-        model.save_pretrained(ck)
-        tok.save_pretrained(ck)
+        is_best = best is None or rec["val_f1_at_0.5"] > best["val_f1_at_0.5"]   # ties keep the earlier epoch
+        if args.no_save_model:   # a LOSO fold: the best epoch lives in memory (CPU copy), nothing is written
+            if is_best:
+                best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+            where = "(not saved)"
+        else:
+            ck = out / f"epoch_{ep}"
+            model.save_pretrained(ck)
+            tok.save_pretrained(ck)
+            where = f"-> {ck}"
         log(f"epoch {ep}: train loss {rec['train_loss']}, val F1@0.5 {rec['val_f1_at_0.5']}, val AUROC {rec['val_auroc']}, "
-            f"{rec['seconds']} s -> {ck}")
-        if best is None or rec["val_f1_at_0.5"] > best["val_f1_at_0.5"]:   # ties keep the earlier epoch
+            f"{rec['seconds']} s {where}")
+        if is_best:
             best = rec
 
     train_seconds = round(time.time() - t_train)
 
     # ---------------------------------------------------------------- best epoch -> model/, cut-offs on val, predictions
-    shutil.copytree(out / f"epoch_{best['epoch']}", out / "model")
-    model = AutoModelForSequenceClassification.from_pretrained(out / "model").to(device)
+    if args.no_save_model:
+        model.load_state_dict(best_state)   # the same weights the epoch checkpoint would hold
+    else:
+        shutil.copytree(out / f"epoch_{best['epoch']}", out / "model")
+        model = AutoModelForSequenceClassification.from_pretrained(out / "model").to(device)
     s = {k: predict(model, X[k], batcher, args.batch, device, amp_dtype) for k in X if k != "train"}   # val, + test / adv with --score-held-out
     t_susp, t_likely = thresholds(y_va, s["val"])
     log(f"best epoch {best['epoch']} (val F1@0.5 {best['val_f1_at_0.5']}); val-chosen cut-offs: suspicious >= {t_susp:.3f}, likely scam >= {t_likely:.3f}; "
         f"training time {train_seconds} s ({train_seconds / 60:.1f} min)")
+
+    if loso:   # only now are the held-out rows tokenised: the best epoch and the cut-offs were chosen without them
+        held = pd.concat([held_va, held_te], ignore_index=True)
+        s_held = predict(model, [model_text(t) for t in held["text"]], batcher, args.batch, device, amp_dtype)
+        pd.DataFrame({"text_hash": held["text_hash"].to_numpy(), "split": held["split"].to_numpy(), "label": held["label"].astype(int).to_numpy(),
+                      "score": s_held}).to_csv(out / "predictions_loso.csv", index=False, encoding="utf-8")
+        y_h = held["label"].astype(int).to_numpy()
+        log(f"held-out {args.exclude_source}: {len(held)} rows ({len(held_va)} val + {len(held_te)} test, {int(y_h.sum())} scam) scored -> predictions_loso.csv; "
+            f"F1@0.5 {f1_score(y_h, s_held >= 0.5, zero_division=0):.4f}"
+            + (f", AUROC {roc_auc_score(y_h, s_held):.4f}" if len(set(y_h)) == 2 else "") + " (the Mac report adds the rest)")
 
     rep_val = val_report(va, s["val"], t_susp, t_likely)
     rep_val.to_csv(out / "val_metrics.csv", index=False, encoding="utf-8")
@@ -408,8 +510,12 @@ def main():
         "checkpoint_mb": {p.name: dir_mb(p) for p in sorted(out.glob("epoch_*"))},
         "created_utc": stamp, "command": " ".join(sys.argv),
     }
+    if loso:   # keys only a fold has; a normal run's shield_meta.json is unchanged
+        meta.update({"loso": True, "exclude_source": args.exclude_source, "no_save_model": args.no_save_model,
+                     "loso_dropped": loso, "loso_held_out_rows": {"val": len(held_va), "test": len(held_te)}})
     (out / "shield_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    log(f"wrote {out / 'model'}, shield_meta.json, val_metrics.csv, predictions_val.csv{', predictions_test/adv_test.csv' if args.score_held_out else ''}; copy {out} back to the Mac")
+    log(f"wrote {'' if args.no_save_model else str(out / 'model') + ', '}shield_meta.json, val_metrics.csv, predictions_val.csv"
+        f"{', predictions_test/adv_test.csv' if args.score_held_out else ''}{', predictions_loso.csv' if loso else ''}; copy {out} back to the Mac")
     if dirty:
         log("WARNING: the git tree had uncommitted changes; the laptop should only `git pull`")
     log_f.close()
