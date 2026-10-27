@@ -44,6 +44,10 @@ SAFETY_ADVICE_CAP = False
 # analyse(..., invest_rules=True / False) overrides it per call (the evaluation in src/eval_invest_rules.py runs the app both ways).
 INVEST_RULES = True
 
+# D11 folded view (shield.core.fold): the rules, tactic cues and fear cues match on the text with look-alike letters, invisible characters and leet folded away, and the
+# Report quotes the user's own text. The models are unaffected (rule 11). analyse(..., fold=True / False) overrides the switch per call; SHIELD_FOLD=0 turns it off.
+FOLD_RULES = os.environ.get("SHIELD_FOLD", "1") != "0"
+
 # Language cap (D5 section 6 + D6; shield.core.lang, router.apply_language_cap): in a language with no real dev data the text model alone reaches at most
 # Suspicious; link evidence, checked rules and the investment rules are unaffected. A language leaves LANG_CAP_LANGS only when real-dev holds >= 150 independent
 # hard-legit messages in it (a decision, not a default). analyse(..., lang_cap=True / False) overrides the switch per call; SHIELD_LANG_CAP=0 turns it off.

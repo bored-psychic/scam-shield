@@ -65,8 +65,10 @@ def payment_demands(text):
 
 
 def hard_risks(text, r):
-    """The hard-risk signals (RISKY_THING keys, most severe first) in analyse()'s result r for this text."""
-    links, fear = r["links"], fear_cues(mask_text(text), r["cred_request"])
+    """The hard-risk signals (RISKY_THING keys, most severe first) in analyse()'s result r for this text. The fear cues and payment demands are read on the
+    folded view (D11: r["folded"], the same text the rules saw), so a look-alike spelling does not slip past them."""
+    links, folded = r["links"], r.get("folded", text)
+    fear = fear_cues(mask_text(folded), r["cred_request"])
     return [key for key, hit in (
         ("otp_request", bool(r["cred_request"])),
         ("pin_to_receive", bool(r["pin_to_receive"])),
@@ -75,7 +77,7 @@ def hard_risks(text, r):
         ("lookalike_link", any(l["kind"] == "free" and l["base_level"] == 1 for l in links)),
         ("gambling", any(l["gambling"] for l in links)),
         *((fam, bool(fear[fam])) for fam in FAMILIES),
-        ("payment_demand", bool(payment_demands(text))),
+        ("payment_demand", bool(payment_demands(folded))),
         ("investment_rule", bool(r.get("invest_rules")))) if hit]   # last: the investment rules (Phase A) are the least specific signal, so an existing signal stays the first one named
 
 

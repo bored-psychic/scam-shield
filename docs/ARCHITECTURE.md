@@ -172,7 +172,7 @@ The draft's Transactions (UPI ID and PSP-handle checks, collect-request rules, Q
 
 **Built:** the Messages path with OCR; MuRIL text head with calibration (D27); host-only URL model; the link evidence ladder with live checks (D23, C1-C3); gambling (G1); OTP / PIN / CVV, PIN-to-receive (R2) and investment rules; sender rule (backend, dormant, D22); the risk meter (D24); the React frontend; real-message intake with the frozen TEST / POOL split (D-a).
 
-**Next, in order:** (1) D11, the folded view for rules and the lexicon (its own session); (2) splits-v3 and the retrain (`docs/plans/splits_v3.md`; POOL-val is the real-dev set, D7); (3) D6 and D17 frontend work: the experimental note, Hindi / Kannada reasons and advice with the "under review" mark, after the D15 reviews; (4) the user study (D13); (5) the freeze: models and thresholds, then the final real-message test set **once** (rule 12), with per-language, per-source, LOSO, adversarial and false-alarm tables; (6) the full-URL view of the URL head, the last item (D8).
+**Next, in order:** (1) splits-v3 and the retrain (`docs/plans/splits_v3.md`; POOL-val is the real-dev set, D7); (2) D6 and D17 frontend work: the experimental note, Hindi / Kannada reasons and advice with the "under review" mark, after the D15 reviews; (3) the user study (D13); (4) the freeze: models and thresholds, then the final real-message test set **once** (rule 12), with per-language, per-source, LOSO, adversarial and false-alarm tables; (5) the full-URL view of the URL head, the last item (D8).
 
 ## 9. What to cut if time runs short (first cut first)
 
@@ -198,7 +198,7 @@ All decided; the log (`docs/decisions/README.md`) has the full text, dates and e
 | D8 | URL head stays host-only; the full-URL view is the last item | user 2026-10-28 |
 | D9 | React + Vite + Tailwind + Motion on FastAPI JSON; Gradio retired (done 2026-10-28) | user; built |
 | D10 | OCR: Tesseract only; user checks amounts and links (CER 24.3%) | by build (D19, D19b) |
-| D11 | Rules and lexicon match on a folded view; models read only `model_text` | user 2026-10-28; to be built next |
+| D11 | Rules and lexicon match on a folded view; models read only `model_text` | user 2026-10-28; built 2026-10-28 (`shield.core.fold`) |
 | D12 | Live-check cache in memory only, TTL per check, failures never cached | by build (D23) |
 | D13 | Small user study mid / late November | user 2026-10-28; design later |
 | D14 | Ladder numbers as in `reputation.py` (< 30 days; 30-179 display; cert < 7 days fallback; Tranco top 10k) | by build (D23) |

@@ -13,6 +13,7 @@ from shield.links.platforms import assess_link
 from shield.links import live as live_checks
 from shield.links.lists import load_lists
 from shield.links.reputation import assess as assess_background
+from shield.core.fold import fold as fold_text
 from shield.core.lang import detect_lang
 from shield.core.sender_rule import apply_sender, hard_risks
 from shield.messages.sender import parse_sender
@@ -25,19 +26,33 @@ def safety_advice_cap(text, r):
     (empty = the cap applies). r is analyse()'s result before the cap. The cap only ever lowers Suspicious to No warning signs, and only when the
     text head is the sole reason for Suspicious and nothing around the advice looks like a scam, because a scammer can paste the same sentence
     onto any scam: never at Likely scam, never with a link, a phone number to call, a request for a credential, secrecy or time pressure."""
-    phrases = advisory_phrases(text)
+    folded = r.get("folded", text)   # the rules read the folded view (D11)
+    phrases = advisory_phrases(folded)
     blockers = [name for name, hit in (
         ("no advisory phrase", not phrases),
+        ("hidden or look-alike characters", bool(r.get("fold_hits"))),
         ("credential request", bool(r["cred_request"])),
         ("PIN-to-receive request", bool(r["pin_to_receive"])),
         ("investment-scam rule", bool(r.get("invest_rules"))),
         ("text level is not Suspicious", r["text_level"] != 1 or r["level"] != 1),
         ("has a link", bool(r["links"])),
-        ("has a mobile number", has_indian_mobile(text)),
+        ("has a mobile number", has_indian_mobile(folded)),
         ("isolation cue", bool(r["tags"]["isolation"])),
         ("urgency cue", bool(r["tags"]["urgency"])),
         ("gambling hit", any(l["gambling"] for l in r["links"]))) if hit]
     return phrases, blockers
+
+def fold_only_hits(text, r):
+    """The rules that fire on the folded view of the text (r) and did not fire on the raw text: "otp_request", "pin_to_receive", an investment rule code
+    (A1 ...), "tactic.<tag>". Only called when the folding changed the text. A non-empty list means look-alike letters, invisible characters or leet
+    stood between a rule and its words: it is evidence in itself (shield.core.report: fold.hidden)."""
+    cred = cred_requests(text)
+    raw_inv = {h["code"] for h in invest_rule_hits(text)} if r["invest_rules"] else set()
+    raw_tags = tactic_tags(mask_text(text), cred)
+    return ([k for k, new, old in (("otp_request", r["cred_request"], cred), ("pin_to_receive", r["pin_to_receive"], pin_to_receive(text))) if new and not old]
+            + [h["code"] for h in r["invest_rules"] if h["code"] not in raw_inv]
+            + [f"tactic.{t}" for t, cues in r["tags"].items() if cues and not raw_tags[t]])
+
 
 def apply_positives(text, r):
     """D23 positive signals (P1 a verified .brand TLD or .bank.in address, P2 a Tranco top-10k site that is no platform): only when the
@@ -61,7 +76,7 @@ def apply_positives(text, r):
     r["level"] = fuse(r["text_level"], r["url_level"])
     capped = False
     if (r["level"] == 2 and all(l.get("positive_applied") for l in r["links"]) and any(l["positive"] == "p1" for l in r["links"])
-            and not has_indian_mobile(text)):
+            and not has_indian_mobile(r.get("folded", text))):
         r["level"], capped = 1, True
         r["positive_cap"] = next(l["checks"]["positive"]["title"] for l in r["links"] if l["positive"] == "p1")
     p1 = next((l["checks"]["positive"] for l in pos if l["positive"] == "p1" and l["checks"]["positive"].get("lowered")), None)
@@ -84,7 +99,7 @@ def apply_language_cap(r):
         r["level"], r["lang_cap"] = 1, True
 
 
-def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None, lang_cap=None):
+def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None, lang_cap=None, fold=None):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
     (r["sender"] is None). The string is never logged or stored, and r keeps only its kind / header / suffix (sender_rule.apply_sender).
@@ -92,13 +107,18 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
     analysis, which makes no network call and marks those checks pending. expand: short links (as extracted) the user asked to reveal.
     invest_rules: apply the investment-scam rules A1-A12 (None = config.INVEST_RULES). r["invest_rules"] holds the hits (shield.messages.invest_rules).
     lang_cap: apply the D5 language cap (None = config.LANG_CAP); r["lang"] always holds the detected language (shield.core.lang).
+    fold: match the rules and tactic cues on the folded view of the text (D11, shield.core.fold; None = config.FOLD_RULES). r["folded"] is that view (the text itself
+    when off), r["fold_map"] maps it back to the text (None when off), r["fold_hits"] lists the rules that fire on the folded view and did not fire on the raw text.
+    The models, link extraction and the language detection always read the raw text.
     explain: fill r["grams"] with the text head's strongest pieces of text (nothing shows them since the Gradio app was retired on 2026-10-28; the Report does not
     carry them, and for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
     prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
-    cred, pin_recv = cred_requests(text), pin_to_receive(text)
-    r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "invest_rules": [], "escalated": False, "tags": tactic_tags(mask_text(text), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
+    folded, fmap = fold_text(text) if (config.FOLD_RULES if fold is None else fold) else (text, None)   # D11: every rule below reads `folded`
+    cred, pin_recv = cred_requests(folded), pin_to_receive(folded)
+    r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "invest_rules": [], "escalated": False, "tags": tactic_tags(mask_text(folded), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
+         "folded": folded, "fold_map": fmap, "fold_hits": [],
          "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": [],
          "lang": detect_lang(text), "lang_cap": False}
     if prose_words >= MIN_PROSE_WORDS:
@@ -158,11 +178,17 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
     # investment-scam rules (Phase A, raise-only): on the raw text, before the positives so that a hit counts as a hard-risk signal (hard_risks) and no
     # brand-owned link or registered sender softens it. Hook rules floor the level at Suspicious, money rules at Likely scam; neither ever lowers.
     if config.INVEST_RULES if invest_rules is None else invest_rules:
-        r["invest_rules"] = invest_rule_hits(text)
+        r["invest_rules"] = invest_rule_hits(folded)
+        if fmap is not None:   # the hits were found on the folded view: quote and underline the user's own text
+            for h in r["invest_rules"]:
+                h["span"] = fmap.span(*h["span"])
+                h["quote"] = text[h["span"][0]:h["span"][1]]
         if r["invest_rules"]:
             floor = max(h["floor"] for h in r["invest_rules"])
             if r["level"] is None or r["level"] < floor:
                 r["level"] = floor
+    if fmap is not None and folded != text:
+        r["fold_hits"] = fold_only_hits(text, r)
     apply_positives(text, r)   # D23 P1 / P2: only without a hard-risk signal, so after every floor above
     if config.LANG_CAP if lang_cap is None else lang_cap:   # D5 language cap: after the floors and positives, so it sees the level they left
         apply_language_cap(r)

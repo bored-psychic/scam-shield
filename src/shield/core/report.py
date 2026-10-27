@@ -2,10 +2,11 @@ import re
 from shield.config import model_versions
 from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Lowered, Meta, Report, Sender
 from shield.core.advice import advice_for
+from shield.core.fold import FOLD_LINE, FOLD_TAG
 from shield.core.lang import LANG_CAP_LINE
 from shield.core.risk import risk_score
 from shield.core.sender_rule import RISKY_THING
-from shield.messages.invest_rules import SEBI_ADVICE
+from shield.messages.invest_rules import RULES as INVEST_RULES, SEBI_ADVICE
 from shield.core.verdict import PROMOTIONAL
 from shield.messages.sender import SUFFIX_NAME
 
@@ -23,7 +24,7 @@ _TAGS = {"rule.otp_request": "OTP request", "rule.pin_to_receive": "PIN to recei
          "tactic.isolation": "Secrecy", "model.text": "Scam wording", "model.url": "Risky link", "link.shortener": "Hidden link",
          "link.free_hosting": "Free hosting", "link.free_hosting_keyword": "Lookalike site", "link.unscored": "Unreadable link",
          "link.gambling": "Gambling site", "rule.safety_advice": "Safety advice", "sender.registered": "Registered sender",
-         "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number", "lang.cap": "Less-tested language"}
+         "sender.registered_misused": "Registered, but risky", "sender.mobile": "Personal number", "lang.cap": "Less-tested language", "fold.hidden": FOLD_TAG}
 # D23 link checks bring their own tags (shield.links.reputation); this one replaces the model's link rating when a positive check overrides it
 _URL_TITLE_OVERRIDDEN = "The address pattern looked unusual to the model, but who owns the site is known"
 _TEXT_TITLES = {2: "The wording is very similar to known scam messages", 1: "The wording is somewhat similar to known scam messages",
@@ -57,18 +58,37 @@ _PASSWORD = re.compile(r"pass(?:word|code|wd)")
 _OTP_TITLE, _PASSWORD_TITLE = "Asks you to share an OTP, PIN or CVV", "Asks you to share a password"
 
 
+BY_CODE = {rule[0]: rule for rule in INVEST_RULES}
+
 def _level(n):
     return Level.CANT_JUDGE if n is None else _LEVEL[n]
 
-def _in_text(text, phrase):
+def _in_text(text, phrase, fold=None):
     """(quote, span) of phrase in text, or (None, None). cred_requests() and tactic_tags() return their matches lower-cased (and tactic_tags runs on
     PII-masked text), so look for the phrase ignoring case and quote the user's own spelling; a cue that is not in the text (a mask token)
     gives (None, None). span is [start, end) in code points (str indexing), the same measure as text[start:end] == quote.
-    Whole words first, so the cue "pin" points at "PIN" and not at the inside of "shipping"; only if no whole-word match exists, any match."""
+    Whole words first, so the cue "pin" points at "PIN" and not at the inside of "shipping"; only if no whole-word match exists, any match.
+    fold: (folded text, FoldMap) of D11. The rules match on the folded view, so a phrase they return may exist only there ("share your otp" for a text spelt
+    with a Cyrillic "a" and a zero-width space); if the raw text has no match, look in the folded one and map the span back, so the quote and the underline are
+    the user's own characters."""
     if not phrase:
         return None, None
-    m = re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, re.I) or re.search(re.escape(phrase), text, re.I)
-    return (m.group(0), (m.start(), m.end())) if m else (None, None)
+    def find(t):
+        return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", t, re.I) or re.search(re.escape(phrase), t, re.I)
+    m = find(text)
+    if m:
+        return m.group(0), (m.start(), m.end())
+    if fold:
+        m = find(fold[0])
+        if m:
+            s, e = fold[1].span(m.start(), m.end())
+            return text[s:e], (s, e)
+    return None, None
+
+def _fold_names(hits):
+    """Plain names for r["fold_hits"] (router.fold_only_hits)."""
+    names = {"otp_request": "OTP / PIN / CVV request", "pin_to_receive": "UPI PIN to receive money"}
+    return [names.get(h) or (BY_CODE[h][4] if h in BY_CODE else _TAG_TITLES.get(h.split(".", 1)[-1], h)) for h in hits]
 
 def _link_report(l, text, flagged, hard_free):
     """The child Report of one link. The first piece of evidence follows the link's normal assessment (base_level); a gambling hit floors the
@@ -137,25 +157,26 @@ def to_report(text: str, r: dict) -> Report:
     flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
     promo = level == Level.PROMOTIONAL
     ev = []
+    fold = (r["folded"], r["fold_map"]) if r.get("fold_map") is not None else None
     if r["pin_to_receive"]:   # one piece of evidence, quoting the first phrase; ahead of the OTP rule's: it is the more specific reading of the same words
-        quote, span = _in_text(text, r["pin_to_receive"][0])
+        quote, span = _in_text(text, r["pin_to_receive"][0], fold)
         ev.append(Evidence(id="rule.pin_to_receive", module="messages", effect=Effect.DANGER, tag=_TAGS["rule.pin_to_receive"], quote=quote, span=span,
                            title="Asks for your UPI PIN to receive money (receiving money never needs a PIN)"))
     for h in r.get("invest_rules") or []:   # Phase A rules: the same shape as the OTP rule's evidence; the effect follows the rule's floor (hook = caution, money = danger)
         ev.append(Evidence(id=h["id"], module="messages", effect=_BY_LEVEL[h["floor"]], title=h["title"], tag=h["tag"], quote=h["quote"], span=h["span"]))
     for hit in r["cred_request"]:
-        quote, span = _in_text(text, hit)
+        quote, span = _in_text(text, hit, fold)
         pw = bool(_PASSWORD.search(hit)) and not re.search(r"one[- ]?time", hit)   # a one-time password is an OTP
         ev.append(Evidence(id="rule.otp_request", module="messages", effect=Effect.DANGER, title=_PASSWORD_TITLE if pw else _OTP_TITLE,
                            tag="Password request" if pw else _TAGS["rule.otp_request"], quote=quote, span=span))
     capped = bool(r.get("safety_advice"))   # the cap lowered Suspicious to No warning signs: say so, as reassurance
     if capped:
-        quote, span = _in_text(text, r["safety_advice"][0])
+        quote, span = _in_text(text, r["safety_advice"][0], fold)
         ev.append(Evidence(id="rule.safety_advice", module="messages", effect=Effect.REASSURING, title="Contains standard 'never share your OTP' safety advice",
                            tag=_TAGS["rule.safety_advice"], quote=quote, span=span))
     for tag, cues in r["tags"].items():
         if cues:
-            quote, span = next((f for f in (_in_text(text, c) for c in cues) if f[0]), (None, None))   # the first cue that is in the text
+            quote, span = next((f for f in (_in_text(text, c, fold) for c in cues) if f[0]), (None, None))   # the first cue that is in the text
             title = _TAG_TITLES.get(tag, f"Uses a {tag} tactic") if flagged else _NEUTRAL_TAG_TITLES.get(tag, f"Uses a {tag} tactic")
             ev.append(Evidence(id=f"tactic.{tag}", module="messages", effect=Effect.CAUTION if flagged else Effect.NEUTRAL, title=title,
                                tag=_TAGS.get(f"tactic.{tag}", tag[:24]), detail="Matched: " + ", ".join(cues), quote=quote, span=span))
@@ -167,6 +188,10 @@ def to_report(text: str, r: dict) -> Report:
     if r.get("lang_cap"):   # D5 + D6: the language cap lowered Likely scam to Suspicious; the wording score above stays as it was, this says why the verdict is lower
         ev.append(Evidence(id="lang.cap", module="messages", effect=Effect.CAUTION, title=LANG_CAP_LINE["en"], tag=_TAGS["lang.cap"],
                            detail="Likely scam was lowered to Suspicious: only the wording score pointed that way, and this language has little real test data."))
+    fold_hit = bool(r.get("fold_hits"))   # D11: a rule fired on the folded view that did not fire on the raw text
+    if fold_hit:
+        ev.append(Evidence(id="fold.hidden", module="messages", effect=Effect.CAUTION if flagged else Effect.NEUTRAL, title=FOLD_LINE["en"], tag=FOLD_TAG,
+                           detail="Matched only after look-alike letters, invisible characters or digit and symbol swaps were undone: " + ", ".join(_fold_names(r["fold_hits"])) + "."))
     s = r.get("sender")   # D22: None unless a sender was given
     sender_ev = _sender_evidence(s, flagged) if s else None
     if sender_ev:
@@ -186,8 +211,11 @@ def to_report(text: str, r: dict) -> Report:
     # last warning) where it was.
     # D23 P1 cap (router.apply_positives): the brand line takes a free place like the sender reason, never pushing a warning out; with three
     # warnings already there it is still on the link panel, as the link's reassuring evidence.
-    if r.get("lang_cap"):   # the cap line is always shown (it explains why the verdict is not Likely scam): it takes the third place if the three are taken
-        reasons = reasons[:2] + [LANG_CAP_LINE["en"]]
+    # The closing lines, always shown and in this order: the D11 disguise line (when the verdict is a warning), then the language-cap line (it explains why the
+    # verdict is not Likely scam). They take the last places of the three, so the strongest reasons come first.
+    tail = ([FOLD_LINE["en"]] if fold_hit and flagged else []) + ([LANG_CAP_LINE["en"]] if r.get("lang_cap") else [])
+    if tail:
+        reasons = [x for x in reasons if x not in tail][:3 - len(tail)] + tail
     if r.get("positive_cap") and len(reasons) < 3 and not promo:
         reasons = reasons + [r["positive_cap"]]
     if sender_ev and promo:
