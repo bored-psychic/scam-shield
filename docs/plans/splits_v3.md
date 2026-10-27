@@ -1,7 +1,9 @@
 # splits-v3: one rebuild for the known data gaps, with pre-registered gates
 
-**Status: PROPOSAL (2026-10-27). Plan only: no code, no data change, no retraining.** The build starts after the real-message freeze
-(planned 31 Oct); the retrain must finish before 6 Nov. Nothing here reads `data/real/real_test_v1.csv` or any score of it (it does not exist
+**Status: APPROVED in part (2026-10-27).** Decided by the user: D-v3.1 (50 / 50), D-v3.3 (label), D-v3.4, D-v3.5 (full mask set), D-v3.7
+(defer), D-v3.8 (D-a, row added to `docs/decisions/README.md`), G4 report-only, the answers in section 8. D-v3.2 (frozen test) stands as
+recommended, not separately confirmed; D-v3.6 is decided on 1 Nov. Code (B0) may be written 28-30 Oct with dry-run counts only, no data
+written; nothing else is built yet. The build starts after the real-message freeze (planned 31 Oct); the retrain must finish before 6 Nov. Nothing here reads `data/real/real_test_v1.csv` or any score of it (it does not exist
 yet). The gates in section 4 are written **before** any v3 model exists; this file's commit is the proof of the order (git history).
 
 Two numbers in this plan were computed in this session by read-only scratch scripts (outside the repo, nothing written to `data/`): the mask
@@ -72,7 +74,8 @@ target (D5 1.4) and only just above the 75 needed to show <= 5 % with zero false
 
 **Cost:** the train half is small (~165 groups, ~250 rows) against ~38k train rows; it may not move MuRIL much. G1 will show it.
 
-**You decide:** the 50 / 50 split; whether to label more bucket-4 `kyc-bank` / `delivery` groups before 1 Nov.
+**Decided (user, 2026-10-27):** 50 / 50. The user labels ~100 bucket-4 `kyc-bank` / `delivery` groups on 1 Nov, before the post-freeze
+intake rerun.
 
 ### D-v3.2 Internal test: frozen or open?
 
@@ -93,7 +96,7 @@ dropped and counted (train side), never moved into test.
 **Alternative:** re-split, letting POOL (and new synthetic families) into test. It gives real Indian rows in the internal test but breaks
 comparability with every v2 number, takes POOL rows from val / train, and duplicates the job of `real_test_v1.csv`.
 
-**You decide:** frozen test (recommended).
+**Status:** recommendation stands (frozen test); not separately confirmed by the user.
 
 ### D-v3.3 UPI-collect and Indian alert coverage
 
@@ -110,14 +113,15 @@ comparability with every v2 number, takes POOL rows from val / train, and duplic
 4. **Not used:** `otp_sms_preview` (rejected, `docs/plans/data_acquisition.md` section 4), more translations (D20 / D26: train only, and the
    translation run is not repeatable before 6 Nov), new links in existing synth_india families (would change test text).
 
-**Label check first:** BUGS.md asks whether "Entering your PIN will DEBIT your account" is really benign (`reports/eval_muril_v2.md`
-Hindi / Kannada reading). The synthetic family needs your answer: a collect-request **warning** is benign.
+**Label (decided by the user, 2026-10-27):** a bank's collect-request PIN warning ("Entering your PIN will DEBIT your account") is
+**genuine**. So `synth_upi_0_7_1` keeps label 0, and the BUGS.md question (`reports/eval_muril_v2.md` Hindi / Kannada reading) is closed; the
+synthetic family, if built, is labelled 0 too.
 
 **Alternative:** add the synthetic family to train only (no val). Cheaper, but then G3 has no val rows and the only measurement is test.
 
 **Honesty note:** the family is written knowing the test failure. Its val numbers measure the fix on our own wording, not real-world behaviour.
 
-**You decide:** the label policy for collect-request warnings; synthetic family yes / no if POOL-val has < 10 real groups.
+**Rule as planned:** the synthetic family is built only if POOL-val has < 10 real collect-request groups (counted at B1).
 
 ### D-v3.4 VAM SYSTEMS / company grouping
 
@@ -136,7 +140,7 @@ scam / benign posts and does not target the name.
 
 **Cost:** train loses some fraud job posts (`fake_job_postings` scam recall is already 0.18-0.20: `reports/eval_muril_v2.md` section 3).
 
-**You decide:** name-key fix (recommended) and dropping the straddling train / val rows.
+**Decided (user, 2026-10-27):** approved as recommended (name key; straddling train / val rows dropped and counted).
 
 ### D-v3.5 Name masking + glued account numbers in `pii.py`
 
@@ -182,7 +186,7 @@ translation" assert becomes "the v3 masks change a translation only where they c
 **Alternative:** mask names only in SMS-type sources and leave the 9+ digit ids in job posts alone. ~2,000 fewer re-keyed rows, but two mask
 sets again, and rule 5 covers every source.
 
-**You decide:** the full mask set (recommended), or SMS-type sources only.
+**Decided (user, 2026-10-27):** the full mask set for every source (the ALL-CAPS payer rule stays limited to SMS-type channels, as above).
 
 ### D-v3.6 Investment slot
 
@@ -215,7 +219,7 @@ a third class has no training design (drop, 0 or 1?). None of that fits 1-6 Nov.
 **Alternative:** a tag-only `scam_tier` column (no label change), so val reports promo_gray recall apart. Costs a session for the tagger and
 its spot-check; not on the critical path.
 
-**You decide:** defer (recommended) or tag-only.
+**Decided (user, 2026-10-27):** deferred, as recommended.
 
 ### D-v3.8 D-a: recorded as decided
 
@@ -225,8 +229,10 @@ together; the TEST half is `data/real/real_test_v1.csv` (frozen, realguard), the
 validation); after the freeze every new message of a TEST group or near-duplicate of a TEST message is dropped from the pool. This is option
 (3) of `data_acquisition.md` section 10 (a template-group split on the same phones), not that plan's recommended option (1) (different
 people), chosen because no other people's phones were available. Its cost: TEST and POOL share senders, so a bank whose different templates
-fall on both sides gives the final real-test numbers a mild optimistic bias; the near-duplicate rules remove copies, not shared style. To be
-added as a row in `docs/decisions/README.md` when you approve this plan.
+fall on both sides gives the final real-test numbers a mild optimistic bias; the near-duplicate rules remove copies, not shared style.
+**Consent:** both phone owners have consented to their masked messages being used for training, validation and the test set, and to the
+masked training data going to the private Kaggle dataset (user, 2026-10-27). Approved by the user 2026-10-27; row D-a in
+`docs/decisions/README.md`.
 
 ## 3. Shortcuts to flag at sanity (rule 3)
 
@@ -256,7 +262,7 @@ reported beside it, never gated.
 | **G1 Indian genuine alerts** | POOL-val alerts, per group, at the v3 cut-offs | n >= 39 groups (`data_acquisition.md` section 2, +-15 points) **and** at least Suspicious <= 10 % of groups (D5 ship gate) **and** Likely scam <= 2 % of groups. Report Wilson 95 % upper bounds and D5's targets (5 % / 1 %) | re-scored on the same rows, reported | yes |
 | **G2 no regression** | v2-core val, F1 at each model's own val-chosen Likely cut-off | v3 >= shipped (re-scored on v3 text) **- 0.005** (the D27 rule's tolerance: 0.946 = 0.951 - 0.005). Shipped on v2 text: 0.9514 (`reports/eval_muril_v2.md` section 1) | 0.9514 | yes |
 | **G3 UPI collect** | UPI-collect proxy, per group | Likely scam <= 10 % of groups, real and synthetic each (whichever exists; if neither has >= 5 groups, G3 is "not measurable" and blocks) | re-scored, reported | yes |
-| **G4 LOSO `india_fraud_final`** | one fold, v3 data, cluster-strict rule; **its 350 val rows only** (195 genuine / 155 scam) | "improved" = genuine accuracy at 0.5 >= 0.30 **and** val AUROC >= 0.828. v2 fold, same rows: genuine accuracy 0.149, scam recall 0.961, val AUROC 0.828 (computed from the cached `predictions_loso.csv`, val rows only) | 0.149 / 0.828 | **no** (reported; see open question 6) |
+| **G4 LOSO `india_fraud_final`** | one fold, v3 data, cluster-strict rule; **its 350 val rows only** (195 genuine / 155 scam) | "improved" = genuine accuracy at 0.5 >= 0.30 **and** val AUROC >= 0.828. v2 fold, same rows: genuine accuracy 0.149, scam recall 0.961, val AUROC 0.828 (computed from the cached `predictions_loso.csv`, val rows only) | 0.149 / 0.828 | **no** (report-only, decided by the user 2026-10-27) |
 | **G5 flag policy** | v2-core val genuine, at least Suspicious | v3 MuRIL <= the v3 TF-IDF baseline refit (D27 Suspicious flag policy) | MuRIL 1.56 % vs baseline 4.06 % on v2 (D27) | yes |
 | **G-inv** (only if Phase B "go") | investment val rows, per group | genuine at least Suspicious <= 10 % **and** scam recall >= 0.80 (investment plan section 6, condition 1 thresholds) | reported | yes |
 
@@ -265,6 +271,9 @@ POOL-val scam count caught; the shortcut checks of section 3.
 
 **Stop rule.** One training run. If any blocking gate fails, the shipped bundle stays in the app and the result is written up. A second
 Kaggle run is allowed only for a technical failure (crash, OOM, hash mismatch, wrong settings), never with changed settings to pass a gate.
+
+**Fallback (deadline).** If the blocking gates are not met (failed, or not measurable) by **5 Nov**, the shipped MuRIL
+(`muril_len128_20261021T135255Z`) stays in the app, and the v3 report says so in its first line, with the gate table as it stands.
 
 **Read on test, once, after G1, G2, G3, G5 (and G-inv) pass** (internal test = the frozen splits-v2 messages on v3 text; v3 MuRIL, shipped MuRIL
 and the v3 baseline refit, each with its own val cut-offs, through `eval_text_head.py`):
@@ -277,8 +286,9 @@ and the v3 baseline refit, each with its own val cut-offs, through `eval_text_he
 **One pre-registered veto:** if v3 internal test F1 is more than 0.02 below the shipped model's on the same v3 text, the app is not switched,
 even with all gates passed; it is written up. No other test number can change the decision.
 
-**Not in this plan:** `src/eval_real.py --final` on `real_test_v1.csv`. Rule 12 / hard rule 1 say once, at the end; whether 6 Nov is "the end"
-is your call (open question 5).
+**Final real-message test (decided by the user, 2026-10-27):** `src/eval_real.py --final` runs **once, ~5 Nov, on whichever model ships**
+(the v3 bundle if the gates pass and the veto does not fire, else the shipped MuRIL), after the switch decision and never before it (rule 12,
+hard rule 1; one line in `reports/real_eval_ledger.md`). Its numbers change nothing: no cut-off, no model choice.
 
 ## 5. Build order and timeline
 
@@ -290,15 +300,15 @@ diff for leakage and split mistakes (CLAUDE.md).
 |---|---|---|---|
 | 28-30 Oct (before the freeze; code only, no data written) | **B0 code.** `pii.py` (v3 masks, `MASKS_V2`, `MASKS_INTAKE_V1`, `mask_version`); `intake_real.py` pinned to `MASKS_INTAKE_V1`; app mask follows the bundle's `mask_version`; `build_text.py` POOL loader + `real_group` + v2-hash lineage + company-name key + drop-and-count rules; `neardup` / `finetune.GROUP_KEYS` + `real_group`; the gate script (`src/gates_v3.py`: val only, asserts `split == "val"`, writes `reports/gates_v3.md`); `eval_loso.py --val-only`. Tests for each. Dry runs on splits-v2 data print counts only | Sonnet high | pytest green on both heads; dry-run counts |
 | 31 Oct | Real-message freeze (`intake_real.py --freeze --allow-unlabelled`), hash line in CLAUDE.md | you | `real_test_v1.csv` hash, `pool.csv` |
-| 1 Nov AM | Optional bucket-4 labelling (`kyc-bank` / `delivery` first), then `intake_real.py` rerun (post mode: pool only) | you; Haiku low to rerun | pool counts per stratum |
+| 1 Nov AM | Label ~100 bucket-4 `kyc-bank` / `delivery` groups, then `intake_real.py` rerun (post mode: pool only) | you; Haiku low to rerun | pool counts per stratum |
 | 1 Nov AM | Phase B go / no-go; decisions D-v3.1-8 recorded in `docs/decisions/README.md` | Opus high | go / no-go line |
 | 1 Nov PM | **B1** `build_text.py` (~7 min, 10 GB peak) -> `split_audit.py` -> `augment.py` -> `baseline.py` -> `sanity_checks.py`; row ledger (section 6) | Sonnet high (build), Haiku low (reruns) | 0 audit violations; every row accounted for |
 | 2 Nov AM | **Review** of the B0 / B1 diff and the split audit by a fresh session; interpret sanity (shortcuts, section 3) | Opus high | go for freeze |
-| 2 Nov AM | **Freeze splits-v3:** `split_map.csv` `git add -f`, tag `splits-v3`; new SHA-256 into `finetune.SPLIT_MAP_SHA256`, the notebook's `EXPECTED_SPLIT_MAP_SHA256` and CLAUDE.md; notebook `LOSO_SOURCES = ["india_fraud_final"]`, `MAX_LENS = [128]`, `USE_AUG = False`; commit; push (needs your OK: the notebook clones from GitHub) | Sonnet high | tag, hashes in three places agree |
-| 2 Nov PM | New Kaggle dataset version (`split_map.csv`, `messages.csv`, `messages_adv_test.csv`, `messages_aug.csv` at the root); smoke run; full run + LOSO fold (~23 min each, `reports/eval_muril_v2.md` section 9 training s) | you (upload); Sonnet high | bundle + fold, `split_map_sha256` = v3 |
+| 2 Nov AM | **Freeze splits-v3:** `split_map.csv` `git add -f`, tag `splits-v3`; new SHA-256 into `finetune.SPLIT_MAP_SHA256`, the notebook's `EXPECTED_SPLIT_MAP_SHA256` and CLAUDE.md; notebook `LOSO_SOURCES = ["india_fraud_final"]`, `MAX_LENS = [128]`, `USE_AUG = False`; commit; **push code only** (approved for 2 Nov; the notebook clones from GitHub; see section 7 item 10 for `split_map.csv`) | Sonnet high | tag, hashes in three places agree |
+| 2 Nov PM | New **private** Kaggle dataset version, masked data only (`split_map.csv`, `messages.csv`, `messages_adv_test.csv`, `messages_aug.csv` at the root; approved, both phone owners consented); smoke run; full run + LOSO fold (~23 min each, `reports/eval_muril_v2.md` section 9 training s) | you (upload); Sonnet high | bundle + fold, `split_map_sha256` = v3 |
 | 3 Nov | Copy back; `calibrate_text_head.py` on v3 val; re-score the shipped bundle on v3 val; `gates_v3.py` -> G1-G5 | Sonnet high | `reports/gates_v3.md` (val only) |
 | 4 Nov | If the gates pass: `eval_text_head.py` (test once) + `eval_loso.py` (full); write-up; app switch as decision D28 (demo / test locks per head, `frontend/scripts/dump_fixture.py`). If they fail: write-up, shipped bundle stays | Sonnet high; Opus high for the write-up | `reports/eval_muril_v3.md` |
-| 5 Nov | Buffer (a technical re-run only, stop rule) | | |
+| 5 Nov | Buffer (a technical re-run only, stop rule). Fallback: gates not met by today -> the shipped MuRIL stays, the report says so. Then `eval_real.py --final`, once, on whichever model ships | Sonnet high | `reports/real_eval_ledger.md` line |
 | 6 Nov | Deliver | | |
 
 **Fallback if B0 is not done by 31 Oct:** the timeline does not fit. Cut in this order: the synthetic UPI family (G3 then reads only real
@@ -325,9 +335,9 @@ are regenerated (`augment.py`, seeded per (split, attack)); POOL train scam rows
    the freeze, one training run and no re-runs. Not a CLAUDE.md rule, but the earlier plan said the opposite.
 4. **Phase B go / no-go on 1 Nov** is a week before the date in `data_acquisition.md` section 9 (about 8 Nov).
 5. **Real phone SMS on Kaggle.** CLAUDE.md makes Kaggle the main GPU route with a private dataset; the dataset has so far held public corpora
-   only. v3's `messages.csv` holds your phones' messages (masked, rule 5). `data_acquisition.md` section 6 says `data/collected/` must never be
-   pushed and contributed exports need each contributor's consent. Uploading is your decision; the alternative is the 2nd laptop (RTX 5050,
-   smoke run passed, keeps the data at home, slower and by hand).
+   only. v3's `messages.csv` holds the phones' messages (masked, rule 5). `data_acquisition.md` section 6 says `data/collected/` must never be
+   pushed to git and contributed exports need each contributor's consent. **Resolved (user, 2026-10-27):** both phone owners consented; the
+   masked data goes to the private Kaggle dataset only; `data/collected/` and `data/real/` never go to git.
 6. **"Nothing reads real_test_v1.csv."** True for this plan, with two designed exceptions: `realguard` reads its `source_row_hash` column (keys
    only, the rule 12 tripwire), and `intake_real.py`'s post-freeze rerun drops POOL candidates that are near-duplicates of TEST messages. Neither
    reads a score.
@@ -337,21 +347,24 @@ are regenerated (`augment.py`, seeded per (split, attack)); POOL train scam rows
    training; nothing downstream runs on a half-built v3.
 9. **Rule 4.** The synthetic UPI family and any investment templates are `is_synthetic = True` and reported apart; real-only evaluation
    excludes them.
+10. **"Push code only" vs `split_map.csv`.** CLAUDE.md says `split_map.csv` is committed to git (force-added) and tagged for every splits
+    version. In v3 it also holds the text hashes (md5 of masked text, no text) of the POOL rows. Commit and tag it locally as for v1 / v2; whether
+    the commit holding it is pushed on 2 Nov needs a yes from the user (Kaggle does not need it from git: the notebook checks the hash of the
+    dataset's copy).
 
-## 8. Open questions for you
+## 8. Questions answered (user, 2026-10-27)
 
-1. POOL val / train share: 50 / 50 (recommended) or 30 / 70?
-2. Will you label more bucket-4 `kyc-bank` / `delivery` groups between 31 Oct and 1 Nov (G1 needs >= 39 qualifying POOL-val groups)?
-3. Is a UPI collect-request **warning** benign (the label of `synth_upi_0_7_1` and of the proposed family)?
-4. May the v3 data (with your phones' masked SMS) go to the private Kaggle dataset, or train on the 2nd laptop? Is phone_2 yours, or does its
-   owner need to consent (`data_acquisition.md` section 6)?
-5. Is 6 Nov "the end" for `eval_real.py --final`, or does the final real test wait?
-6. Should G4 (LOSO genuine accuracy) block the switch? Recommended no: the shipped model fails it too, and its 195 genuine val rows are only
-   ~25-35 templates (D5 1.3), so the noise is large.
-7. Full mask set everywhere (recommended) or SMS-type sources only (D-v3.5)?
-8. OK to write the B0 code on 28-30 Oct, before the freeze (code and dry-run counts only, no data written)? Without it the timeline does not
-   hold.
-9. OK to push to GitHub on 2 Nov (the Kaggle notebook clones the repo)?
+1. POOL val / train share: **50 / 50**.
+2. Bucket-4 labelling: **yes, ~100 `kyc-bank` / `delivery` groups on 1 Nov.**
+3. A bank's collect-request PIN warning is **genuine** (label 0).
+4. **Private Kaggle dataset, masked data only; both phone owners have consented.**
+5. `eval_real.py --final` runs **once, ~5 Nov, on whichever model ships.**
+6. G4 is **report-only.**
+7. **Full mask set for every source.**
+8. B0 code on 28-30 Oct: **yes, dry-run counts only, no data written.**
+9. Push on 2 Nov: **yes, code only** (see section 7 item 10 for `split_map.csv`).
+
+Still open: D-v3.2 (frozen test) is recommended but not separately confirmed; D-v3.6 go / no-go on 1 Nov; section 7 item 10.
 
 ## Sources read for this plan
 
