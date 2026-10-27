@@ -1,0 +1,138 @@
+{
+  "model_name": "google/muril-base-cased",
+  "short_name": "muril",
+  "textprep": {
+    "url_token": "<URL>",
+    "max_chars": 2000
+  },
+  "split_map_sha256": "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c",
+  "data_sha256": {
+    "messages.csv": "1390562409576bd3bb369bce27d9d6709b856c2809f89f0c3f40d112a1588700"
+  },
+  "git_commit": "4a28bbd97402f29be36da253c6f5e5fadd8b545d",
+  "git_dirty": false,
+  "threshold_suspicious": 0.01913636796176448,
+  "threshold_likely": 0.7092272043228474,
+  "thresholds_chosen_on": "val (likely = max F1; suspicious = highest with scam recall >= 0.95)",
+  "score": "softmax P(scam) of the best epoch; uncalibrated (class-weighted loss)",
+  "best_epoch": 3,
+  "selected_by": "val F1 at 0.5",
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.2848,
+      "val_f1_at_0.5": 0.942,
+      "val_auroc": 0.9913,
+      "seconds": 451
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.0997,
+      "val_f1_at_0.5": 0.9445,
+      "val_auroc": 0.9941,
+      "seconds": 449
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.0446,
+      "val_f1_at_0.5": 0.9536,
+      "val_auroc": 0.9953,
+      "seconds": 448
+    }
+  ],
+  "settings": {
+    "epochs": 3,
+    "batch": 16,
+    "lr": 2e-05,
+    "max_len": 128,
+    "seed": 42,
+    "warmup": 0.06,
+    "weight_decay": 0.01,
+    "grad_clip": 1.0,
+    "optimizer": "AdamW",
+    "schedule": "linear warmup + linear decay",
+    "aug": false,
+    "smoke": false,
+    "limit": null,
+    "score_held_out": false
+  },
+  "rows": {
+    "train": 36328,
+    "train_scam": 8497,
+    "val": 4917,
+    "val_scam": 997,
+    "test": null,
+    "adv_test": null
+  },
+  "training_seconds": 1352,
+  "val_overall": {
+    "slice": "overall",
+    "key": "all",
+    "n": 4917,
+    "scam": 997,
+    "f1_at_0.5": 0.9536,
+    "f1_at_likely": 0.9541,
+    "precision_at_likely": 0.9604,
+    "recall_at_likely": 0.9478,
+    "recall_at_suspicious": 0.9559,
+    "auroc": 0.9953
+  },
+  "class_weights": [
+    0.6527,
+    2.1377
+  ],
+  "train_truncated_share_by_source": {
+    "cmu_hinglish_dog": 0.0,
+    "ealvaradob_phishing": 0.007,
+    "fake_job_postings": 0.972,
+    "hinglish_conversations": 0.0,
+    "phishing_email": 0.707,
+    "scam_dialogue": 0.956,
+    "scam_ham_india": 0.007,
+    "synth_india": 0.0,
+    "translated_indic": 0.001,
+    "uci_sms_spam": 0.001,
+    "web_scams": 0.0
+  },
+  "device": "Tesla T4",
+  "gpu_name": "Tesla T4",
+  "gpu_compute_capability": "7.5",
+  "precision": "fp16",
+  "precision_requested": "auto",
+  "dtype": "fp16 autocast + GradScaler, fp32 weights",
+  "fp16_final_loss_scale": 1024.0,
+  "versions": {
+    "python": "3.13.15",
+    "torch": "2.11.0+cu128",
+    "cuda": "12.8",
+    "transformers": "5.16.1",
+    "tokenizers": "0.23.1",
+    "tldextract": "5.4.0",
+    "scikit-learn": "1.6.1",
+    "pandas": "2.3.3",
+    "numpy": "2.1.3"
+  },
+  "checkpoint_mb": {},
+  "created_utc": "20261027T121725Z",
+  "command": "src/finetune.py --model muril --max-len 128 --exclude-source india_fraud_final --no-save-model --data-dir /kaggle/input/datasets/prajvalsb/scam-shield-data --out /kaggle/working/models/muril_loso_india_fraud_final_20261027T121717Z",
+  "loso": true,
+  "loso_rule": "cluster-strict-v1",
+  "exclude_source": "india_fraud_final",
+  "no_save_model": true,
+  "loso_dropped": {
+    "train": 2540,
+    "val": 350,
+    "test": 310,
+    "translations": 84,
+    "other_sources": {
+      "train": {
+        "web_scams": 1
+      },
+      "val": {}
+    }
+  },
+  "loso_held_out_rows": {
+    "val": 350,
+    "test": 310
+  }
+}

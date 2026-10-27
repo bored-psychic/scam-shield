@@ -19,7 +19,12 @@ The baseline's test split had been scored once before, at the splits-v2 rebuild 
 2. The gain is spread over the SMS and email sources (uci_sms_spam 0.951 vs 0.914, phishing_email 0.959 vs 0.935) and the held-out attacks (Likely-scam recall 0.941 vs 0.879; real parents 0.964 vs 0.881). Job posts stay poor (F1 0.26 vs 0.21): 98% of them are cut at 128 tokens.
 3. Hindi and Kannada (synthetic templates only, no val rows): recall rises, but false alarms rise more, and Kannada AUROC drops (0.878 vs 0.930). 50 of MuRIL's 112 false alarms are one benign "UPI collect request" alert template (15 rows per language) that has no benign counterpart in train. On real benign Hinglish chat MuRIL flags 0 of 47.
 4. MuRIL's scores are extreme: 69% of test is below 0.01 and 27% is at 0.99 or above, so the model is overconfident at both ends (Platt slope 0.63). Brier is still lower than the baseline's (0.044 vs 0.048). With either mapping the 0-100 meter would read 0-9 or 90-100 for 94-98% of val messages. A logit mapping is proposed for the rest; it is not applied.
-5. Cost: 59 ms per message on CPU (29 ms on the Mac GPU) against 2 ms, and 950 MB against 8 MB. That is fine for the app. LOSO for MuRIL is still open. The augmented run gets the same one command.
+5. Cost: 59 ms per message on CPU (29 ms on the Mac GPU) against 2 ms, and 950 MB against 8 MB. That is fine for the app. The augmented run gets the same one command.
+6. Leave-one-source-out (4 folds, 2026-10-27, section 9; AUROC drop = in-distribution minus LOSO, MuRIL vs baseline):
+   - **uci_sms_spam:** MuRIL generalises better (drop 0.025 vs 0.086; LOSO AUROC 0.974 vs 0.901).
+   - **india_fraud_final:** both fail (drop 0.227 vs 0.219; LOSO AUROC 0.768 vs 0.766). At the 0.5 cut-off MuRIL's benign accuracy is 0.116, so it flags almost all genuine messages in that source.
+   - **synth_india:** MuRIL is worse (drop 0.059 vs 0.014; LOSO AUROC 0.875 vs 0.921).
+   - The `india_fraud_final` failure is the main argument for real Indian genuine messages in splits-v3.
 
 ## Reading
 
@@ -53,7 +58,7 @@ The baseline's test split had been scored once before, at the splits-v2 rebuild 
 - Decide after the augmented run, which may score differently.
 
 **Open.**
-- LOSO for MuRIL (8 fine-tunes).
+- ~~LOSO for MuRIL~~ done 2026-10-27 (4 folds, section 9; findings in summary point 6).
 - The augmented 128 run, evaluated with the same command.
 - Whether the app should load MuRIL. It is not changed here: `text_baseline.joblib` and its cut-offs are untouched.
 - The worst-errors "why" column is a guess from reading the text.
@@ -260,7 +265,29 @@ The TF-IDF baseline refit under the same rule (`src/loso_baseline.py`, the setti
 | scam_ham_india | 428 | 0.350 | 37141 | 37070 | 0.860 | 0.870 | 0.968 | 0.969 | 0.944 | 0.945 | 0.997 |
 | synth_india | 821 | 0.581 | 38197 | 38197 | 0.822 | 0.822 | 0.921 | 0.921 | 0.919 | 0.919 | 0.935 |
 
-**MuRIL LOSO: code ready, runs pending** (`src/finetune.py --exclude-source`, `notebooks/kaggle_finetune.ipynb` with `LOSO_SOURCES`, then `src/eval_loso.py` fills the MuRIL table here; 4 folds: uci_sms_spam, india_fraud_final, scam_ham_india, synth_india).
+MuRIL leave-one-source-out, 4 folds (uci_sms_spam, india_fraud_final, scam_ham_india, synth_india), against the baseline refit under the same rule. Each fold is the shipped MuRIL (max-len 128, no augmentation, 3 epochs, batch 16, lr 2e-5, seed 42; `finetune.LOSO_REFERENCE`) trained without one source, under the rule above. `F1@0.5`, scam recall and benign accuracy are at the 0.5 cut-off (as the baseline's); `F1@likely` is at the fold's own val-chosen likely-scam cut-off (val without the source's clusters); `in-dist` = the shipped model, trained with the source, on the same rows (cached predictions, not re-scored); `AUROC drop` = in-dist AUROC minus LOSO AUROC (for the baseline: its in-distribution AUROC from `sanity.md`, minus the cluster-strict LOSO AUROC). The last three columns are the baseline under the old rule. Scam rate is what a random ranking scores on PR-AUC.
+
+| held-out source | train rows left | val+test n | scam rate | baseline F1 (cluster-strict) | baseline AUROC | baseline PR-AUC | MuRIL in-dist F1@0.5 | MuRIL in-dist AUROC | MuRIL LOSO F1@0.5 | MuRIL LOSO F1@likely | MuRIL LOSO AUROC | MuRIL LOSO PR-AUC | MuRIL LOSO scam recall | MuRIL LOSO benign acc | MuRIL AUROC drop | baseline AUROC drop | baseline F1 old rule | baseline AUROC old rule | baseline PR-AUC old rule |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| uci_sms_spam | 34646 | 1032 | 0.107 | 0.490 | 0.901 | 0.662 | 0.959 | 0.998 | 0.697 | 0.678 | 0.974 | 0.893 | 0.900 | 0.919 | 0.025 | 0.086 | 0.523 | 0.944 | 0.810 |
+| india_fraud_final | 36328 | 660 | 0.467 | 0.683 | 0.766 | 0.751 | 0.959 | 0.995 | 0.648 | 0.648 | 0.768 | 0.724 | 0.964 | 0.116 | 0.227 | 0.219 | 0.701 | 0.776 | 0.765 |
+| scam_ham_india | 37070 | 428 | 0.350 | 0.870 | 0.969 | 0.945 | 0.973 | 0.998 | 0.864 | 0.868 | 0.960 | 0.944 | 0.867 | 0.924 | 0.038 | 0.028 | 0.860 | 0.968 | 0.944 |
+| synth_india | 38197 | 821 | 0.581 | 0.822 | 0.921 | 0.919 | 0.917 | 0.933 | 0.741 | 0.752 | 0.875 | 0.878 | 0.662 | 0.826 | 0.059 | 0.014 | 0.822 | 0.921 | 0.919 |
+
+AUROC measures only the ranking (how often a scam scores above a genuine message), so it needs no cut-off. F1, recall and benign accuracy are measured at a cut-off, so they also move if the model's scores shift on a new source. A high LOSO AUROC with a low LOSO F1@0.5 means the ranking survived and only the cut-off moved (F1@likely, with the fold's own val-chosen cut-off, shows how much of that a re-fitted cut-off would repair, though on a truly new source there is no val to fit it on). A low LOSO AUROC is a real failure: the model cannot tell scams from genuine messages in a source it has not seen. The held-out test rows were scored again here by a different model (one that never trained on that source), and nothing was tuned on them: the best epoch and both cut-offs come from val without the source's clusters.
+
+How each fold trained:
+
+| held-out source | MuRIL train rows left | val rows left | best epoch | likely cut-off | training s | precision | GPU |
+|---|---|---|---|---|---|---|---|
+| uci_sms_spam | 34646 | 4729 | 3 | 0.059 | 1290 | fp16 | Tesla T4 |
+| india_fraud_final | 36328 | 4917 | 3 | 0.709 | 1352 | fp16 | Tesla T4 |
+| scam_ham_india | 37070 | 5044 | 3 | 0.222 | 1377 | fp16 | Tesla T4 |
+| synth_india | 38197 | 5267 | 3 | 0.033 | 1419 | fp16 | Tesla T4 |
+
+Every fold has the shipped bundle's precision (fp16).
 
 Preprocessing drift: `textprep.model_text` (with `pii.py`, `url_features.py`) gives the same input under the current code (30ec91f) as under 06f402e, the commit the shipped bundle was trained with, for all 2941 val + test rows scored here (uci_sms_spam 0 of 1032; india_fraud_final 0 of 660; scam_ham_india 0 of 428; synth_india 0 of 821), so the in-distribution and LOSO columns see identical text.
+
+Limits, same as the baseline's table: one seed per fold; the rule removes near copies inside train / val but not in other sources' test rows, and a looser paraphrase (below the 0.6 / 0.7 Jaccard rule) of a source's message can still be in another source; `synth_india` has no val rows, so its fold holds out test rows only; the in-dist column is the model that trained on the source's own train split, so the drop mixes 'source never seen' with 'source-specific shortcuts lost'. Per source the rows are few (428-1,032), so a difference of a few hundredths in F1 is inside the noise.
 

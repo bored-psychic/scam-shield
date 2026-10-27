@@ -1,0 +1,58 @@
+device cuda (Tesla T4, compute capability 7.5); precision fp16 (requested auto); fp16 GradScaler on
+data /kaggle/input/datasets/prajvalsb/scam-shield-data -> run /kaggle/working/models/muril_loso_uci_sms_spam_20261027T115423Z
+split_map.csv SHA-256 ok (splits-v2); messages.csv matches it row for row; no cluster_id/template_family/company_key/translation_of straddles splits
+LOSO fold (cluster-strict-v1), held-out source uci_sms_spam: dropped from train 4109 uci_sms_spam rows + 6 translated_indic rows + 192 rows of other sources {'ealvaradob_phishing': 191, 'scam_ham_india': 1}, all in a cluster with an uci_sms_spam row; dropped from val 30 rows of other sources {'ealvaradob_phishing': 30} (and 508 uci_sms_spam rows set aside); 524 uci_sms_spam test rows set aside; 0 train / val rows share a cluster_id with an uci_sms_spam row (asserted); val and the cut-offs are chosen without uci_sms_spam. The set-aside val + test rows are scored once, after the best epoch.
+train 34646 (9206 scam = 26.6%), val 4729 (1057 scam = 22.4%); held out: 508 val + 524 test rows of uci_sms_spam, other test and adv_test rows: not loaded, not scored
+val rows by language: english 4627, hinglish 102  (no hindi / kannada rows in val, as expected)
+train inputs longer than 128 tokens: 66.0% (median 281 tokens)
+  epoch 1 step 200/2166 loss 0.6814 (39 s)
+  epoch 1 step 400/2166 loss 0.6021 (79 s)
+  epoch 1 step 600/2166 loss 0.5119 (117 s)
+  epoch 1 step 800/2166 loss 0.4460 (156 s)
+  epoch 1 step 1000/2166 loss 0.4064 (195 s)
+  epoch 1 step 1200/2166 loss 0.3748 (234 s)
+  epoch 1 step 1400/2166 loss 0.3471 (273 s)
+  epoch 1 step 1600/2166 loss 0.3227 (312 s)
+  epoch 1 step 1800/2166 loss 0.3013 (351 s)
+  epoch 1 step 2000/2166 loss 0.2843 (390 s)
+epoch 1: train loss 0.2743, val F1@0.5 0.9442, val AUROC 0.9921, 431 s (not saved)
+  epoch 2 step 200/2166 loss 0.0903 (39 s)
+  epoch 2 step 400/2166 loss 0.0980 (78 s)
+  epoch 2 step 600/2166 loss 0.0954 (116 s)
+  epoch 2 step 800/2166 loss 0.0957 (155 s)
+  epoch 2 step 1000/2166 loss 0.0960 (194 s)
+  epoch 2 step 1200/2166 loss 0.0917 (233 s)
+  epoch 2 step 1400/2166 loss 0.0909 (271 s)
+  epoch 2 step 1600/2166 loss 0.0913 (310 s)
+  epoch 2 step 1800/2166 loss 0.0891 (349 s)
+  epoch 2 step 2000/2166 loss 0.0868 (388 s)
+epoch 2: train loss 0.0871, val F1@0.5 0.934, val AUROC 0.9927, 429 s (not saved)
+  epoch 3 step 200/2166 loss 0.0361 (39 s)
+  epoch 3 step 400/2166 loss 0.0403 (77 s)
+  epoch 3 step 600/2166 loss 0.0377 (116 s)
+  epoch 3 step 800/2166 loss 0.0373 (155 s)
+  epoch 3 step 1000/2166 loss 0.0381 (193 s)
+  epoch 3 step 1200/2166 loss 0.0387 (232 s)
+  epoch 3 step 1400/2166 loss 0.0399 (271 s)
+  epoch 3 step 1600/2166 loss 0.0390 (310 s)
+  epoch 3 step 1800/2166 loss 0.0372 (348 s)
+  epoch 3 step 2000/2166 loss 0.0373 (387 s)
+epoch 3: train loss 0.0379, val F1@0.5 0.9497, val AUROC 0.9941, 428 s (not saved)
+best epoch 3 (val F1@0.5 0.9497); val-chosen cut-offs: suspicious >= 0.014, likely scam >= 0.059; training time 1290 s (21.5 min)
+held-out uci_sms_spam: 1032 rows (508 val + 524 test, 110 scam) scored -> predictions_loso.csv; F1@0.5 0.6972, AUROC 0.9736 (the Mac report adds the rest)
+val metrics of the best epoch (f1@likely = F1 at the val-chosen max-F1 cut-off, the number comparable with baseline.py's val F1):
+   slice                    key    n  scam f1_at_0.5 f1_at_likely precision_at_likely recall_at_likely recall_at_suspicious   auroc
+ overall                    all 4729  1057    0.9497       0.9514              0.9587           0.9442               0.9536  0.9941
+  source       cmu_hinglish_dog   47     0       0.0          0.0                 0.0              0.0                             
+  source    ealvaradob_phishing   37    23    0.9333       0.9333              0.9545            0.913               0.9565  0.9876
+  source      fake_job_postings 2042    56      0.52        0.566                 0.6           0.5357               0.5714  0.9388
+  source hinglish_conversations   55     0       0.0          0.0                 0.0              0.0                             
+  source      india_fraud_final  350   155    0.9627       0.9627              0.9281              1.0                  1.0  0.9891
+  source         phishing_email 1811   657    0.9698       0.9706              0.9859           0.9559               0.9665  0.9978
+  source          scam_dialogue  164    90       1.0          1.0                 1.0              1.0                  1.0     1.0
+  source         scam_ham_india  223    76    0.9801       0.9801              0.9867           0.9737               0.9737  0.9957
+language                english 4627  1057    0.9497       0.9514              0.9587           0.9442               0.9536   0.994
+language               hinglish  102     0       0.0          0.0                 0.0              0.0                             
+language                  hindi    0     0                                                                                         
+language                kannada    0     0                                                                                         
+wrote shield_meta.json, val_metrics.csv, predictions_val.csv, predictions_loso.csv; copy /kaggle/working/models/muril_loso_uci_sms_spam_20261027T115423Z back to the Mac
