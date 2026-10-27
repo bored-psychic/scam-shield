@@ -12,6 +12,12 @@ double_label_key.csv, which the second labeller must not open. label_1 is the co
 for val rows (1 -> scam, 0 -> genuine), so kappa on val rows also measures how far the old datasets' labels sit from this guide.
 make refuses to overwrite a sheet that already has a label_2 filled in (--force to do it anyway).
 
+--real (make and kappa): the sheet comes from the labelled real-message groups instead (data/real/labelled_preview.csv, buckets 1-3, read-only;
+label_me.csv is never opened): one message per template group (seeded), every scam group up to N // 2, the rest genuine groups drawn at random,
+texts up to MAX_CHARS. Output data/real/double_label_real_sheet.csv + double_label_real_key.csv, report reports/double_label_kappa_real.md.
+The key (origin real, source bucket<label_priority>, ref = message id) must not reach the second labeller. This is label QA only: no model score
+is read and nothing is trained, tuned or frozen (CLAUDE.md rule 12).
+
 kappa: Cohen's kappa (sklearn) between label_1 and label_2 over the rows with a label_2, (a) on scam / genuine / skip as three classes and
 (b) on the rows both labelled scam or genuine; raw agreement, the confusion table, and both again per origin (collected / val). Landis and
 Koch read kappa < 0.60 as moderate or worse: below that, the guide's edge cases need rewriting before more labelling.
@@ -30,17 +36,55 @@ SHEET = COLLECTED / "double_label_sample.csv"
 KEY = COLLECTED / "double_label_key.csv"
 MESSAGES = ROOT / "data" / "final" / "messages.csv"
 REPORT = ROOT / "reports" / "double_label_kappa.md"
+PREVIEW = ROOT / "data" / "real" / "labelled_preview.csv"
+REAL_SHEET = ROOT / "data" / "real" / "double_label_real_sheet.csv"
+REAL_KEY = ROOT / "data" / "real" / "double_label_real_key.csv"
+REAL_REPORT = ROOT / "reports" / "double_label_kappa_real.md"
 N, SEED = 50, 7
 VAL_SOURCES = ("uci_sms_spam", "scam_ham_india", "india_fraud_final")
 MAX_CHARS = 400
 LABELS = ("scam", "genuine", "skip")
 
 
-def make(force=False, sheet=SHEET, key=KEY, messages=MESSAGES):
+def refuse_if_labelled(sheet, force):
     if sheet.exists() and not force:
         with open(sheet, encoding="utf-8", newline="") as f:
             if any((r.get("label_2") or "").strip() for r in csv.DictReader(f)):
                 raise SystemExit(f"STOP: {sheet} already has labels in label_2; --force overwrites them")
+
+
+def write_sheet(items, sheet, key):
+    sheet.parent.mkdir(parents=True, exist_ok=True)
+    with open(sheet, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["item", "text", "label_2", "notes"])
+        w.writerows([f"S{i + 1:02d}", sheet_text(it["text"]), "", ""] for i, it in enumerate(items))
+    with open(key, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["item", "label_1", "origin", "source", "ref"])
+        w.writerows([f"S{i + 1:02d}", it["label_1"], it["origin"], it["source"], it["ref"]] for i, it in enumerate(items))
+    c = Counter((it["origin"], it["label_1"]) for it in items)
+    print(f"wrote {sheet} ({len(items)} rows: " + ", ".join(f"{o} {l} {n}" for (o, l), n in sorted(c.items())) + f") and {key}")
+
+
+def make_real(force=False, preview=PREVIEW, sheet=REAL_SHEET, key=REAL_KEY):
+    """The blind sheet from the labelled real-message groups: one message per template group, all scam groups up to N // 2, genuine for the rest."""
+    refuse_if_labelled(sheet, force)
+    p = pd.read_csv(preview, keep_default_na=False, dtype=str)
+    p = p[p["label"].isin(["0", "1"]) & (p["text"].str.len() <= MAX_CHARS)]
+    one = p.sample(frac=1, random_state=SEED).groupby("group_id", sort=True).head(1)   # one random message per group
+    scam, gen = one[one["label"] == "1"], one[one["label"] == "0"]
+    k_scam = min(N // 2, len(scam))
+    pick = pd.concat([scam.sample(n=k_scam, random_state=SEED), gen.sample(n=N - k_scam, random_state=SEED)])
+    items = [{"text": t, "label_1": "scam" if lab == "1" else "genuine", "origin": "real", "source": f"bucket{b}", "ref": i}
+             for t, lab, b, i in zip(pick["text"], pick["label"], pick["label_priority"], pick["id"])]
+    print(f"groups with a message <= {MAX_CHARS} chars: {len(scam)} scam, {len(gen)} genuine; sheet takes {k_scam} scam + {N - k_scam} genuine")
+    random.Random(SEED).shuffle(items)
+    write_sheet(items, sheet, key)
+
+
+def make(force=False, sheet=SHEET, key=KEY, messages=MESSAGES):
+    refuse_if_labelled(sheet, force)
     rng = random.Random(SEED)
     coll = [r for r in read_collected(COLLECTED) if r["label"] in ("scam", "genuine")]
     rng.shuffle(coll)
@@ -55,17 +99,7 @@ def make(force=False, sheet=SHEET, key=KEY, messages=MESSAGES):
         items += [{"text": t, "label_1": "scam" if lab else "genuine", "origin": "val", "source": s, "ref": h}
                   for t, s, h in zip(pool["text"], pool["source"], pool["text_hash"])]
     rng.shuffle(items)
-    sheet.parent.mkdir(parents=True, exist_ok=True)
-    with open(sheet, "w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["item", "text", "label_2", "notes"])
-        w.writerows([f"S{i + 1:02d}", sheet_text(it["text"]), "", ""] for i, it in enumerate(items))
-    with open(key, "w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["item", "label_1", "origin", "source", "ref"])
-        w.writerows([f"S{i + 1:02d}", it["label_1"], it["origin"], it["source"], it["ref"]] for i, it in enumerate(items))
-    c = Counter((it["origin"], it["label_1"]) for it in items)
-    print(f"wrote {sheet} ({len(items)} rows: " + ", ".join(f"{o} {l} {n}" for (o, l), n in sorted(c.items())) + f") and {key}")
+    write_sheet(items, sheet, key)
 
 
 def kappa(sheet=SHEET, key=KEY, report=REPORT):
@@ -107,8 +141,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["make", "kappa"])
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--real", action="store_true", help="use the labelled real-message groups (see the docstring)")
     a = ap.parse_args()
-    make(a.force) if a.cmd == "make" else kappa()
+    if a.cmd == "make":
+        make_real(a.force) if a.real else make(a.force)
+    else:
+        kappa(REAL_SHEET, REAL_KEY, REAL_REPORT) if a.real else kappa()
 
 
 if __name__ == "__main__":
