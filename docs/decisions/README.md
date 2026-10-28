@@ -321,7 +321,7 @@ g03 ("Your Amazon order has been delivered. Rate your delivery experience in the
 
 ### App
 
-- `shield.messages.text_head.MurilScorer`: loaded once; device `SHIELD_TEXT_DEVICE` (auto = MPS if available, else CPU); one forward pass at a time (lock); a warm-up call at load. `explain` is leave-one-word-out occlusion, only computed for the Gradio app (`analyse(..., explain=True)`); the API never pays for it.
+- `shield.messages.text_head.MurilScorer`: loaded once; device `SHIELD_TEXT_DEVICE` (auto = MPS if available, else CPU); one forward pass at a time (lock); a warm-up call at load. `explain` is leave-one-word-out occlusion, reached only through `analyse(..., explain=True)`; the Gradio app that used it was retired on 2026-10-28 and the API never passes it, so it runs nowhere today and the UI shows rule / evidence reasons only (BUGS.md).
 - `SHIELD_TEXT_HEAD=muril` (default) or `baseline`. With the bundle (git-ignored) or torch / transformers missing, one line on stderr and the baseline: Reports are then identical to before D27.
 - `Report.meta.models["text"]` = `muril <sha8 of model.safetensors>`. Report schema unchanged ("5").
 - Dependencies: torch 2.14.1, transformers 5.19.0, tokenizers 0.23.2, safetensors 0.8.0 in `.venv`; huggingface_hub 2.1.1 -> 1.33.0 (tokenizers 0.23.2 requires < 2), the same set as `.venv-finetune`.

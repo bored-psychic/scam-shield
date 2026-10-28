@@ -14,8 +14,8 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 
 ## Objectives
 
-1. Build a hybrid detector with a **text head** (message content) and a **URL head** (link structure), fused into one calibrated risk score.
-2. Explain every flag: token- and feature-level attributions, plus **tactic tags** (authority impersonation, urgency, isolation, payment redirection).
+1. Build a hybrid detector with a **text head** (message content) and a **URL head** (link structure), fused into one verdict with a warning-sign meter (not a probability, D4 / D24).
+2. Explain every flag: rule and link-check evidence plus **tactic tags** (authority impersonation, urgency, isolation, payment redirection). Token-level attributions were planned; the code exists but the UI does not show them.
 3. Beat a rule-based baseline, measured with precision, recall, F1 and **false-positive rate on legitimate bank/OTP SMS**.
 4. Measure **adversarial robustness** (paraphrase, typos, homoglyphs, code-switching, URL obfuscation), then retrain with augmentation and show recovery.
 5. Create a small, documented **India-specific scam message dataset** (English, Hinglish, Kannada), anonymized, with a datasheet and inter-annotator agreement.
@@ -32,14 +32,19 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 
 ## Architecture
 
+As built (full description and decision IDs in `docs/ARCHITECTURE.md`; the decision log is `docs/decisions/README.md`):
+
 | Component | Approach |
 |---|---|
-| Text head | Fine-tuned small multilingual transformer (MuRIL or DistilmBERT) |
-| URL head | Gradient boosting on lexical features (length, entropy, subdomain depth, homoglyphs, TLD, brand-lookalike distance) |
-| Fusion | Small meta-model over both heads |
-| Calibration | Temperature scaling, so a score of 87 means roughly 87% likely |
-| Explainability | Token attributions (text), feature contributions (URL), tactic tags |
-| Baseline (control) | Rule/keyword scorer from the project spec |
+| Text head | Fine-tuned MuRIL (D27, `models/finetune/muril_len128_...`); the TF-IDF + logistic regression head stays as `SHIELD_TEXT_HEAD=baseline`. Every text model reads `textprep.model_text` |
+| URL head | Gradient boosting on host-only lexical features (D8). On its own it is capped at Suspicious; Likely scam from a link needs a link-check red flag |
+| Link checks | Offline lists (OpenPhish, URLhaus, Tranco), brand look-alike / homograph / raw-IP rules, gambling lookup, and live domain-only checks (RDAP, DNS-over-HTTPS, optional Safe Browsing) through one network module; no link is ever opened (D23) |
+| Rules | Hard rules that only raise the verdict: OTP / PIN / CVV request, PIN-to-receive (R2), investment rules A1-A12. They match on a folded view of the text that undoes look-alike characters and leetspeak (D11); the models never see it |
+| Language cap | In Hindi, Kannada and Hinglish a Likely scam that only the text head produced is shown as Suspicious with a "less tested" reason (D5 / D6) |
+| Fusion | The max rule: the higher of the text and link levels, both at least Suspicious gives Likely scam. A fitted meta-model was not built |
+| Calibration | Temperature scaling fitted on validation, used to set the level cut-offs. The 0-100 risk score is a warning-sign meter inside the band of the final level, **not a probability**, and no percentage is shown (D4, D24) |
+| Explainability | The top three reasons come from rules, link evidence, tactic tags and then the text model, with the exact phrase underlined. Word-level occlusion exists in code but nothing calls it since Gradio was retired (BUGS.md) |
+| Baseline (control) | TF-IDF text baseline exists (`src/baseline.py`). The rules-only baseline and the ablation table are not built yet (see Status) |
 
 ## Data
 
@@ -50,7 +55,7 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 | Tranco | Benign domains | Bare domains only; see the shortcut warning below |
 | `msgs` dataset | Main text data | ~85% synthetic, English only; **test on real messages only** |
 | `sms` dataset | Benign / generic spam text | Spam is not the same as scam; map labels carefully |
-| Own collection | **Held-out test set** | Family/classmate-forwarded messages, advisories, news quotes; PII masked at intake |
+| Own collection | **Held-out test set** (TEST half) and real training / validation material (POOL half) | SMS and WhatsApp exports from family phones (the Google Form got no responses), PII masked at intake. One grouped freeze splits the labelled template groups into TEST (scored once at the end, never trained or tuned on) and POOL (used for training and validation in splits-v3); decision D-a. Advisories and news quotes are collected by hand into `data/collected/` |
 
 `txn` (transaction-fraud tabular data) was dropped: it isn't text or URLs, and has heavy duplication and untrustworthy labels.
 
@@ -65,8 +70,8 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 ## Evaluation
 
 - Precision / recall / F1 and false-positive rate (legit bank/OTP SMS)
-- Ablation: rules only, text only, URL only, fused
-- Calibration plot and expected calibration error
+- Ablation: rules only, text only, URL only, fused (not built yet: planned after splits-v3, validation set first)
+- Calibration plot and expected calibration error (not built yet, same plan)
 - Adversarial suite: recall drop per attack for baseline vs. model, then recovery after augmentation
 - Real-only test set vs. synthetic test set (domain-shift gap)
 - User study: accuracy with vs. without explanations
@@ -81,6 +86,8 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 | 4. Field validation | 12 | User study (recruit by week 10), feedback form, stakeholder conversation, photos and attendance as evidence | Study data + feedback note |
 | 5. Write-up | 13-15 | Report, one-command reproduction script, slides, mock viva, final submission, optional dataset release | Final report, deck, viva |
 
+This table is the original plan. The dated timeline that is actually being followed (splits-v3 build, retrain, gates, final test) is in `docs/plans/splits_v3.md`.
+
 **Risks:** fewer than ~200 India-specific samples by end of week 9 (extend collection, lean on augmentation); test-set leakage; recruiting the user-study participants late.
 
 ## Status
@@ -90,24 +97,34 @@ Reputation sites such as ScamAdviser answer "is this website trustworthy?". This
 - [x] URL build script (`src/build_urls.py`): combine, dedupe, registered-domain split, shortcut check
 - [ ] PhishTank snapshot added (rate-limited by Cloudflare, retry later)
 - [x] Source registry (`data/sources.yaml`) + Hugging Face puller (`src/pull_hf.py`); manual sources in `MANUAL_DOWNLOADS.md`
-- [x] Text dataset normalization, PII masking, dedupe, splits (`src/build_text.py` → `data/final/messages.csv`, ~48k rows)
+- [x] Text dataset normalization, PII masking, dedupe, splits (`src/build_text.py` → `data/final/messages.csv`, 49,931 rows at splits-v2)
 - [x] Synthetic India templates in English / Hinglish / Hindi / Kannada, scam + benign pairs (`src/synth_india.py`)
 - [x] Typosquat / IDN lookalike candidates for Indian brands (`src/gen_typosquat.py`); RDAP domain age (`src/enrich_domains.py`, partial cache)
 - [x] Character-level adversarial suite: train augmentation + held-out adversarial test (`src/augment.py`)
 - [x] App permissions table (`src/build_apps.py`, optional module)
 - [x] TF-IDF smoke-test baseline (`src/baseline.py`)
-- [ ] Rule-based baseline
-- [ ] India-specific message collection (Google Form intake + advisories); RBI site blocks scrapers, so collect by hand
+- [ ] Rule-based baseline (rules-only control): not built; moves to the ablation item below
+- [x] Real-message intake and labeller from our own phones (`src/intake_real.py`, `src/label_real.py`; the Google Form got no responses). Grouped TEST / POOL freeze (D-a) is due by 31 Oct; advisories are collected by hand (the RBI site blocks scrapers)
 - [ ] More Hinglish/Hindi/Kannada templates (current splits are lumpy: e.g. no Hinglish scam in test)
-- [ ] Back-translation / paraphrase augmentation (needs Bhashini or IndicTrans2)
+- [x] Hindi / Kannada machine translations with IndicTrans2, train only (D20, D26); paraphrase / back-translation augmentation was not done
 - [x] Freeze splits (`data/final/split_map.csv`, tag `splits-v1`; re-frozen with the Hindi / Kannada translations and the PII-mask fix as `splits-v2`, 2026-10-21)
 - [x] URL head (`src/url_head.py`)
-- [x] TF-IDF text head (`src/baseline.py`); fine-tuned MuRIL text head still to do
-- [ ] Fusion, calibration, explanations
+- [x] TF-IDF text head (`src/baseline.py`)
+- [x] Fine-tuned MuRIL text head (D27, `reports/eval_muril_v2.md`: test F1 0.918 vs 0.897 for TF-IDF), leave-one-source-out run for MuRIL (section 9 of that report)
+- [x] Fusion (max rule), temperature calibration for the cut-offs, rule / evidence reasons and tactic tags
 - [x] Adversarial suite (held-out attack types, `messages_adv_test.csv`)
+- [x] Folded view for the rules, so look-alike characters and leetspeak do not hide a rule hit (D11)
+- [x] Language cap for Hindi / Kannada / Hinglish (D5 / D6, backend)
+- [x] Live and offline link checks (D23) and gambling links (G1)
+- [x] Investment-scam rules A1-A12 (Phase A, `docs/plans/investment_scams.md`)
 - [x] Gradio MVP (`src/app.py`, retired 2026-10-28: replaced by the React frontend + FastAPI API, D9; start the app with `./run.sh`)
-- [x] Screenshot input, backend: `POST /api/ocr`, local Tesseract (decision D19; the UI part is still to do)
-- [ ] User study
+- [x] Screenshot input: `POST /api/ocr` (local Tesseract, D19) and the paste / drop / picker UI
+- [x] splits-v3 B0 code (versioned masks, POOL loader, company key, gates; no data or model written yet, `docs/plans/splits_v3.md`)
+- [ ] splits-v3 build, retrain on Kaggle, gates and re-evaluation (1-5 Nov, `docs/plans/splits_v3.md`)
+- [ ] Rules-only baseline, ablation table (rules / text / URL / fused) and calibration plot with ECE: planned after splits-v3, validation set first (BUGS.md)
+- [ ] Final real-message test (`src/eval_real.py --final`, once, 5 Nov)
+- [ ] Hindi / Kannada reasons and advice in the UI with the "under review" mark, and the "experimental" note (D6, D17)
+- [ ] User study (D13, mid / late November)
 - [ ] Report, slides, viva
 
 ## Repo layout

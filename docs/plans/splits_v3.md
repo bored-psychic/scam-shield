@@ -338,7 +338,7 @@ diff for leakage and split mistakes (CLAUDE.md).
 |---|---|---|---|
 | 28-30 Oct (before the freeze; code only, no data written) | **B0 code.** `pii.py` (v3 masks, `MASKS_V2`, `MASKS_INTAKE_V1`, `mask_version`); `intake_real.py` pinned to `MASKS_INTAKE_V1`; app mask follows the bundle's `mask_version`; `build_text.py` POOL loader + `real_group` + v2-hash lineage + company-name key + drop-and-count rules; `neardup` / `finetune.GROUP_KEYS` + `real_group`; the gate script (`src/gates_v3.py`: val only, asserts `split == "val"`, writes `reports/gates_v3.md`); `eval_loso.py --val-only`. Tests for each. Dry runs on splits-v2 data print counts only | Sonnet high | pytest green on both heads; dry-run counts |
 | 31 Oct | Real-message freeze (`intake_real.py --freeze --allow-unlabelled`), hash line in CLAUDE.md | you | `real_test_v1.csv` hash, `pool.csv` |
-| 1 Nov AM | Label ~100 bucket-4 `kyc-bank` / `delivery` groups, then `intake_real.py` rerun (post mode: pool only) | you; Haiku low to rerun | pool counts per stratum |
+| 1 Nov AM | Label bucket-4 groups in this order: **Kannada groups first** (about 219 Kannada groups on the phones, all genuine so far), then ~100 `kyc-bank` / `delivery` groups, then investment; then `intake_real.py` rerun (post mode: pool only) | you; Haiku low to rerun | pool counts per stratum |
 | 1 Nov AM | Phase B go / no-go; decisions D-v3.1-8 recorded in `docs/decisions/README.md` | Opus high | go / no-go line |
 | 1 Nov PM | **B1** `build_text.py` (~7 min, 10 GB peak) -> `split_audit.py` -> `augment.py` -> `baseline.py` -> `sanity_checks.py`; row ledger (section 6) | Sonnet high (build), Haiku low (reruns) | 0 audit violations; every row accounted for |
 | 2 Nov AM | **Review** of the B0 / B1 diff and the split audit by a fresh session; interpret sanity (shortcuts, section 3) | Opus high | go for freeze |
@@ -394,7 +394,7 @@ are regenerated (`augment.py`, seeded per (split, attack)); POOL train scam rows
 ## 8. Questions answered (user, 2026-10-27)
 
 1. POOL val / train share: **50 / 50**.
-2. Bucket-4 labelling: **yes, ~100 `kyc-bank` / `delivery` groups on 1 Nov.**
+2. Bucket-4 labelling: **yes, ~100 `kyc-bank` / `delivery` groups on 1 Nov.** (Order from 2026-10-29: Kannada groups first, then `kyc-bank` / `delivery`, then investment; section 5.)
 3. A bank's collect-request PIN warning is **genuine** (label 0).
 4. **Private Kaggle dataset, masked data only; both phone owners have consented.**
 5. `eval_real.py --final` runs **once, ~5 Nov, on whichever model ships.**

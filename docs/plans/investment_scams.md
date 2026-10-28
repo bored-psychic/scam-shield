@@ -207,6 +207,8 @@ Total: **about 6-8 sessions**, plus collection time that depends on people, not 
 
 If condition 2 cannot be met within about two weeks of collecting, stop at Phase A and the wording change, and record the gap in BUGS.md.
 
+**2026-10-29:** provisional no-go (phones: 1 scam + 3 genuine investment groups labelled, 30 unlabelled; the gate needs 40 + 40 in val); confirmed or reversed on Nov 1 after dad's phone.
+
 ## 7. Limits
 
 - **Scams that start innocent.** s52 ("the teacher will share today's stock at 2 PM") and s53 ("our study group ... it is free") ask for

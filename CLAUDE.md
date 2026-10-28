@@ -99,9 +99,9 @@ After any high-effort step, a fresh session should review the diff for leakage a
 ## Next steps, in order
 
 Items 1-4 (row-count jump, near-dup clustering, frozen splits, sanity checks) are done; see git history.
-5. URL head (`src/url_head.py` -> `reports/url_head.md`, 2026-10-07): done except two parts. The domain-age comparison is **blocked**: `enrich_domains.py` has covered 0% of the training rows (it started with URLhaus / OpenPhish; about 45k domains at 0.5 s each, roughly 6 h left). The fresh-OpenPhish test is only the 300 rows of the 2026-10-05 pull (held out, never trained on); it becomes fresh after more daily `pull_urls.py` + `build_urls.py` runs. *(Sonnet, medium)*
-6. Rule baseline for text and URLs. *(Haiku/Sonnet)*
-7. Fine-tuning on Kaggle (MuRIL main, mDeBERTa comparison; precision auto; max-len 128 vs 256 decided on val after splits-v2, because 60.5% of train inputs exceed 128 tokens). Inputs come from `textprep.model_text` (rule 11). *(Sonnet, high)*
+5. ~~URL head~~ (`src/url_head.py` -> `reports/url_head.md`, 2026-10-07): done, the host-only model ships (D8). **Still open:** the domain-age comparison is **blocked** (`enrich_domains.py` has covered 0% of the training rows; about 45k domains at 0.5 s each, roughly 6 h left), and the fresh-OpenPhish test is only the 300 rows of the 2026-10-05 pull (held out, never trained on); it becomes fresh after more daily `pull_urls.py` + `build_urls.py` runs. *(Sonnet, medium)*
+6. ~~Rule baseline for text and URLs~~ **Superseded, not built:** it moved into item 10 (the rules-only row of the ablation table). The TF-IDF baseline (`baseline.py`) is the only baseline that exists.
+7. ~~Fine-tuning on Kaggle~~ Done 2026-10-21: MuRIL, max-len 128 won on val (see Next-in-order items 4-5 below and D27). The mDeBERTa comparison was not run. Inputs come from `textprep.model_text` (rule 11).
 
 ### Next, in this order (from 2026-10-10)
 
@@ -113,6 +113,15 @@ Items 1-4 (row-count jump, near-dup clustering, frozen splits, sanity checks) ar
 6. ~~**Decide D6-D8 and D10-D18.**~~ Done 2026-10-28: D1-D18 are all in the decision log (`docs/decisions/README.md`, the source of truth) and `docs/ARCHITECTURE.md` was rewritten once to describe the system as built (it changes only when a logged decision changes the design).
 7. ~~**D11 build.**~~ Done 2026-10-28: rules and the lexicon (OTP / PIN / CVV, PIN-to-receive, investment A1-A12, tactic tags, fear cues) match on a folded view of the text (`shield.core.fold`); models keep reading only `textprep.model_text` (rule 11 unchanged). No val verdict changed on either head, demo and contract tests unchanged; see the D11 bullet under Current status.
 8. **D6 + D17 frontend work (after splits-v3 and the backend):** an "experimental" note for Hindi / Kannada / Hinglish (D6), and reasons and advice also in Hindi / Kannada marked "translated, under review" until the native-speaker review (D15). Today only the helpline row and the investment card switch language, with no review mark.
+9. **splits-v3** (`docs/plans/splits_v3.md` section 5 is the source for the dates; B0 code is done, no data or model written yet). *(Sonnet high for builds, Opus high for decisions and reviews)*
+   - **By 31 Oct:** add dad's phone to `data/real/raw/` and run the real-message freeze (`intake_real.py --freeze --allow-unlabelled`); put the hash line under "Frozen hashes".
+   - **1 Nov AM:** label bucket-4 groups, Kannada groups first (about 219 on the phones, all genuine so far), then `kyc-bank` / `delivery`, then investment; rerun `intake_real.py` (post-freeze mode, pool only). Then the Phase B go / no-go (`docs/plans/investment_scams.md` section 6) and record D-v3.1-8 in `docs/decisions/README.md`.
+   - **1 Nov PM, B1:** `build_text.py --mask-version v3 --pool-file ...` -> `split_audit.py` -> `augment.py` -> `baseline.py` -> `sanity_checks.py`; every row accounted for (section 6 of the plan).
+   - **2 Nov:** fresh-session review of the B0 / B1 diff and the split audit (Opus high); freeze splits-v3 (`split_map.csv` `git add -f`, tag `splits-v3`, new SHA-256 in `finetune.py`, the notebook and this file); push; new private Kaggle dataset version (with `build_meta.json`); smoke run, full run and the `india_fraud_final` LOSO fold.
+   - **3 Nov:** copy the bundle back; `calibrate_text_head.py` on v3 val; `gates_v3.py` -> `reports/gates_v3.md` (G1-G5, val only).
+   - **4 Nov:** if the gates pass, `eval_text_head.py` (test once) and `eval_loso.py`, write-up, app switch as decision D28; if they fail, the shipped MuRIL stays and the report says so.
+   - **5 Nov:** buffer; then `eval_real.py --final`, once, on whichever model ships (one line in `reports/real_eval_ledger.md`). 6 Nov: deliver.
+10. **Ablation + calibration plot (not done; after splits-v3, val first).** The rules-only baseline (the old item 6), the ablation table (rules only / text only / URL only / fused) and the calibration plot with ECE that README Evaluation promises. Tracked in BUGS.md. The test set stays untouched until the freeze (rule 1, rule 12). *(Sonnet, medium)*
 
 Done: ~~GitHub push~~ (2026-10-09: private repo **https://github.com/bored-psychic/scam-shield**, `origin`, branch `master`, tags `splits-v1`, `splits-v2`; no key patterns in tracked files or commits, `data/` except the force-added `split_map.csv` and `sources.yaml`, `models/`, venvs and `__pycache__` ignored, nothing over 2 MB tracked). ~~Kaggle commit~~ (`4c6112c`, pushed). Keep the repo **private**: `reports/spotcheck_*.csv` and `reports/translate_*.md` quote message text from sources with unknown provenance. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push` (the global git config has no credential helper).
 
