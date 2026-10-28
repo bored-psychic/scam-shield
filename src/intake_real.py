@@ -100,47 +100,16 @@ LANG = {"english": "en", "en": "en", "hindi": "hi", "hi": "hi", "kannada": "kn",
 UNSURE = ("unsure", "not sure", "unclear", "unknown")
 FORM_SOURCES = {"sms", "whatsapp", "email", "call", "telegram", "instagram", "facebook", "x", "twitter", "web", "other"}   # anything else -> form_other
 
-# capitalised words that are not names (sentence starts, brands, banks, money, common nouns). Used only to decide what goes to the review file.
-COMMON = set("""Dear Your You Yours The This That These Please Click Call Dial Share Pay Paid Send Get Win Won Congratulations Congrats Offer Now Today
-Use Visit Download Thank Thanks Hello Hi Hey Sir Madam Customer Customers Kindly Ensure Urgent Alert Notice Update Verify Login Free Prize Reward
-Cashback Refund Tax Limited Ltd Pvt India Indian Government Police Court Income Department Team Support Helpline Official Website Link Account Bank
-Card Credit Debit Balance Amount Rs INR Monday Tuesday Wednesday Thursday Friday Saturday Sunday January February March April May June July
-August September October November December Click Here More Also Dont Don Do Not With For From Any All Your Our We Are Was Will Can Could Would
-Should Have Has Had Please Note Warning Important Final Last Bonus Loan Job Work Order Delivery Parcel Package Courier Service Services Insurance
-Policy Bill Payment Transfer Money Cash Gift Lottery Winner Winners Lucky Selected Account Blocked Suspended Expired Expiry Activate Activated
-Kyc Aadhaar Aadhar Pan Mobile Number Otp Upi Sbi Hdfc Icici Axis Kotak Jio Airtel Vi Bsnl Amazon Flipkart Netflix Paytm Phonepe Gpay Google
-Whatsapp Telegram Facebook Instagram Youtube Apple Microsoft Income Tax Epfo Uidai Irctc Fedex Dhl Bluedart Dtdc
-Jan Feb Mar Apr Jun Jul Aug Sep Sept Oct Nov Dec Mon Tue Wed Thu Fri Sat Sun Namaste Namaskara Namaskar Dhanyavad""".split())
+# The mask patterns and name word lists live in src/pii.py (MASKS_INTAKE_V1, pinned below); these are the same objects under their old names.
+COMMON = pii.COMMON   # capitalised words that are not names: used only to decide what goes to the review file
 GREETING_RX = re.compile(r"(?i)\b(hi|hello|hey|dear|mr|mrs|ms|miss|shri|smt|sir|madam|mam|by|from|regards|thanks|thank you)\.?\s+$")
 TOKEN_RX = re.compile(r"\b[A-Z][a-z]{2,}\b")
-URL_RX = re.compile(r"https?://\S+|www\.\S+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|in|net|org|co|io|ly|me|info|xyz|top|site|online|link|store|app|gov|edu|bank|shop|live)\b(?:/\S*)?", re.I)
-CARD_RX = re.compile(r"\b(?:\d{4}[ -]){3}\d{4}\b")
-OTP_RX = re.compile(r"(?i)\b(otp|code|pin|password)\b(?:\W{0,3}\b(?:is|was|number|no|code)\b){0,2}\W{0,5}(\d{4,8})\b")
-# the code before its keyword: "482913 is your OTP", "123456 is the verification code", "Use 5566 as your login code"
-OTP_BEFORE_RX = re.compile(r"(?i)\b\d{4,8}\b(?=\s*(?:is|as|are|was)\s+(?:your|the|an?|ur|my)?\s*[^.\d]{0,30}?\b(?:otp|code|pin|passcode|password)\b)")
-# any run of 9+ digits left after the other masks, glued to letters or inside a link included: the pii.py masks need word boundaries and stop at
-# 18 digits, so a 21-digit transaction id and order / tracking ids like FMPIB1234567890 got through
-LONG_RX = re.compile(r"\d{9,}")
-# links are kept for the link checks, but a number inside one can be a person's: click-to-chat links (wa.me/91..., ?phone=91...) and any
-# standalone Indian mobile number in a path or query (?id=98..., /bill-98...)
-URL_PHONE_RX = re.compile(r"(?i)(wa\.me/|[?&]phone=)\+?\d{10,15}")
-URL_MOBILE_RX = re.compile(r"(?<!\w)(?:\+?91)?[6-9]\d{9}(?!\w)")
-# a word right after a greeting is usually the recipient's name, in any case ("Hey prajval", "Dear PRAJVAL"); an ALL-CAPS run after from / to / by is a
-# UPI payer or payee
-GREETING_NAME_RX = re.compile(r"(?i)\b(?:hey|hi|hello|dear|namaste|namaskara|mr|mrs|ms|miss|shri|smt)\b\.?,?\s+([a-z]{3,15})\b")
-CAPS_NAME_RX = re.compile(r"\b(?i:from|to|by|paid to|sent to|received from|credited by|beneficiary|payee)\s+([A-Z]{3,}\.{0,2}(?:\s+[A-Z]{3,}\.{0,2}){0,2})(?![A-Za-z])")
-NOT_NAMES = {w.lower() for w in COMMON} | set("""user valued there all team friend friends guest member applicant subscriber everyone folks sirji mam mama customer
-passenger cardholder holder student parent donor investor policyholder beneficiary resident owner partner candidate aap aapka aapke hai ji sahab bhai didi
-who you your are the and for with this that dost sahib""".split())
-ACRONYMS = {"UPI", "SBI", "OTP", "ATM", "NEFT", "IMPS", "RTGS", "KYC", "PAN", "EMI", "IRCTC", "HDFC", "ICICI", "AXIS", "BANK", "NPCI", "LIC", "EPFO", "FASTAG", "AMAZON", "PAYTM"}
+URL_RX, CARD_RX, OTP_RX, OTP_BEFORE_RX, LONG_RX = pii.URL_RX, pii.CARD_RX, pii.OTP_RX, pii.OTP_BEFORE_RX, pii.LONG_RX
+URL_PHONE_RX, URL_MOBILE_RX = pii.URL_PHONE_RX, pii.URL_MOBILE_RX
+ACCT_TAIL_RX, XX_TAIL_RX = pii.ACCT_TAIL_RX, pii.XX_TAIL_RX
+GREETING_NAME_RX, CAPS_NAME_RX, NOT_NAMES, ACRONYMS = pii.GREETING_NAME_RX, pii.CAPS_NAME_RX, pii.NOT_NAMES, pii.ACRONYMS
 NAMES_FILE = ROOT / "data" / "real" / "mask_names.txt"
-# the last digits of an account or card: "A/c XX1234", "card ending 4455", "a/c no. 12345", and a bare XX1234 / ****1234
-ACCT_TAIL_RX = re.compile(r"(?i)\b((?:a/c|acct?|account|card)\b(?:\s+(?:no\.?|number|ending(?:\s+(?:with|in))?|last\s+\d\s+digits(?:\s+are)?))?[\s.:#*x-]{0,12}?)(\d{3,6})\b")
-XX_TAIL_RX = re.compile(r"(?i)\b(?:x{2,}|\*{2,})\d{3,8}\b")
-# pii.MASKS split by what they produce, not by position (the list gains entries): the address masks run first, the phone / account masks after the
-# links are set aside
-ADDRESS_MASKS = [m for m in pii.MASKS if m[1] in ("<EMAIL>", "<UPI_ID>")]
-NUMBER_MASKS = [m for m in pii.MASKS if m[1] not in ("<EMAIL>", "<UPI_ID>")]
+ADDRESS_MASKS, NUMBER_MASKS = pii.ADDRESS_MASKS, pii.NUMBER_MASKS
 WA_MENTION_IOS_RX = re.compile("@⁨[^⁩\n]{0,80}⁩")
 WA_MENTION_NUM_RX = re.compile(r"@\+?\d[\d ]{7,14}\d")
 MARKS_RX = re.compile("[​-‏‪-‮⁦-⁩﻿]")
@@ -520,43 +489,13 @@ def check_input_path(p):
 
 # ---------------------------------------------------------------------------------------------------------------- masking, names
 
-def protect_urls(text):
-    urls = []
-    def keep(m):
-        urls.append(m.group(0))
-        return f"\x00{len(urls) - 1}\x00"
-    return URL_RX.sub(keep, text), urls
-
-def restore_urls(text, urls):
-    return re.sub(r"\x00(\d+)\x00", lambda m: urls[int(m.group(1))], text)
-
-@functools.lru_cache(maxsize=4)
-def in_link_rx(name_rx):
-    """name_rx for the inside of a link: a name ends at any non-letter there (/u/Name123/, ?ref=Name_2), not only at a non-word character."""
-    return re.compile(name_rx.pattern.replace(r"(?<!\w)", r"(?<![^\W\d_])").replace(r"(?!\w)", r"(?![^\W\d_])"), name_rx.flags)
+protect_urls, restore_urls, in_link_rx = pii.protect_urls, pii.restore_urls, pii.in_link_rx
 
 def mask(text, name_rx=None):
-    """src/pii.py masks (emails and UPI ids first, then phones and accounts) with URLs kept, plus card, OTP, account-tail and long digit
-    runs, and every contact / sender name seen in the input (name_rx) as <NAME>, inside links too (a link keeps its host and shape, never a
-    name: /u/<NAME>/orders)."""
-    t = text
-    for pat, tok in ADDRESS_MASKS:
-        t = re.sub(pat, tok, t)
-    t, urls = protect_urls(t)
-    if name_rx is not None:
-        t = name_rx.sub("<NAME>", t)
-        urls = [in_link_rx(name_rx).sub("<NAME>", u) for u in urls]
-    t = CARD_RX.sub("<ACCOUNT>", t)
-    t = OTP_RX.sub(lambda m: m.group(0)[: m.start(2) - m.start(0)] + "<OTP>", t)
-    t = OTP_BEFORE_RX.sub("<OTP>", t)
-    t = ACCT_TAIL_RX.sub(lambda m: m.group(1) + "<ACCOUNT>", t)
-    t = XX_TAIL_RX.sub("<ACCOUNT>", t)
-    for pat, tok in NUMBER_MASKS:
-        t = re.sub(pat, tok, t)
-    t = URL_PHONE_RX.sub(lambda m: m.group(1) + "<PHONE>", restore_urls(t, urls))
-    if name_rx is not None:
-        t = name_rx.sub("<NAME>", t)   # once more over the whole text: nothing the link protection kept back may hold a name
-    return LONG_RX.sub("<ACCOUNT>", URL_MOBILE_RX.sub("<PHONE>", t))
+    """The intake's masks: pii.MASKS_INTAKE_V1 (the v2 masks with URLs kept, plus card, OTP, account-tail and long digit runs, and every contact /
+    sender name seen in the input as <NAME>). Pinned to that version: a later pii set (v3) must not change the digit-collapsed group keys the
+    registry is built on, or a TEST group's later messages could stop being recognised."""
+    return pii.MASKS_INTAKE_V1(text, name_rx=name_rx)
 
 def defang(text):
     """Every link in a text made unclickable (hxxp, [.]) so a spreadsheet cannot turn it into a hyperlink (CLAUDE.md rule 8)."""

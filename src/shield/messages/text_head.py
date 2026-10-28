@@ -2,6 +2,7 @@ import json, math, re, sys, threading
 from typing import Protocol
 import joblib
 import numpy as np
+import pii
 from textprep import MAX_CHARS, URL_TOKEN
 from shield import config
 from shield.config import TEXT_MODEL_PATH
@@ -11,6 +12,7 @@ class TextScorer(Protocol):
     """What the app needs from a text head. A MuRIL scorer replaces the baseline by implementing this and being returned
     from load_text_model(); nothing else in the app changes. Both methods receive text already passed through textprep.model_text (PII masked, links replaced by <URL>)."""
     name: str
+    mask_version: str   # the pii.py mask set the head was trained on (shield_meta.json / the joblib bundle; missing = "v2"): router.analyse masks input with it
     thresholds: tuple[float, float]   # (suspicious, likely scam): score cut-offs chosen on val
     meter_ends: tuple[float, float] | None   # scores at 0 and 100 of the risk meter (risk.curve, logit scale); None = D24's linear curve
 
@@ -21,11 +23,21 @@ class TextScorer(Protocol):
         """The k strongest (token or n-gram, signed contribution) pairs; positive pushes toward scam."""
 
 
+def bundle_mask_version(meta, where):
+    """The mask_version a bundle declares (missing = "v2": every bundle trained before splits-v3). An unknown one is refused: the app must not guess
+    which masks a model was trained on, because a model scored on other masks silently loses accuracy (rule 11)."""
+    version = meta.get("mask_version", pii.V2)
+    if version not in pii.MASK_VERSIONS:
+        raise SystemExit(f"{where}: unknown mask_version {version!r}; this code knows {list(pii.MASK_VERSIONS)}")
+    return version
+
+
 class TfidfLrScorer:
     name = "TF-IDF char n-grams + logistic regression (baseline)"
     meter_ends = None
 
     def __init__(self, bundle):
+        self.mask_version = bundle_mask_version(bundle, "models/text_baseline.joblib")
         self.vec, self.clf = bundle["vectorizer"], bundle["model"]
         self.thresholds = (bundle["threshold_suspicious"], bundle["threshold_likely"])
         self.grams, self.coef = self.vec.get_feature_names_out(), self.clf.coef_[0]
@@ -60,6 +72,7 @@ class MurilScorer:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
         meta = json.loads((run_dir / "shield_meta.json").read_text(encoding="utf-8"))
         st, cal = meta.get("settings", {}), meta.get("calibration")
+        self.mask_version = bundle_mask_version(meta, str(run_dir))
         problems = [m for m, bad in (
             ("a smoke run", st.get("smoke")), (f"a --limit {st.get('limit')} run", st.get("limit") is not None),
             (f"a leave-one-source-out fold (loso: true, held-out source {meta.get('exclude_source')}): it has no source it was not trained without, and no model/", meta.get("loso")),

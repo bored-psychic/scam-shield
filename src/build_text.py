@@ -1,6 +1,7 @@
-import ast, glob, hashlib, json, os, re, unicodedata
+import argparse, ast, glob, hashlib, json, os, re, unicodedata
+from collections import Counter
 import pandas as pd
-import neardup, textprep
+import neardup, pii, textprep
 from protect import PATTERNS as PROTECT_PATTERNS
 
 # Build data/final/messages.csv from data/messages/ + data/external/{text,indic}/ (see data/sources.yaml).
@@ -15,6 +16,18 @@ HINGLISH_BENIGN_PER_SOURCE = 500
 # Whole clusters go to one split; the result is frozen in SPLIT_MAP and reused on later runs.
 COMPANY_KEY_CHARS, MIN_COMPANY_PROFILE = 150, 20
 SPLIT_MAP = "data/final/split_map.csv"
+# splits-v3 B0a: --mask-version picks the pii.py mask set the stored text is masked with (default v2: a rebuild today is identical to the splits-v2 build).
+# --out-dir writes messages.csv, split_map.csv and build_meta.json there instead of data/final/ (a dry run writes nothing under data/); the frozen
+# split map is always read from SPLIT_MAP. A row's frozen split is found through its hash under the masks it was frozen with (text_hash, else hash_v2,
+# else hash_v1; its own earlier hash first), so a row re-keyed by v3 keeps its split.
+ap = argparse.ArgumentParser(description="Build data/final/messages.csv (see the comments in this file).")
+ap.add_argument("--mask-version", default=pii.V2, choices=pii.MASK_VERSIONS, help="mask set for the stored text (default v2)")
+ap.add_argument("--out-dir", default="data/final", help="where messages.csv, split_map.csv and build_meta.json are written (default data/final)")
+ap.add_argument("--report-translation-drift", action="store_true", help="dry runs only: count the translations the mask set changes without changing their English parent the same way, instead of stopping")
+ARGS = ap.parse_args()
+OUT_DIR = ARGS.out_dir
+OUT_SPLIT_MAP, OUT_MESSAGES, OUT_META = (os.path.join(OUT_DIR, n) for n in ("split_map.csv", "messages.csv", "build_meta.json"))
+print(f"mask version {ARGS.mask_version}; outputs to {OUT_DIR}")
 COLS = ["text", "label", "category", "subcategory", "channel", "language", "source", "is_synthetic", "template_id",
         "template_family", "company_key", "provenance", "note", "translation_of"]
 # Hindi / Kannada machine translations (translate_parents.py finalise / replace): TRAINING augmentation only (D20, D26).
@@ -203,8 +216,34 @@ for pat, tok in MASKS_V1:   # the splits-v1 masks, only to recompute each row's 
     misses_v1 = misses_v1.str.replace(pat, tok, regex=True)
 for pat, tok in MASKS:
     df["text"] = df["text"].str.replace(pat, tok, regex=True)
+text_v2 = df["text"]   # every row masked with the v2 masks (the stored text itself in a v2 build): gives hash_v2 in step 5
 is_tr = df["source"] == "translated_indic"
-assert (df.loc[is_tr, "text"] == unmasked[is_tr]).all(), "a translation contains something the PII masks change"
+if ARGS.mask_version == pii.V2:
+    assert (df.loc[is_tr, "text"] == unmasked[is_tr]).all(), "a translation contains something the PII masks change"
+else:
+    # the other mask set runs on the raw text of each row, with its channel (the ALL-CAPS payer rule is for SMS-type channels only)
+    mask_fn, kinds_of = pii.mask_set(ARGS.mask_version), []
+    masked = []
+    for t, ch in zip(unmasked, df["channel"]):
+        k = set()
+        masked.append(mask_fn(t, channel=ch, kinds=k))
+        kinds_of.append(k)
+    df["text"] = pd.Series(masked, index=df.index)
+    # splits-v3 D-v3.5: the masks change a translation only where they change its English parent the same way
+    chg = is_tr & (df["text"] != unmasked)
+    kinds_s = pd.Series(kinds_of, index=df.index)   # df's index has gaps (the length filter above does not reset it)
+    drift = Counter()
+    for t, ptext, k in zip(unmasked[chg], df.loc[chg, "_parent_text"], kinds_s[chg]):
+        pk = set()
+        parent_changed = mask_fn(ptext, channel="sms", kinds=pk) != ptext
+        if not (parent_changed and k <= pk):
+            drift[(tuple(sorted(k)), "parent changed" if parent_changed else "parent not changed")] += 1
+    if drift:
+        msg = f"{sum(drift.values())} of {int(chg.sum())} changed translations are not changed by the {ARGS.mask_version} masks the way their English parent is: {dict(drift)}"
+        assert ARGS.report_translation_drift, "STOP: " + msg + " (D-v3.5: decide the mask rule, or look with --report-translation-drift)"
+        print("TRANSLATION DRIFT (report only): " + msg)
+    df["_v3_changed"] = df["text"] != text_v2   # for the table printed after the split check (rows that survive the dedupe)
+    df["_v3_kinds"] = [",".join(sorted(k)) for k in kinds_of]
 print(f"PII mask misses (word@letter): splits-v1 masks {int(misses_v1.str.contains(MISS_RX).sum())} rows, now {int(df['text'].str.contains(MISS_RX).sum())} rows")
 
 # 4. script detection by Unicode block share
@@ -228,21 +267,57 @@ df["text_hash"] = norm.map(lambda s: hashlib.md5(s.encode()).hexdigest())
 # (same pandas normalisation as text_hash: pandas' \s does not match a no-break space, Python's re does, so the two differ)
 norm_v1 = misses_v1.str.lower().str.replace(r"\s+", " ", regex=True)
 df["hash_v1"] = df["text_hash"].where(df["text"] == misses_v1, norm_v1.map(lambda s: hashlib.md5(s.encode()).hexdigest()))
+# ... and under the v2 masks: the same as text_hash in a v2 build, the key splits-v2 froze the row under in a v3 build
+norm_v2 = text_v2.str.lower().str.replace(r"\s+", " ", regex=True)
+df["hash_v2"] = df["text_hash"].where(df["text"] == text_v2, norm_v2.map(lambda s: hashlib.md5(s.encode()).hexdigest()))
 df["dup_sources"] = df.groupby("text_hash")["source"].transform(lambda s: ",".join(sorted(set(s))))
-conflict = df.groupby("text_hash")["label"].transform("nunique") > 1
+
+# frozen splits. A row whose masked text changed (splits-v2 masks, then v3) is found through the hash it had under the masks it was frozen with.
+frozen = pd.read_csv(SPLIT_MAP).set_index("text_hash")["split"] if os.path.exists(SPLIT_MAP) else pd.Series(dtype=str)
+# The row's OWN previous hash comes first: under v3 a changed row can get the very hash another, unchanged row was frozen under (two texts that differ only
+# in a name or an id), and looking up its text_hash first would hand it that row's key and split. In a v2 build hash_v2 is text_hash, so nothing changes there.
+fixed_of = lambda d: d["hash_v2"].map(frozen).fillna(d["text_hash"].map(frozen)).fillna(d["hash_v1"].map(frozen))
+def frozen_key(d):
+    """The split_map.csv key each row is found by (hash_v2, else text_hash, else hash_v1); NaN for a row that is not in the map."""
+    return d["hash_v2"].where(d["hash_v2"].isin(frozen.index), d["text_hash"].where(d["text_hash"].isin(frozen.index), d["hash_v1"].where(d["hash_v1"].isin(frozen.index))))
+DROPPED_KEYS = set()   # frozen keys of rows this build drops on purpose (counted), so "no frozen row lost" can still be asserted
+
+# v3 never un-merges what v2 merged: rows that are the same text under the v2 masks stay duplicates (and label conflicts) even when a v3 rule that depends on the
+# row's channel (ALL-CAPS payer names) reads their copies differently
+conflict = (df.groupby("text_hash")["label"].transform("nunique") > 1) | (df.groupby("hash_v2")["label"].transform("nunique") > 1)
 print(f"rows {len(df)}, exact dups {df['text_hash'].duplicated().sum()}, label-conflicting dups {conflict.sum()}")
+if len(frozen):
+    fz = fixed_of(df)
+    # two frozen rows that are the same text under the new masks: a train row goes (counted), a val row and a test row stop the build, and so does a
+    # label conflict that reaches a val / test row (never silently dropped)
+    sp = pd.DataFrame({"h": df["text_hash"], "s": fz}).dropna()
+    n_sp = sp.groupby("h")["s"].nunique()
+    cross = set(n_sp[n_sp > 1].index)
+    if cross:
+        vt = sp[sp["h"].isin(cross) & (sp["s"] != "train")].groupby("h")["s"].nunique()
+        assert not (vt > 1).any(), f"STOP: {int((vt > 1).sum())} texts are one val row and one test row under the new masks: decide before dropping either"
+        drop = df["text_hash"].isin(cross) & (fz == "train")
+        print(f"dropping {int(drop.sum())} frozen train rows that are the same text as a frozen val / test row under the {ARGS.mask_version} masks: "
+              f"{df[drop].groupby('source').size().to_dict()}")
+        DROPPED_KEYS |= set(frozen_key(df[drop]).dropna())
+        df, conflict, fz = df[~drop], conflict[~drop], fz[~drop]
+    assert not (conflict & fz.isin(["val", "test"])).any(), "STOP: a val / test row is the same text as a row of the other label under the new masks"
+    DROPPED_KEYS |= set(frozen_key(df[conflict]).dropna())
 df = df[~conflict]
 # web quotes often also appear in india_fraud_final (which comes first and is kept); keep their provenance on the kept row
-web = df[df["provenance"] != ""].drop_duplicates("text_hash").set_index("text_hash")
+web = df[df["provenance"] != ""].drop_duplicates("hash_v2").set_index("hash_v2")   # by the v2 hash: a copy a v3 rule reads differently still hands its provenance on
 for c in ["provenance", "note"]:
-    df[c] = df["text_hash"].map(web[c]).fillna("")
+    df[c] = df["hash_v2"].map(web[c]).fillna("")
 before = df[df["source"] == "translated_indic"]
+# every hash a row is known by -> the text_hash it is deduplicated on, so a translation's anchor still finds its parent when the parent was merged into another row
+canon = df["hash_v2"].map(df.groupby("hash_v2")["text_hash"].first())   # the text_hash of the row that survives the v2-hash dedupe below
+alias = {**dict(zip(df["hash_v1"], canon)), **dict(zip(df["hash_v2"], canon)), **dict(zip(df["text_hash"], canon))}
+DROPPED_KEYS |= set(frozen_key(df[df["hash_v2"].duplicated()]).dropna())   # kept rows' keys come back through new_map below
+df = df.drop_duplicates("hash_v2")
+DROPPED_KEYS |= set(frozen_key(df[df["text_hash"].duplicated()]).dropna())
 df = df.drop_duplicates("text_hash").reset_index(drop=True)
 tr_step("exact duplicate of another row (dedupe)", before, df[df["source"] == "translated_indic"])
-
-# frozen splits. A row whose masked text changed with the splits-v2 masks is found through its splits-v1 hash.
-frozen = pd.read_csv(SPLIT_MAP).set_index("text_hash")["split"] if os.path.exists(SPLIT_MAP) else pd.Series(dtype=str)
-fixed_of = lambda d: d["text_hash"].map(frozen).fillna(d["hash_v1"].map(frozen))
+df["fkey"] = frozen_key(df)
 
 # 5b. cross-language leakage guard: a translation is dropped if its English parent has a val/test row of messages.csv at
 # exact Jaccard >= TWIN_JACCARD on either view (finalise anchored parents against short rows only; this looks at every row)
@@ -259,6 +334,7 @@ if is_tr.any():
             bad.add(texts[i])
         del shs
     before = df[is_tr]
+    DROPPED_KEYS |= set(frozen_key(df[is_tr & df["_parent_text"].isin(bad)]).dropna())
     df = df[~(is_tr & df["_parent_text"].isin(bad))].reset_index(drop=True)
     tr_step(f"English parent has a val/test twin at J >= {TWIN_JACCARD}", before, df[df["source"] == "translated_indic"])
     is_tr = df["source"] == "translated_indic"
@@ -279,10 +355,10 @@ for key in ("template_family", "company_key", "translation_of"):
         for j in rows[1:]:
             union(rows[0], j)
 # a translation also joins its English parent's messages.csv row (anchor_hash is a splits-v1 hash)
-pos = {**dict(zip(df["hash_v1"], df.index)), **dict(zip(df["text_hash"], df.index))}
+pos = dict(zip(df["text_hash"], df.index))
 for i, a in df.loc[is_tr & (df["_anchor"] != ""), "_anchor"].items():
-    assert a in pos, f"anchor {a} of a translation is not a messages.csv row"
-    union(i, pos[a])
+    assert a in alias and alias[a] in pos, f"anchor {a} of a translation is not a messages.csv row"
+    union(i, pos[alias[a]])
 forced = len({find(i) for i in range(len(df))})
 for i, j, _, _ in neardup.near_dup_pairs_any(df["text"], df["source"], neardup.CLUSTER_SEED,
                                            skip=lambda i, j: find(i) == find(j)):
@@ -318,9 +394,20 @@ prev = None   # last build's split per text_hash, only to report what moved
 if os.path.exists(f := "data/final/messages.csv"):
     prev = pd.read_csv(f, usecols=["text_hash", "split"]).drop_duplicates("text_hash").set_index("text_hash")["split"]
 fixed = fixed_of(df)   # NaN for rows not frozen yet
-lost_v1 = set(frozen.index) - set(df["hash_v1"]) - set(df["text_hash"])
-assert not lost_v1, f"{len(lost_v1)} splits-v1 rows are missing from this build"
-assert (fixed.isna() == is_tr).all(), "every row except the translations must be in split_map.csv (directly or by its splits-v1 hash)"
+lost_v1 = set(frozen.index) - set(df["hash_v1"]) - set(df["text_hash"]) - set(df["hash_v2"]) - DROPPED_KEYS
+assert not lost_v1, f"{len(lost_v1)} frozen rows are missing from this build, in splits {frozen.loc[sorted(lost_v1)].value_counts().to_dict()}"
+# A row that is not in the map (splits-v2 dropped one phishing_email train row because the v2 masks made it a twin of a test row; it comes back here as a
+# new row) whose cluster holds a frozen test row is dropped and counted, never placed in test (docs/plans/splits_v3.md D-v3.2). The map holds the
+# translations since splits-v2 (train); one that is not in it is new and goes to train below.
+known0 = pd.DataFrame({"c": df["cluster_id"], "s": fixed}).dropna().groupby("c")["s"].first()
+new_in_test = fixed.isna() & ~is_tr & (df["cluster_id"].map(known0) == "test")
+if new_in_test.any():
+    print(f"dropping {int(new_in_test.sum())} rows that are not in split_map.csv and whose cluster holds a frozen test row: {df[new_in_test].groupby(['source', 'label']).size().to_dict()}")
+    df = df[~new_in_test].reset_index(drop=True)
+    is_tr = df["source"] == "translated_indic"
+    fixed = fixed_of(df)
+assert not (fixed.isna() & ~is_tr).any(), ("every row except the translations must be in split_map.csv (directly or by its splits-v1 / v2 hash); not in it: "
+                                           f"{df[fixed.isna() & ~is_tr].groupby('source').size().to_dict()} (the POOL loader of splits-v3 B1 is what adds new rows)")
 rule = rule_split(df["cluster_id"])
 if fixed.notna().any():
     known = pd.DataFrame({"c": df["cluster_id"], "s": fixed}).dropna().groupby("c")["s"].agg(["first", "nunique"])
@@ -351,12 +438,13 @@ n_split = df.groupby("cluster_id")["split"].nunique()
 mask_join = df["cluster_id"].isin(n_split[n_split > 1].index)
 if mask_join.any():
     g = df[mask_join].groupby("cluster_id")
-    ok = g.apply(lambda c: (c["hash_v1"] != c["text_hash"]).any() and (c["split"] == "train").any() and c["split"].nunique() == 2)
-    assert ok.all(), f"clusters straddle splits for a reason other than the new masks: {list(ok[~ok].index[:3])}"
+    ok = g.apply(lambda c: ((c["hash_v1"] != c["text_hash"]).any() or (c["hash_v2"] != c["text_hash"]).any()) and (c["split"] == "train").any() and c["split"].nunique() == 2)
+    assert ok.all(), (f"STOP: {int((~ok).sum())} clusters straddle splits for a reason other than the new masks, or hold a val and a test row joined by them "
+                      f"(decide before dropping either): {list(ok[~ok].index[:3])}")
     drop = mask_join & (df["split"] == "train")
     print(f"dropping {int(drop.sum())} train rows whose cluster now reaches a val/test row through the new masks: "
           f"{df[drop].groupby(['source', 'label']).size().to_dict()}")
-    MASK_DROPPED = df.loc[drop, ["text_hash", "hash_v1", "source", "label"]]
+    MASK_DROPPED = df.loc[drop, ["text_hash", "fkey", "source", "label"]]
     df = df[~drop].reset_index(drop=True)
     is_tr = df["source"] == "translated_indic"
 # the real leakage check: runs before anything is written, so a leaky split can't overwrite the last good files
@@ -367,16 +455,28 @@ assert (df.loc[is_tr, "split"] == "train").all(), "a translation outside train"
 assert (df.loc[~is_tr, "split"] == fixed_of(df)[~is_tr]).all(), "a splits-v1 row changed split"
 df["split"] = pd.Categorical(df["split"], ["train", "val", "test"])
 
-os.makedirs("data/final", exist_ok=True)
+os.makedirs(OUT_DIR, exist_ok=True)
 new_map = pd.DataFrame({"text_hash": df["text_hash"], "split": df["split"].astype(str)})
 old_map = frozen.rename("split").rename_axis("text_hash").reset_index()
-rehashed = df[(df["hash_v1"] != df["text_hash"]) & df["hash_v1"].isin(frozen.index)]
-old_map = old_map[~old_map["text_hash"].isin(rehashed["hash_v1"])]   # replaced by the row's new hash, same split
+rehashed = df[df["fkey"].notna() & (df["fkey"] != df["text_hash"])]
+old_map = old_map[~old_map["text_hash"].isin(rehashed["fkey"])]   # replaced by the row's new hash, same split
+old_map = old_map[~old_map["text_hash"].isin(DROPPED_KEYS)]   # rows dropped on purpose before the split step (exact duplicates under the new masks, label conflicts)
 if "MASK_DROPPED" in globals():
-    old_map = old_map[~old_map["text_hash"].isin(MASK_DROPPED["hash_v1"])]   # dropped above: not in splits-v2 at all
-print(f"split_map: {len(rehashed)} rows re-keyed to their splits-v2 hash (same split): "
+    old_map = old_map[~old_map["text_hash"].isin(MASK_DROPPED["fkey"].dropna())]   # dropped above: its cluster reached a val / test row through the new masks
+rekey_tab = rehashed.groupby(["source", "split"], observed=True).size().unstack(fill_value=0)
+if ARGS.mask_version != pii.V2:
+    ADDED = ["greeting_name", "caps_name", "card", "otp", "acct_tail", "long_digits"]   # what v3 adds to v2; the other steps (address, phone_account, link_phone, v2_sweep) mostly redo v2
+    tab = pd.DataFrame({"source": df["source"], "split": df["split"].astype(str), "changed": df["_v3_changed"],
+                        **{k: df["_v3_kinds"].str.split(",").map(lambda s: k in s) for k in ADDED + ["link_phone", "v2_sweep"]}})
+    print(f"\n{ARGS.mask_version} masks vs the v2 masks, on the {len(df)} rows of this build: {int(tab['changed'].sum())} get a different text ({tab['changed'].mean():.1%}), by split "
+          f"{tab.groupby('split')['changed'].sum().astype(int).to_dict()}")
+    print(tab.drop(columns="split").groupby("source").sum().astype(int).to_string())
+    print(tab[tab["changed"]].groupby("split")[ADDED].sum().astype(int).to_string())
+print(f"split_map: {len(rehashed)} rows re-keyed to their {ARGS.mask_version} hash (same split): "
       f"{rehashed.groupby('split', observed=True).size().to_dict()}")
-pd.concat([old_map, new_map]).drop_duplicates("text_hash").sort_values("text_hash").to_csv(SPLIT_MAP, index=False)
+if len(rehashed):
+    print(rekey_tab.to_string())
+pd.concat([old_map, new_map]).drop_duplicates("text_hash").sort_values("text_hash").to_csv(OUT_SPLIT_MAP, index=False)
 
 size = df["cluster_id"].value_counts()
 mixed = df.groupby("cluster_id")["label"].nunique() > 1
@@ -390,7 +490,7 @@ for cid, n in size.head(10).items():
     r = df[df["cluster_id"] == cid].iloc[0]
     print(f"  {n:4d}  {r['source']:<18} {ascii(r['text'][:90])}")
 if prev is not None:
-    old = df["text_hash"].map(prev).fillna(df["hash_v1"].map(prev))
+    old = df["hash_v2"].map(prev).fillna(df["text_hash"].map(prev)).fillna(df["hash_v1"].map(prev))
     moved = old.notna() & (old != df["split"].astype(str))
     print(f"\nvs previous messages.csv: {old.isna().sum()} new rows, {moved.sum()} of {old.notna().sum()} existing rows "
           f"changed split ({moved.sum() / old.notna().sum():.1%})")
@@ -400,10 +500,14 @@ if prev is not None:
 if TR_LEDGER:
     print("\ntranslation ledger (rows dropped at each step, rows left after it):")
     print(pd.DataFrame(TR_LEDGER).to_string(index=False))
-df = df.drop(columns=["_anchor", "_parent_text", "hash_v1"])
+df = df.drop(columns=["_anchor", "_parent_text", "hash_v1", "hash_v2", "fkey", "_v3_changed", "_v3_kinds"], errors="ignore")
 import realguard   # tripwire: no row of the real-message TEST set (data/real/real_test_v1.csv) may enter messages.csv
 realguard.guard_inputs([], [("messages.csv to be written", df)])
-df.to_csv("data/final/messages.csv", index=False)
+df.to_csv(OUT_MESSAGES, index=False)
+# the mask set the stored text was masked with, for whoever trains on it (a bundle records it as shield_meta.json "mask_version"; the app masks input with it)
+with open(OUT_META, "w", encoding="utf-8") as f:
+    json.dump({"mask_version": ARGS.mask_version, "rows": len(df), "split_map_rows": int(len(new_map))}, f, indent=1)
+print(f"wrote {OUT_MESSAGES}, {OUT_SPLIT_MAP}, {OUT_META} (mask_version {ARGS.mask_version})")
 print(df.groupby(["source", "label"]).size().unstack(fill_value=0))
 print("\nby category:\n", df.groupby(["category", "label"]).size().unstack(fill_value=0))
 print("\nsplit:\n", df.groupby(["split", "label"], observed=True).size().unstack(fill_value=0))

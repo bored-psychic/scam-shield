@@ -247,7 +247,7 @@ def r7(tmp):
     if n_after != n_before:
         bad.append("finetune.py created a run directory before the tripwire")
     src = (ROOT / "src" / "build_text.py").read_text()
-    if "realguard.guard_inputs" not in src or src.index("realguard.guard_inputs") > src.index('df.to_csv("data/final/messages.csv"'):
+    if "realguard.guard_inputs" not in src or src.index("realguard.guard_inputs") > src.index("df.to_csv(OUT_MESSAGES"):
         bad.append("build_text.py does not call the tripwire before writing messages.csv")
     for f in ("finetune.py", "calibrate_text_head.py"):
         if "guard_inputs(" not in (ROOT / "src" / f).read_text():

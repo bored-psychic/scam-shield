@@ -1,5 +1,5 @@
 import re
-from pii import mask_text
+from pii import V2, mask_text
 from shield import config
 from url_features import parse_url
 from textprep import URL_TOKEN, MAX_CHARS, extract_urls, model_text, replace_urls
@@ -122,7 +122,7 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
          "text_score": None, "text_level": None, "grams": [], "links": [], "top_score": None, "breakdown": None, "notes": [],
          "lang": detect_lang(text), "lang_cap": False}
     if prose_words >= MIN_PROSE_WORDS:
-        prepared = model_text(text, mask_pii=True)   # PII masks, URLs -> <URL>, first 2000 chars: what baseline.py trained on (textprep.py)
+        prepared = model_text(text, mask_pii=True, mask_version=getattr(text_model, "mask_version", V2))   # PII masks of the bundle's mask_version, URLs -> <URL>, first 2000 chars: what the head trained on (textprep.py)
         r["text_thresholds"] = tuple(r3(t) for t in text_model.thresholds)
         r["text_meter_ends"] = getattr(text_model, "meter_ends", None)   # risk.curve: None = the D24 linear curve (baseline)
         r["text_score"] = r3(text_model.score(prepared))

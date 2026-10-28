@@ -312,6 +312,8 @@ diff for leakage and split mistakes (CLAUDE.md).
 | 5 Nov | Buffer (a technical re-run only, stop rule). Fallback: gates not met by today -> the shipped MuRIL stays, the report says so. Then `eval_real.py --final`, once, on whichever model ships | Sonnet high | `reports/real_eval_ledger.md` line |
 | 6 Nov | Deliver | | |
 
+**B0a (versioned masks) done 2026-10-28:** `reports/splits_v3_b0a.md`, commit "splits-v3 B0a: versioned masks". Open before B1: (1) the OTP rule gap (English "OTP for X is 123456" is not masked, its translation is; report section 3.1), (2) `finetune.py` / the notebook must write `mask_version` into `shield_meta.json`, (3) the `email_or_sms` deviation from the SMS-type channel list. B0b (POOL loader, `real_group`, company key, gates) is not started.
+
 **Fallback if B0 is not done by 31 Oct:** the timeline does not fit. Cut in this order: the synthetic UPI family (G3 then reads only real
 POOL rows, or is "not measurable" and the run cannot ship), the company-name key (VAM stays a known gap), then the ALL-CAPS name rule.
 Never cut the mask harmonisation (D-v3.5): without it POOL tokens are a label shortcut.

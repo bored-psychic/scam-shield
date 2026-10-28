@@ -1,5 +1,5 @@
 import re
-from pii import mask_text
+from pii import V2, mask_text
 from url_features import parse_url, tld_ext
 
 # The one preprocessing step every text model sees: URLs become the token <URL>, then the text is cut to MAX_CHARS.
@@ -107,8 +107,9 @@ def extract_urls(text, limit=None):
             found.append(link)
     return found[:limit]
 
-def model_text(text, mask_pii=False):
+def model_text(text, mask_pii=False, mask_version=V2):
     """The string a text model reads. Training and evaluation pass messages.csv text (already PII-masked); app.py passes
-    mask_pii=True for what a user pasted, so the same masks run before the URLs are replaced."""
+    mask_pii=True for what a user pasted, so the same masks run before the URLs are replaced. mask_version is the mask set the
+    model was trained on (the bundle's shield_meta.json "mask_version", missing = "v2"; pii.py): the shipped bundles keep "v2"."""
     text = str(text).strip()[:SCAN_CHARS]
-    return replace_urls(mask_text(text) if mask_pii else text)[:MAX_CHARS]
+    return replace_urls(mask_text(text, version=mask_version) if mask_pii else text)[:MAX_CHARS]
