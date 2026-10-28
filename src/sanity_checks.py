@@ -14,6 +14,9 @@ from textprep import model_text
 #   4. the attack rates in src/augment.py, and which n-gram type the baseline TF-IDF uses (both read from the source
 #      files, so the report cannot drift from the code)
 #   python src/sanity_checks.py              full report (about 7 min, dominated by the 8 LOSO fits)
+#   python src/sanity_checks.py --v3-shortcuts [--shortcuts-data-dir D] [--shortcuts-out F]
+#                                            splits-v3 shortcut checks of docs/plans/splits_v3.md section 3 (cue-only AUROCs on val, red flag lines);
+#                                            standalone, not part of the full report (src/shortcut_checks.py has the cues and thresholds)
 #   python src/sanity_checks.py --only-loso  refit and rescore LOSO only, then replace section 5 of the existing
 #                                            reports/sanity.md in place (the other sections are left untouched)
 # LOSO also reports AUROC and PR-AUC from the logistic-regression decision function. They don't depend on the 0.5
@@ -38,7 +41,14 @@ def md(df, index=True):
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--only-loso", action="store_true", help="rerun the LOSO section and splice it into the existing report")
+ap.add_argument("--v3-shortcuts", action="store_true", help="only the splits-v3 shortcut checks (val only, src/shortcut_checks.py), then exit; writes --shortcuts-out, not reports/sanity.md")
+ap.add_argument("--shortcuts-data-dir", default="data/final", help="with --v3-shortcuts: the folder holding messages.csv (a scratch build folder works)")
+ap.add_argument("--shortcuts-out", default="reports/sanity_shortcuts_v3.md", help="with --v3-shortcuts: the report file")
 args = ap.parse_args()
+if args.v3_shortcuts:   # before the heavy load below: this mode reads val + train rows only and never opens the test split's rows
+    import shortcut_checks
+    shortcut_checks.main(["--data-dir", args.shortcuts_data_dir, "--out", args.shortcuts_out])
+    sys.exit(0)
 
 def log(msg):
     print(msg, file=sys.stderr, flush=True)
