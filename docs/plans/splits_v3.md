@@ -250,6 +250,30 @@ masked training data going to the private Kaggle dataset (user, 2026-10-27). App
 - Kannada: POOL-val may hold the first real Kannada val rows (all genuine, `dlt_header`). Report their false-alarm count; D5's language cap
   (text model alone at most Suspicious in hi / kn / Hinglish until >= 150 real-dev templates) stays.
 
+### Shortcut checks: thresholds and actions (pre-registered 2026-10-29, before the real pool build)
+
+Built in `src/shortcut_checks.py`, run with `.venv/bin/python src/sanity_checks.py --v3-shortcuts` (val rows only; train rows only estimate a category's rate for the language / `kw_bucket` cues; the
+test split is never read; tests `tests/test_shortcut_checks.py`). Each check is a **cue-only AUROC** (one cue, no text model): mask tokens (`<OTP>`, `<NAME>`, `<ACCOUNT>`, `<PHONE>`, `<UPI_ID>`,
+`<URL>`, plus `<EMAIL>`, `<UPI>`), message length, non-Latin letter share (script), language and `kw_bucket`, against (a) the label, overall and per source, and (b) "is a `phones_pool` row", over all
+val rows, over genuine rows only, and genuine rows of the pool against each other source; also length-only label AUROC with and without POOL, and (if the family is on) `synth_upi_collect_v3`
+against real collect-request pool rows.
+
+**Thresholds (confirmed by the user, 2026-10-29).** A cue is flagged at strength `max(AUROC, 1 - AUROC)` >= **0.70**, with at least **30** rows in each compared group (**10** for the synthetic-vs-real
+comparison; below that the row is "too few rows" and never flags). The numbers were not in the plan before; 30 keeps chance flags rare across ~150 per-source comparisons (SD of AUROC about 0.075 at 30 / 30).
+
+**Actions (the line printed for each flag is `BLOCKER` or `REPORT`):**
+1. A **mask token flagged as a `phones_pool`-origin cue** (any scope) is a **BLOCKER**: fix the masks before training.
+2. **Length, language or script flagged as a pool-origin cue** is **REPORT only**, unless the same cue also flags pool vs one of the SMS-type sources (`uci_sms_spam`, `scam_ham_india`,
+   `india_fraud_final`, `synth_india`; genuine rows), which makes it a **BLOCKER**. Reading used by the code: any one of the four is enough, and the escalation is per cue, so every pool-origin
+   flag of that cue is then a BLOCKER (not only the line for the SMS-type source), and the line names the source(s) that triggered it.
+3. The **known splits-v2 label shortcuts** are **REPORT only, listed as known**: length in `uci_sms_spam`, `scam_ham_india`, `scam_dialogue`, `india_fraud_final`; `<URL>` in `scam_ham_india`.
+
+Not covered by these three rules, so printed as REPORT and marked ("not on the known v2 list" / "no rule covers this one"): any other label-cue flag, and any synthetic-vs-real flag. A new label
+shortcut or a synthetic-vs-real flag therefore never blocks by itself; the 2 Nov review (section 5) reads them.
+
+Dry run on the B0b fixture build (invented pool; the pool flags there are artifacts of its word-salad texts and are not evidence about the real pool): 21 flags, 11 BLOCKER (pool length vs the SMS-type sources),
+and 10 REPORT: the 5 known v2 label shortcuts (all five fired), 2 unlisted label flags (`<ACCOUNT>` in `uci_sms_spam`, length in `fake_job_postings`), and 3 pool-origin language / script flags against non-SMS sources.
+
 ## 4. Success criteria (pre-registered; measured on val only before test)
 
 **Setting.** One v3 MuRIL bundle, trained with the shipped recipe (`finetune.LOSO_REFERENCE` settings: MuRIL, len 128, 3 epochs, batch 16,

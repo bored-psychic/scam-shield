@@ -18,13 +18,23 @@ from textprep import model_text
 #   synthetic/real  synth_upi_collect_v3 val rows against real collect-request val rows of the pool (both genuine), only if the family is on.
 # kw_bucket is pool metadata and not a model input; "is a pool row" by kw_bucket is true by construction and is not reported as a flag.
 #
-# THRESHOLDS: section 3 of the plan names the cues but gives NO numbers, so the three below are chosen here, not taken from the plan. FLAG_STRENGTH is deliberately low
-# (the English short-SMS reference of sanity.md, length alone 0.92, is far above it); the minimum counts keep a 3-row subset from flagging, and with ~150 per-source comparisons a 30-row group (SD of AUROC about 0.075) makes a chance flag at 0.70 rare. Change them here, one place.
+# THRESHOLDS and ACTIONS: pre-registered in docs/plans/splits_v3.md section 3 on 2026-10-29, before the real pool build (the user confirmed 0.70 and the minimum counts). The plan
+# had named the cues without numbers; FLAG_STRENGTH is deliberately low (the English short-SMS reference of sanity.md, length alone 0.92, is far above it) and the minimum counts keep
+# a 3-row subset from flagging (with ~150 per-source comparisons a 30-row group, SD of AUROC about 0.075, makes a chance flag at 0.70 rare). Each flag prints BLOCKER or REPORT:
+#   (1) a mask token (has <...>) flagged as a phones_pool-origin cue, in any scope        -> BLOCKER: fix the masks before training;
+#   (2) length / language / script flagged as a pool-origin cue                            -> REPORT, unless the same cue also flags pool vs one of the SMS-type sources
+#       (SMS_TYPE_SOURCES, genuine rows)                                                       -> then BLOCKER for every pool-origin flag of that cue (the cue-level reading);
+#   (3) the v2 label shortcuts already known (KNOWN_V2_LABEL_SHORTCUTS)                    -> REPORT, listed as known.
+# Not covered by the user's three rules, so REPORT and marked as such (nothing else blocks): a label flag not on the known list, and a synthetic-vs-real flag.
 FLAG_STRENGTH = 0.70        # a cue whose strength max(AUROC, 1 - AUROC) is at least this is flagged
 MIN_CLASS = 30              # rows needed in each of the two compared groups (positives and negatives) before an AUROC is computed or flagged
 MIN_SYNTH_REAL = 10         # same, for the small synthetic-family-vs-real-collect comparison
 TOKENS = ["<OTP>", "<NAME>", "<ACCOUNT>", "<PHONE>", "<UPI_ID>", "<URL>", "<EMAIL>", "<UPI>"]   # the plan's six + the other two tokens pii.py writes
 POOL_SOURCE, SYNTH_UPI_SOURCE = "phones_pool", "synth_upi_collect_v3"   # as gates_v3.py
+SMS_TYPE_SOURCES = ("uci_sms_spam", "scam_ham_india", "india_fraud_final", "synth_india")   # rule (2): pool vs these = the like-for-like comparison
+KNOWN_V2_LABEL_SHORTCUTS = {("length", "source uci_sms_spam"), ("length", "source scam_ham_india"), ("length", "source scam_dialogue"), ("length", "source india_fraud_final"),
+                            ("has <URL>", "source scam_ham_india")}   # rule (3): seen on the splits-v2 data (sanity.md, 2026-10-29 fixture run), reported as known
+BLOCKER, REPORT = "BLOCKER", "REPORT"
 COLLECT_RX = re.compile(r"collect request|request money|payment request", re.I)   # as gates_v3.py
 LOAD_COLS = ["text", "label", "source", "language", "is_synthetic", "split", "kw_bucket", "real_group"]
 
@@ -139,22 +149,55 @@ def synth_vs_real(val):
     return pd.DataFrame(rows), f"{int(syn.sum())} synthetic val rows, {int(real.sum())} real collect-request val rows"
 
 
-def flag_lines(label_df, pool_df, synth_df):
+def is_token_cue(cue):
+    return cue.startswith("has <")
+
+
+def is_soft_pool_cue(cue):
+    """length, script and language: the cues that can be a real, harmless difference between a phone and a corpus."""
+    return cue == "length" or cue == "non-Latin letter share" or cue.startswith("language")
+
+
+def classify(label_df, pool_df, synth_df):
+    """Every flagged row as (level, kind, row, reason). Levels per the header: BLOCKER / REPORT. Pool-origin rows: token cue -> BLOCKER; length / script / language -> BLOCKER if the
+    same cue is flagged for pool vs any SMS-type source, else REPORT. Label rows: REPORT, 'known' if on KNOWN_V2_LABEL_SHORTCUTS else 'not on the known list'. Synthetic: REPORT."""
     out = []
-    def side(r, target):
-        return f"cue up -> {target}" if r["AUROC"] >= 0.5 else f"cue down -> {target}"
     for _, r in label_df[label_df["flag"]].iterrows():
-        out.append(f"RED FLAG [label cue] {r['cue']} | {r['scope']}: strength {r['strength']:.3f} (AUROC {r['AUROC']:.3f}, {side(r, 'scam')}), n={r['n']}, scam={r['positives']}, "
-                   f"threshold {FLAG_STRENGTH}")
+        known = (r["cue"], r["scope"]) in KNOWN_V2_LABEL_SHORTCUTS
+        out.append((REPORT, "label cue", r, "known v2 shortcut" if known else "not on the known v2 list"))
     if pool_df is not None and len(pool_df):
-        for _, r in pool_df[pool_df["flag"]].iterrows():
-            out.append(f"RED FLAG [POOL-origin cue] {r['cue']} | {r['scope']}: strength {r['strength']:.3f} (AUROC {r['AUROC']:.3f}, {side(r, 'pool row')}), n={r['n']}, "
-                       f"pool rows={r['positives']}, threshold {FLAG_STRENGTH}")
+        flagged = pool_df[pool_df["flag"]]
+        sms_scopes = {f"genuine: pool vs {s}" for s in SMS_TYPE_SOURCES}
+        sms_hits = {c: sorted(sc_.replace("genuine: pool vs ", "") for sc_ in flagged[(flagged["cue"] == c) & flagged["scope"].isin(sms_scopes)]["scope"]) for c in flagged["cue"].unique()}
+        for _, r in flagged.iterrows():
+            if is_token_cue(r["cue"]):
+                out.append((BLOCKER, "POOL-origin cue", r, "mask token as a pool-origin cue: fix the masks before training"))
+            elif is_soft_pool_cue(r["cue"]) and sms_hits[r["cue"]]:
+                out.append((BLOCKER, "POOL-origin cue", r, "also flags pool vs " + ", ".join(sms_hits[r["cue"]])))
+            else:
+                out.append((REPORT, "POOL-origin cue", r, "no flag for pool vs the SMS-type sources"))
     if synth_df is not None and len(synth_df):
         for _, r in synth_df[synth_df["flag"]].iterrows():
-            out.append(f"RED FLAG [synthetic-vs-real cue] {r['cue']}: strength {r['strength']:.3f} (AUROC {r['AUROC']:.3f}, {side(r, 'synthetic')}), n={r['n']}, "
-                       f"synthetic={r['positives']}, threshold {FLAG_STRENGTH}")
+            out.append((REPORT, "synthetic-vs-real cue", r, "no rule covers this one"))
     return out
+
+
+def flag_lines(label_df, pool_df, synth_df):
+    """RED FLAG lines, BLOCKER ones first (stable inside a level)."""
+    def side(r, target):
+        return f"cue up -> {target}" if r["AUROC"] >= 0.5 else f"cue down -> {target}"
+    target = {"label cue": ("scam", "scam"), "POOL-origin cue": ("pool row", "pool rows"), "synthetic-vs-real cue": ("synthetic", "synthetic")}
+    lines = []
+    for level, kind, r, why in sorted(classify(label_df, pool_df, synth_df), key=lambda t: t[0] != BLOCKER):
+        t, name = target[kind]
+        scope = "" if kind == "synthetic-vs-real cue" else f" | {r['scope']}"
+        lines.append(f"RED FLAG {level} [{kind}] {r['cue']}{scope}: strength {r['strength']:.3f} (AUROC {r['AUROC']:.3f}, {side(r, t)}), n={r['n']}, {name}={r['positives']}, "
+                     f"threshold {FLAG_STRENGTH}; {why}")
+    return lines
+
+
+def count_blockers(flags):
+    return sum(f.startswith(f"RED FLAG {BLOCKER} ") for f in flags)
 
 
 def md(df):
@@ -177,9 +220,10 @@ def run(train, val, data_label=""):
          f"Val only ({len(val)} rows; {int((val['source'] == POOL_SOURCE).sum())} from `{POOL_SOURCE}`, {int((val['source'] == SYNTH_UPI_SOURCE).sum())} from `{SYNTH_UPI_SOURCE}`); "
          f"train rows ({len(train)}) only estimate the rate of a category for the language / kw_bucket cues; the test split is never read. Each row is a cue-only AUROC: one cue, no text model. "
          f"A row is flagged when its strength max(AUROC, 1 - AUROC) is at least **{FLAG_STRENGTH}** with at least {MIN_CLASS} rows in each compared group "
-         f"({MIN_SYNTH_REAL} for the synthetic-family comparison). **These numbers are not from the plan** (section 3 names the cues, gives no thresholds); "
-         "see `src/shortcut_checks.py`. A flag is a report, not a verdict: a flagged cue that is also a real label signal (length in short SMS) shows here too.", "",
-         f"## Flags ({len(flags)})", ""] + ([f"- {f}" for f in flags] or ["- none"]) + ["", "## A. Cues against the label", "", md(lab), "",
+         f"({MIN_SYNTH_REAL} for the synthetic-family comparison). Thresholds and the BLOCKER / REPORT actions were pre-registered on 2026-10-29 in `docs/plans/splits_v3.md` section 3 "
+         "(rules in the header of `src/shortcut_checks.py`). A flag is not a verdict on the model: a flagged cue that is also a real label signal (length in short SMS) shows here too, as REPORT.", "",
+         f"## Flags ({len(flags)}: {count_blockers(flags)} BLOCKER, {len(flags) - count_blockers(flags)} REPORT)", ""] + ([f"- {f}" for f in flags] or ["- none"]) + [
+         "", "Known v2 label shortcuts (REPORT when they flag): " + "; ".join(f"`{c}` in `{sc_[7:]}`" for c, sc_ in sorted(KNOWN_V2_LABEL_SHORTCUTS)) + ".","", "## A. Cues against the label", "", md(lab), "",
          "## B. Cues against 'is a phones_pool row'", "", pool_note or "Genuine-only scopes are the like-for-like ones (the pool is ~97 % genuine). `kw_bucket` is true by construction (only pool rows carry it) and is not a model input.", ""]
     if len(pool_df):
         L += [md(pool_df), ""]
@@ -201,7 +245,7 @@ def main(argv=None):
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(report)
-    print(f"{len(flags)} red flag(s); report: {a.out}")
+    print(f"{len(flags)} red flag(s): {count_blockers(flags)} BLOCKER, {len(flags) - count_blockers(flags)} REPORT; report: {a.out}")
     for f_ in flags:
         print(f_)
     return flags

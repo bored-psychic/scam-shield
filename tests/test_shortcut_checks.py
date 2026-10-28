@@ -18,6 +18,8 @@ from pool_fixture import WORDS
 #   T5  synthetic family vs real collect rows: planted token flags, identical rows do not, family off -> not checked, too few real rows -> no flag
 #   T6  loader: test rows never kept, a v2-style file (no kw_bucket / real_group, no pool) works and the pool section is "not measurable"
 #   T7  CLI (sanity_checks.py --v3-shortcuts) on an invented folder: prints RED FLAG lines, writes only the requested report, leaves reports/sanity.md alone
+#   T9  BLOCKER vs REPORT (plan section 3, pre-registered 2026-10-29): mask token as a pool-origin cue -> BLOCKER; length / script / language -> REPORT, BLOCKER only if the same cue also flags
+#       pool vs an SMS-type source; known v2 label shortcuts and everything else -> REPORT; unit cases on hand-made result frames plus invented-frame cases end to end
 #   T8  (opt-in, SHORTCUT_FIXTURE_BUILD=<folder with messages.csv>) on a B0b fixture build: runs, and a plant on top of it makes exactly the planted flags appear new
 
 
@@ -47,7 +49,7 @@ def t1(tmp):
     tr, va = make()
     flags, report = sc.run(tr, va)
     bad = [f"clean frame flagged: {f}" for f in flags]
-    if "## Flags (0)" not in report:
+    if "## Flags (0: 0 BLOCKER, 0 REPORT)" not in report:
         bad.append("the report does not say 0 flags")
     return bad
 
@@ -58,10 +60,10 @@ def t2(tmp):
     va.loc[hit, "text"] += " <OTP>"
     flags, _ = sc.run(tr, va)
     kinds = {(f.split("] ")[0] + "]", f.split("] ")[1].split(" | ")[0], f.split(" | ")[1].split(":")[0]) for f in flags}
-    want = {("RED FLAG [label cue]", "has <OTP>", "source srcA"), ("RED FLAG [label cue]", "has <OTP>", "all val")}
+    want = {("RED FLAG REPORT [label cue]", "has <OTP>", "source srcA"), ("RED FLAG REPORT [label cue]", "has <OTP>", "all val")}
     bad = []
     # 'all val' also holds the other sources, so the overall AUROC is diluted: strength is about 0.5 + 0.5 * (0.5 * 1/3)... only the per-source flag is required
-    if ("RED FLAG [label cue]", "has <OTP>", "source srcA") not in kinds:
+    if ("RED FLAG REPORT [label cue]", "has <OTP>", "source srcA") not in kinds:
         bad.append(f"planted <OTP> label shortcut in srcA not flagged: {sorted(kinds)}")
     extra = kinds - want
     if extra:
@@ -74,7 +76,7 @@ def t3(tmp):
     va.loc[va["source"] == sc.POOL_SOURCE, "text"] += " <ACCOUNT>"
     flags, _ = sc.run(tr, va)
     bad = []
-    pool_flags = [f for f in flags if f.startswith("RED FLAG [POOL-origin cue] has <ACCOUNT> |")]
+    pool_flags = [f for f in flags if f.startswith("RED FLAG BLOCKER [POOL-origin cue] has <ACCOUNT> |")]
     scopes = {f.split(" | ")[1].split(":")[0] for f in pool_flags}
     for want in ("all val rows", "genuine rows only", "genuine"):
         if not any(s.startswith(want) for s in scopes):
@@ -99,14 +101,14 @@ def t4(tmp):
     va.loc[pool, "text"] = va.loc[pool, "text"].str.slice(0, 40)   # the pool is short (and half scam here)
     flags, _ = sc.run(tr, va)
     bad = []
-    if not any(f.startswith("RED FLAG [POOL-origin cue] length |") for f in flags):
+    if not any("[POOL-origin cue] length |" in f for f in flags):
         bad.append("short pool rows: no POOL-origin length flag")
     # length gap on the label inside one source: scam rows are long
     tr, va = make()
     hit = (va["source"] == "srcB") & (va["label"] == 1)
     va.loc[hit, "text"] = va.loc[hit, "text"] + " " + " ".join(["filler"] * 60)
     flags, _ = sc.run(tr, va)
-    if not any(f.startswith("RED FLAG [label cue] length | source srcB") for f in flags):
+    if not any("[label cue] length | source srcB" in f for f in flags):
         bad.append(f"planted length gap in srcB not flagged: {flagged(flags)}")
     # with / without POOL: the pool carries genuine short rows and nothing else does -> the two numbers differ
     rng = np.random.default_rng(3)
@@ -144,6 +146,88 @@ def t5(tmp):
     if d["flag"].any() or not d["note"].str.contains("too few").all():
         bad.append("3 real collect rows: should be 'too few rows', no flag")
     return bad
+
+
+def fake(cue, scope, strength=0.9, flag=True):
+    return {"cue": cue, "scope": scope, "n": 100, "positives": 40, "AUROC": strength, "strength": strength, "flag": flag, "note": ""}
+
+
+def levels(label=(), pool=(), synth=()):
+    mk = lambda rows: pd.DataFrame(list(rows), columns=["cue", "scope", "n", "positives", "AUROC", "strength", "flag", "note"])
+    return [(lv, kind, r["cue"], r["scope"], why) for lv, kind, r, why in sc.classify(mk(label), mk(pool), mk(synth))]
+
+
+def set_len(va, mask, rng, lo=25, hi=35):
+    va = va.copy()
+    va.loc[mask, "text"] = ["w" * int(rng.integers(lo, hi)) for _ in range(int(mask.sum()))]
+    return va
+
+
+def t9(tmp):
+    bad = []
+    # --- unit: classify on hand-made frames
+    P = lambda cue, src=None, scope=None: fake(cue, scope or (f"genuine: pool vs {src}" if src else "all val rows"))
+    got = levels(pool=[P("has <OTP>"), P("has <NAME>", "cmu_hinglish_dog"), P("has <URL>", "genuine rows only")])
+    if [g[0] for g in got] != ["BLOCKER"] * 3:
+        bad.append(f"mask token as pool-origin cue must always be BLOCKER: {got}")
+    got = levels(pool=[P("length"), P("length", "fake_job_postings"), P("non-Latin letter share"), P("language (train pool rate)", "cmu_hinglish_dog")])
+    if [g[0] for g in got] != ["REPORT"] * 4:
+        bad.append(f"length / script / language with no SMS-type flag must be REPORT: {got}")
+    for src in sc.SMS_TYPE_SOURCES:   # each SMS-type source escalates, for every cue of the soft kind, and for all of that cue's flags
+        for cue in ("length", "non-Latin letter share", "language (train pool rate)"):
+            got = levels(pool=[P(cue), P(cue, "fake_job_postings"), P(cue, src), P("length" if cue != "length" else "non-Latin letter share")])
+            lv = [g[0] for g in got]
+            if lv != ["BLOCKER"] * 3 + ["REPORT"]:
+                bad.append(f"{cue} flagged vs {src}: want BLOCKER x3 then REPORT for the other cue, got {lv}")
+            if src not in got[0][4]:
+                bad.append(f"the BLOCKER reason does not name {src}: {got[0][4]!r}")
+    got = levels(pool=[P("length", "cmu_hinglish_dog")], label=[])   # a non-SMS source alone does not escalate
+    if got[0][0] != "REPORT":
+        bad.append(f"length vs a non-SMS source alone: {got}")
+    # a pool-origin token in an SMS-type scope is still just BLOCKER once (not duplicated)
+    if len(levels(pool=[P("has <OTP>", "uci_sms_spam")])) != 1:
+        bad.append("one flag gave several lines")
+    known = [fake(c, sc_) for c, sc_ in sorted(sc.KNOWN_V2_LABEL_SHORTCUTS)]
+    got = levels(label=known + [fake("length", "source fake_job_postings"), fake("has <ACCOUNT>", "source uci_sms_spam"), fake("length", "all val")])
+    if [g[0] for g in got] != ["REPORT"] * (len(known) + 3):
+        bad.append(f"label flags must all be REPORT: {got}")
+    if [g[4] for g in got] != ["known v2 shortcut"] * len(known) + ["not on the known v2 list"] * 3:
+        bad.append(f"known vs not-on-list wording: {[g[4] for g in got]}")
+    got = levels(synth=[fake("has <UPI_ID>", "synthetic family vs real collect rows")])
+    if [g[0] for g in got] != ["REPORT"]:
+        bad.append(f"synthetic-vs-real: {got}")
+    # BLOCKER lines print first
+    lines = sc.flag_lines(pd.DataFrame([fake("length", "source uci_sms_spam")]), pd.DataFrame([P("has <OTP>")]), pd.DataFrame())
+    if not (lines[0].startswith("RED FLAG BLOCKER ") and lines[1].startswith("RED FLAG REPORT ")) or sc.count_blockers(lines) != 1:
+        bad.append(f"line order / count_blockers: {lines}")
+    # --- end to end on invented frames (SMS-type source named like the real one)
+    rng = np.random.default_rng(9)
+    srcs = ("uci_sms_spam", "srcB")
+    def pool_len(short_src):
+        tr, va = make(seed=11, srcs=srcs)
+        pool = (va["source"] == sc.POOL_SOURCE)
+        va = set_len(va, pool, rng)
+        va = set_len(va, va["source"] == short_src, rng)
+        va = set_len(va, ~pool & (va["source"] != short_src), rng, 380, 420)
+        return sc.run(tr, va)[0]
+    flags = pool_len("srcB")   # pool and srcB short, uci_sms_spam long -> pool vs uci flags -> BLOCKER
+    ln = [f for f in flags if "[POOL-origin cue] length |" in f]
+    if not ln or not all(" BLOCKER " in f for f in ln) or not any("genuine: pool vs uci_sms_spam" in f for f in ln):
+        bad.append(f"pool short, uci_sms_spam long: want BLOCKER length lines incl. vs uci_sms_spam: {ln}")
+    flags = pool_len("uci_sms_spam")   # pool and uci short, srcB long -> only vs srcB / all rows -> REPORT
+    ln = [f for f in flags if "[POOL-origin cue] length |" in f]
+    if not ln or any(" BLOCKER " in f for f in ln) or any("pool vs uci_sms_spam" in f for f in ln):
+        bad.append(f"pool and uci_sms_spam short, srcB long: want REPORT length lines only: {ln}")
+    # language: pool differs from uci_sms_spam -> BLOCKER; the planted token is a BLOCKER too
+    tr, va = make(seed=12, srcs=srcs)
+    tr.loc[tr["source"] == sc.POOL_SOURCE, "language"] = "kannada"
+    va.loc[va["source"] == sc.POOL_SOURCE, "language"] = "kannada"
+    flags = sc.run(tr, va)[0]
+    lg = [f for f in flags if "[POOL-origin cue] language" in f]
+    if not lg or not all(" BLOCKER " in f for f in lg):
+        bad.append(f"pool-only language vs an SMS-type source: want BLOCKER: {lg}")
+    return bad
+
 
 
 def write_messages(folder, tr, va, te=None):
@@ -187,7 +271,7 @@ def t7(tmp):
     bad = []
     if p.returncode != 0:
         return [f"exit {p.returncode}: {(p.stdout + p.stderr)[-500:]}"]
-    if "RED FLAG [POOL-origin cue] has <NAME>" not in p.stdout:
+    if "RED FLAG BLOCKER [POOL-origin cue] has <NAME>" not in p.stdout or " BLOCKER, " not in p.stdout:
         bad.append(f"stdout has no RED FLAG line for the planted token: {p.stdout[-400:]}")
     if not out.exists() or "## Flags" not in out.read_text(encoding="utf-8"):
         bad.append("report not written")
@@ -214,8 +298,9 @@ def t8(tmp):
     new = [f for f in planted if f not in base]
     print(f"      fixture: {len(va)} val rows, {int(pool.sum())} pool; flags on the build: {len(base)}; with the plant: {len(planted)}; new: {len(new)}")
     bad = []
-    if not any("[POOL-origin cue] has <ACCOUNT>" in f for f in new):
-        bad.append(f"the plant did not make a POOL-origin <ACCOUNT> flag: {new}")
+    if not any("BLOCKER [POOL-origin cue] has <ACCOUNT>" in f for f in new):
+        bad.append(f"the plant did not make a POOL-origin <ACCOUNT> BLOCKER: {new}")
+    print(f"      on the build: {sc.count_blockers(base)} BLOCKER of {len(base)} flags")
     return bad
 
 
@@ -226,6 +311,7 @@ CHECKS = [("T1", "clean frame: no flag in any section", t1),
           ("T5", "synthetic family vs real collect rows: flag, no flag, off, too few", t5),
           ("T6", "loader never keeps test rows; v2-style file works", t6),
           ("T7", "CLI prints red flags, writes only its report, sanity.md untouched", t7),
+          ("T9", "BLOCKER vs REPORT: tokens always, soft cues only with an SMS-type flag, known v2 shortcuts REPORT", t9),
           ("T8", "(opt-in SHORTCUT_FIXTURE_BUILD) fixture build: runs, plant shows up as new flags", t8)]
 
 
