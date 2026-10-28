@@ -1,7 +1,7 @@
 import argparse, ast, glob, hashlib, json, os, re, unicodedata
 from collections import Counter
 import pandas as pd
-import neardup, pii, textprep
+import company_key, neardup, pii, pool, realguard, synth_upi_collect, textprep
 from protect import PATTERNS as PROTECT_PATTERNS
 
 # Build data/final/messages.csv from data/messages/ + data/external/{text,indic}/ (see data/sources.yaml).
@@ -24,7 +24,16 @@ ap = argparse.ArgumentParser(description="Build data/final/messages.csv (see the
 ap.add_argument("--mask-version", default=pii.V2, choices=pii.MASK_VERSIONS, help="mask set for the stored text (default v2)")
 ap.add_argument("--out-dir", default="data/final", help="where messages.csv, split_map.csv and build_meta.json are written (default data/final)")
 ap.add_argument("--report-translation-drift", action="store_true", help="dry runs only: count the translations the mask set changes without changing their English parent the same way, instead of stopping")
+# splits-v3 B0b (docs/plans/splits_v3.md D-v3.1, D-v3.3, D-v3.4). With none of the three below and no pool file, a build is byte-identical to the splits-v2 one.
+ap.add_argument("--pool-file", default=pool.POOL_PATH, help="the POOL half of the real phone messages (intake_real.py --freeze); read when it exists, 'none' to skip it (default %(default)s)")
+ap.add_argument("--freeze-manifest", default=pool.MANIFEST_PATH, help="the intake's freeze manifest; only its existence is checked, the file is never opened (default %(default)s)")
+ap.add_argument("--real-test-file", default=None, help="the file realguard takes the real_test_v1 hashes from (default: realguard's own path); a fixture build passes its own")
+ap.add_argument("--company-name-key", action="store_true", help="D-v3.4: give fake_job_postings posts without a profile the company_key of the company named in them; a company group that then "
+                "straddles frozen splits keeps its highest-priority split (test > val > train) and the other frozen rows are dropped and counted")
+ap.add_argument("--synth-upi-collect", action="store_true", help="D-v3.3 item 3: add the synthetic benign UPI collect-request families (synth_upi_collect.py); OFF by default, switched on 1 Nov only if POOL-val has < 10 real collect-request groups")
 ARGS = ap.parse_args()
+LEDGER = {}   # every drop and every addition of this build that the splits-v2 build did not have, by reason (printed at the end and written to build_meta.json)
+POOL_ON = ARGS.pool_file.lower() != "none" and os.path.exists(ARGS.pool_file)
 OUT_DIR = ARGS.out_dir
 OUT_SPLIT_MAP, OUT_MESSAGES, OUT_META = (os.path.join(OUT_DIR, n) for n in ("split_map.csv", "messages.csv", "build_meta.json"))
 print(f"mask version {ARGS.mask_version}; outputs to {OUT_DIR}")
@@ -97,6 +106,15 @@ if f := latest("fake_job_postings"):
     prof = d["company_profile"].fillna("").astype(str).str.lower().str.replace(r"\s+", " ", regex=True).str.strip()
     prof = prof.str.slice(0, COMPANY_KEY_CHARS)
     company = prof.map(lambda p: hashlib.md5(p.encode()).hexdigest() if len(p) >= MIN_COMPANY_PROFILE else "")
+    if ARGS.company_name_key:
+        # D-v3.4: a post without a profile gets the company_key of the company named in its title / description (company_key.py)
+        company, ck_ledger = company_key.fill_company_keys(pd.DataFrame({"title": d["title"].fillna("").astype(str), "description": d["description"].fillna("").astype(str),
+                                                                         "company_profile": d["company_profile"].fillna("").astype(str), "company_key": company}))
+        COMPANY_NAMES = ck_ledger.pop("key_names")
+        LEDGER["company_name_key"] = ck_ledger
+        print(f"company-name key: {ck_ledger['keyed']} of {ck_ledger['profile_less']} profile-less posts get a company_key ({ck_ledger['no_name_found']} name none, "
+              f"{ck_ledger['several_names_found']} name several, {ck_ledger['ambiguous_name']} name a company with two profile texts, {ck_ledger['common_word_names_dropped']} profile names dropped as common words)")
+        print("  largest new company groups (posts newly keyed): " + ", ".join(f"{n} {c}" for n, c in ck_ledger["new_groups_by_size"][:20]))
     frames.append(pd.DataFrame({"text": text, "label": d["fraudulent"], "category": "job", "channel": "job_post",
                                 "language": "english", "source": "fake_job_postings", "is_synthetic": False,
                                 "company_key": company}))
@@ -198,13 +216,33 @@ if f := latest("hinglish_conversations", "indic"):
     frames.append(pd.DataFrame({"text": text, "label": 0, "category": "benign_chat", "channel": "chat",
                                 "language": "hinglish", "source": "hinglish_conversations", "is_synthetic": True}))
 
-df = pd.concat(frames, ignore_index=True).reindex(columns=COLS + ["_anchor", "_parent_text"])
+# splits-v3 D-v3.3 item 3: the synthetic benign UPI collect-request families (OFF by default; tagged is_synthetic, provenance illustrative, source synth_upi_collect_v3)
+if ARGS.synth_upi_collect:
+    frames.append(synth_upi_collect.make_family())
+    print(f"synthetic UPI collect families: {synth_upi_collect.N_TEMPLATES} families x 4 languages x {synth_upi_collect.N_PER_TEMPLATE} rows, placement {synth_upi_collect.placement()}")
+
+# splits-v3 D-v3.1: the POOL half of the real phone messages, last in the frame so that an existing row always wins a clash with a pool row (never the other way round)
+if ARGS.pool_file.lower() != "none" and ARGS.pool_file != pool.POOL_PATH and not os.path.exists(ARGS.pool_file):
+    raise SystemExit(f"--pool-file {ARGS.pool_file} does not exist")
+POOL = pool.load_pool(ARGS.pool_file, ARGS.freeze_manifest, ARGS.real_test_file) if POOL_ON else None
+if POOL is not None:
+    frames.append(POOL)
+    print(f"pool: {len(POOL)} rows from {POOL['real_group'].nunique()} template groups ({ARGS.pool_file}); {int(POOL['_real_match'].sum())} are the same text as a real_test_v1 row")
+    LEDGER["pool"] = {"file": ARGS.pool_file, "rows_in_file": len(POOL), "groups_in_file": int(POOL["real_group"].nunique()), "seed": pool.POOL_SEED,
+                      "drops": {}, "placed": {}}
+else:
+    print(f"pool: {ARGS.pool_file} not used ({'none requested' if ARGS.pool_file.lower() == 'none' else 'file not found'}); no phones_pool rows in this build")
+
+# real_group (the intake's template group id) is a forced-group column of a build with a pool; _kw / _gsize / _real_match are the pool's temporary columns
+df = pd.concat(frames, ignore_index=True).reindex(columns=COLS + ["real_group", "_kw", "_gsize", "_real_match", "_anchor", "_parent_text"])
 df["text"] = df["text"].astype(str).str.strip()
 df = df[df["text"].str.len() > 3]
 df["label"] = df["label"].astype(int)
 df["subcategory"] = df["subcategory"].fillna("")
-FILL = ["template_id", "template_family", "company_key", "provenance", "note", "translation_of", "_anchor", "_parent_text"]
+FILL = ["template_id", "template_family", "company_key", "provenance", "note", "translation_of", "real_group", "_kw", "_anchor", "_parent_text"]
 df[FILL] = df[FILL].fillna("")
+df["_gsize"] = df["_gsize"].map(lambda v: int(v) if v == v else 0)
+df["_real_match"] = df["_real_match"].map(lambda v: bool(v) if v == v else False)
 
 # 3b. mask PII (README: ethics). Same tokens for every source so masking itself isn't a label signal.
 from pii import MASKS, MASKS_V1, MISS_RX   # shared with translate_parents.py
@@ -289,6 +327,15 @@ def frozen_key(d):
     return d["hash_v2"].where(d["hash_v2"].isin(frozen.index), d["text_hash"].where(d["text_hash"].isin(frozen.index), d["hash_v1"].where(d["hash_v1"].isin(frozen.index))))
 DROPPED_KEYS = set()   # frozen keys of rows this build drops on purpose (counted), so "no frozen row lost" can still be asserted
 
+# splits-v3 D-v3.1: a pool row that is the same text as a real test row, as an existing row, or as another pool row is dropped and counted. It is the POOL row that goes,
+# never the existing row (so no frozen row is lost and no existing label is overturned by a pool label).
+if POOL is not None:
+    df, pool_dropped = pool.prefilter(df)
+    # a pool row frozen in an earlier split_map that is dropped now; not the key of an existing row it merely duplicates (that row stays and keeps its key)
+    DROPPED_KEYS |= set(frozen_key(pool_dropped).dropna()) - set(frozen_key(df).dropna())
+    LEDGER["pool"]["drops"].update({k: int(v) for k, v in pool_dropped["_reason"].value_counts().items()})
+    print(f"pool prefilter: {len(pool_dropped)} of {len(POOL)} pool rows dropped: {LEDGER['pool']['drops']}")
+
 # v3 never un-merges what v2 merged: rows that are the same text under the v2 masks stay duplicates (and label conflicts) even when a v3 rule that depends on the
 # row's channel (ALL-CAPS payer names) reads their copies differently
 conflict = (df.groupby("text_hash")["label"].transform("nunique") > 1) | (df.groupby("hash_v2")["label"].transform("nunique") > 1)
@@ -312,9 +359,10 @@ if len(frozen):
     DROPPED_KEYS |= set(frozen_key(df[conflict]).dropna())
 df = df[~conflict]
 # web quotes often also appear in india_fraud_final (which comes first and is kept); keep their provenance on the kept row
-web = df[df["provenance"] != ""].drop_duplicates("hash_v2").set_index("hash_v2")   # by the v2 hash: a copy a v3 rule reads differently still hands its provenance on
+is_pool = df["source"] == pool.POOL_SOURCE   # pool rows keep their own provenance / note (phone_N) and never lend them to another row
+web = df[(df["provenance"] != "") & ~is_pool].drop_duplicates("hash_v2").set_index("hash_v2")   # by the v2 hash: a copy a v3 rule reads differently still hands its provenance on
 for c in ["provenance", "note"]:
-    df[c] = df["hash_v2"].map(web[c]).fillna("")
+    df.loc[~is_pool, c] = df.loc[~is_pool, "hash_v2"].map(web[c]).fillna("")
 before = df[df["source"] == "translated_indic"]
 # every hash a row is known by -> the text_hash it is deduplicated on, so a translation's anchor still finds its parent when the parent was merged into another row
 canon = df["hash_v2"].map(df.groupby("hash_v2")["text_hash"].first())   # the text_hash of the row that survives the v2-hash dedupe below
@@ -325,6 +373,20 @@ DROPPED_KEYS |= set(frozen_key(df[df["text_hash"].duplicated()]).dropna())
 df = df.drop_duplicates("text_hash").reset_index(drop=True)
 tr_step("exact duplicate of another row (dedupe)", before, df[df["source"] == "translated_indic"])
 df["fkey"] = frozen_key(df)
+
+# splits-v3 D-v3.4: a company group (company_key) that holds frozen rows of more than one split keeps the rows of its highest-priority split (test > val > train); its other
+# frozen rows are dropped and counted. Test membership is frozen (D-v3.2), so a test row never moves. Only the name-filled keys can cause this: the profile-based keys
+# were already one split each. Dropped keys go to DROPPED_KEYS so "no frozen row is lost" still holds for the rest.
+if ARGS.company_name_key:
+    cdrop = company_key.keep_by_priority(fixed_of(df), df["company_key"])
+    names = globals().get("COMPANY_NAMES", {})
+    gone = df[cdrop]
+    LEDGER["company_straddle_drops"] = {"rows": int(cdrop.sum()),
+        "by_company_split_label": {f"{names.get(k, k[:8])} | {sp} | label {lab}": int(n) for (k, sp, lab), n in
+                                   gone.assign(sp=fixed_of(df)[cdrop]).groupby(["company_key", "sp", "label"]).size().items()}}
+    print(f"company groups that straddle frozen splits: {int(cdrop.sum())} frozen rows dropped (the higher split stays): {LEDGER['company_straddle_drops']['by_company_split_label']}")
+    DROPPED_KEYS |= set(frozen_key(gone).dropna())
+    df = df[~cdrop].reset_index(drop=True)
 
 # 5b. cross-language leakage guard: a translation is dropped if its English parent has a val/test row of messages.csv at
 # exact Jaccard >= TWIN_JACCARD on either view (finalise anchored parents against short rows only; this looks at every row)
@@ -357,7 +419,7 @@ def find(x):
 def union(a, b):
     parent[find(a)] = find(b)
 # forced groups first: they make most of the big job-post clusters, so the text pass can skip those pairs
-for key in ("template_family", "company_key", "translation_of"):
+for key in ("template_family", "company_key", "translation_of", "real_group"):   # real_group (splits-v3 D-v3.1): an intake template group never straddles splits
     for rows in df[df[key] != ""].groupby(key).groups.values():
         for j in rows[1:]:
             union(rows[0], j)
@@ -407,14 +469,21 @@ assert not lost_v1, f"{len(lost_v1)} frozen rows are missing from this build, in
 # new row) whose cluster holds a frozen test row is dropped and counted, never placed in test (docs/plans/splits_v3.md D-v3.2). The map holds the
 # translations since splits-v2 (train); one that is not in it is new and goes to train below.
 known0 = pd.DataFrame({"c": df["cluster_id"], "s": fixed}).dropna().groupby("c")["s"].first()
+is_pool = df["source"] == pool.POOL_SOURCE
+is_syn = df["source"] == synth_upi_collect.SOURCE
 new_in_test = fixed.isna() & ~is_tr & (df["cluster_id"].map(known0) == "test")
 if new_in_test.any():
+    if POOL is not None:
+        LEDGER["pool"]["drops"][pool.DROP_TEST_CLUSTER] = int((new_in_test & is_pool).sum())
+    if ARGS.synth_upi_collect:
+        LEDGER["synth_upi_collect_dropped_test_cluster"] = int((new_in_test & is_syn).sum())
     print(f"dropping {int(new_in_test.sum())} rows that are not in split_map.csv and whose cluster holds a frozen test row: {df[new_in_test].groupby(['source', 'label']).size().to_dict()}")
     df = df[~new_in_test].reset_index(drop=True)
     is_tr = df["source"] == "translated_indic"
+    is_pool, is_syn = df["source"] == pool.POOL_SOURCE, df["source"] == synth_upi_collect.SOURCE
     fixed = fixed_of(df)
-assert not (fixed.isna() & ~is_tr).any(), ("every row except the translations must be in split_map.csv (directly or by its splits-v1 / v2 hash); not in it: "
-                                           f"{df[fixed.isna() & ~is_tr].groupby('source').size().to_dict()} (the POOL loader of splits-v3 B1 is what adds new rows)")
+assert not (fixed.isna() & ~is_tr & ~is_pool & ~is_syn).any(), ("every row except the translations must be in split_map.csv (directly or by its splits-v1 / v2 hash); not in it: "
+                                           f"{df[fixed.isna() & ~is_tr & ~is_pool & ~is_syn].groupby('source').size().to_dict()} (only phones_pool and the synth_upi_collect_v3 families are added as new rows)")
 rule = rule_split(df["cluster_id"])
 if fixed.notna().any():
     known = pd.DataFrame({"c": df["cluster_id"], "s": fixed}).dropna().groupby("c")["s"].agg(["first", "nunique"])
@@ -426,10 +495,29 @@ if fixed.notna().any():
     fresh = is_tr & inherit.isna()
     assert df.loc[df["cluster_id"].isin(set(df.loc[fresh, "cluster_id"])), "source"].eq("translated_indic").all()
     df.loc[fresh, "split"] = "train"
+    # splits-v3 D-v3.1: a pool cluster that joined no frozen row is split 50 % val / 50 % train, stratified by label x the intake's keyword bucket (pool.place_fresh, seeded,
+    # written to the ledger); one that joined a frozen train / val cluster took that split above (inherit). Never test: a cluster that reached a test row was dropped before.
+    # The synthetic UPI collect families are placed by synth_upi_collect.placement() the same way (never test, whatever the synth_india cell rule says).
+    fresh_cl = inherit.isna() & fixed.isna()
+    fresh_pool = fresh_cl & df["cluster_id"].isin(set(df.loc[is_pool & fresh_cl, "cluster_id"]))
+    if fresh_pool.any():
+        placed, strata = pool.place_fresh(df[is_pool & fresh_cl])
+        df.loc[fresh_pool, "split"] = df.loc[fresh_pool, "cluster_id"].map(placed)
+        LEDGER["pool"]["placed"]["fresh_clusters_val_train"] = [sum(v == s_ for v in placed.values()) for s_ in ("val", "train")]
+        LEDGER["pool"]["strata_label_kw_val_train_units"] = {f"{l} | {k}": c for (l, k), c in strata.items()}
+    fresh_syn = fresh_cl & is_syn
+    if fresh_syn.any():
+        sp_of = synth_upi_collect.placement()
+        df.loc[fresh_syn, "split"] = df.loc[fresh_syn, "template_family"].map(sp_of)
+    if POOL is not None:
+        how = pd.Series("frozen in split_map.csv (an earlier build)", index=df.index).where(fixed.notna(), pd.Series("joined an existing cluster", index=df.index).where(inherit.notna(), "placed as a fresh cluster"))
+        LEDGER["pool"]["placed"]["rows_by_how_and_split"] = {f"{h} | {sp}": int(n) for (h, sp), n in df[is_pool].assign(h=how[is_pool]).groupby(["h", "split"]).size().items()}
     print(f"split_map: {fixed.notna().sum()} rows frozen, {fixed.isna().sum()} new "
           f"({(fixed.isna() & inherit.notna()).sum()} inherited a cluster's split, "
           f"{(fixed.isna() & inherit.isna()).sum()} placed by rule)")
     if clash.any():
+        if POOL is not None:
+            LEDGER["pool"]["drops"][pool.DROP_BRIDGE] = int((clash & is_pool).sum())
         print(f"warning: dropping {clash.sum()} new rows that bridge frozen clusters in different splits")
         before = df[is_tr]
         df = df[~clash].reset_index(drop=True)
@@ -459,7 +547,16 @@ neardup.assert_no_leakage(df)
 print(f"leakage check passed: no cluster / template family / company straddles splits, no cross-split pair with exact "
       f"Jaccard >= {neardup.MIN_JACCARD} on raw or normalised text ({neardup.SOURCE_MIN_JACCARD} within those sources)")
 assert (df.loc[is_tr, "split"] == "train").all(), "a translation outside train"
-assert (df.loc[~is_tr, "split"] == fixed_of(df)[~is_tr]).all(), "a splits-v1 row changed split"
+fo = fixed_of(df)
+is_new = (df["source"] == pool.POOL_SOURCE) | (df["source"] == synth_upi_collect.SOURCE)   # the only rows that may be absent from the frozen map (a pool row is in it from the second build on)
+assert not (fo.isna() & ~is_tr & ~is_new).any(), "a row that should be frozen is not in split_map.csv"
+assert (df.loc[~is_tr & fo.notna(), "split"] == fo[~is_tr & fo.notna()]).all(), "a splits-v1 row changed split"
+assert not (df.loc[df["source"] == synth_upi_collect.SOURCE, "split"] == "test").any(), "a synthetic UPI collect row is in test (D-v3.2: test membership is frozen)"
+for msg in pool.straddles(df):   # splits-v3 D-v3.1: no real_group in two splits, no pool row in test
+    raise AssertionError(msg)
+if ARGS.company_name_key and df["company_key"].ne("").any():
+    ck = df[df["company_key"] != ""]
+    assert not (ck["split"].astype(str).groupby(ck["company_key"]).nunique() > 1).any(), "a company group straddles splits"
 df["split"] = pd.Categorical(df["split"], ["train", "val", "test"])
 
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -507,14 +604,25 @@ if prev is not None:
 if TR_LEDGER:
     print("\ntranslation ledger (rows dropped at each step, rows left after it):")
     print(pd.DataFrame(TR_LEDGER).to_string(index=False))
-df = df.drop(columns=["_anchor", "_parent_text", "hash_v1", "hash_v2", "fkey", "_v3_changed", "_v3_kinds"], errors="ignore")
-import realguard   # tripwire: no row of the real-message TEST set (data/real/real_test_v1.csv) may enter messages.csv
-realguard.guard_inputs([], [("messages.csv to be written", df)])
+if POOL is not None:
+    df["kw_bucket"] = df["_kw"]   # the intake's keyword bucket of a pool row ("" elsewhere): gates_v3.py counts the Indian alert groups with it
+df = df.drop(columns=["_anchor", "_parent_text", "hash_v1", "hash_v2", "fkey", "_v3_changed", "_v3_kinds", "_kw", "_gsize", "_real_match"] + ([] if POOL is not None else ["real_group"]), errors="ignore")
+# tripwire: no row of the real-message TEST set (data/real/real_test_v1.csv) may enter messages.csv
+realguard.guard_inputs([], [("messages.csv to be written", df)], real_path=ARGS.real_test_file)
 df.to_csv(OUT_MESSAGES, index=False)
 # the mask set the stored text was masked with, for whoever trains on it (a bundle records it as shield_meta.json "mask_version"; the app masks input with it)
 with open(OUT_META, "w", encoding="utf-8") as f:
-    json.dump({"mask_version": ARGS.mask_version, "rows": len(df), "split_map_rows": int(len(new_map))}, f, indent=1)
+    json.dump({"mask_version": ARGS.mask_version, "rows": len(df), "split_map_rows": int(len(new_map)), "pool_rows": int((df["source"] == pool.POOL_SOURCE).sum()),
+               "real_group_column": POOL is not None, "company_name_key": ARGS.company_name_key, "synth_upi_collect": ARGS.synth_upi_collect, "ledger": LEDGER}, f, indent=1, default=str)
 print(f"wrote {OUT_MESSAGES}, {OUT_SPLIT_MAP}, {OUT_META} (mask_version {ARGS.mask_version})")
+if POOL is not None:
+    pr = df[df["source"] == pool.POOL_SOURCE]
+    print("\npool ledger (D-v3.1): rows in file %d -> kept %d; drops by reason %s; test rows %d; real_group count by split %s" % (
+        len(POOL), len(pr), LEDGER["pool"]["drops"], int((pr["split"] == "test").sum()), pr.groupby("split", observed=True)["real_group"].nunique().to_dict()))
+    print("  placed:", LEDGER["pool"]["placed"])
+    print("  rows by split x label:", pr.groupby(["split", "label"], observed=True).size().to_dict())
+    if "strata_label_kw_val_train_units" in LEDGER["pool"]:
+        print("  fresh strata (label | keyword bucket: val units, train units):", LEDGER["pool"]["strata_label_kw_val_train_units"])
 print(df.groupby(["source", "label"]).size().unstack(fill_value=0))
 print("\nby category:\n", df.groupby(["category", "label"]).size().unstack(fill_value=0))
 print("\nsplit:\n", df.groupby(["split", "label"], observed=True).size().unstack(fill_value=0))

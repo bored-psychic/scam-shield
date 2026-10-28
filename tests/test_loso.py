@@ -44,6 +44,19 @@ def messages():
     return _C["df"], _C["sha"]
 
 
+def data_dir(tmp):
+    """A data folder for finetune.py: symlinks to the splits-v2 files in data/final/ plus a build_meta.json (mask_version v2, the version those files were built with).
+    finetune.py (splits-v3 B0b) refuses data without a build_meta.json, and data/final/ has none until the splits-v3 rebuild writes one; nothing is written under data/."""
+    d = tmp / "data_v2"
+    if not d.exists():
+        d.mkdir(parents=True)
+        for n in ("messages.csv", "split_map.csv", "messages_adv_test.csv", "messages_aug.csv"):
+            if (DATA / n).exists():
+                (d / n).symlink_to(DATA / n)
+        (d / "build_meta.json").write_text(json.dumps({"mask_version": "v2"}), encoding="utf-8")
+    return d
+
+
 def l1(tmp):
     bad = []
     df, _ = messages()
@@ -144,7 +157,7 @@ def l3(tmp):
                         ("one-class source", ["--exclude-source", "web_scams"]), ("no val/test rows", ["--exclude-source", "translated_indic"]),
                         ("--no-save-model alone", ["--no-save-model"])):
         out = tmp / ("refuse_" + what.replace(" ", "_").replace("/", "_").replace("-", "_"))
-        r = subprocess.run([PY, str(ROOT / "src/finetune.py"), *extra, "--limit", "10", "--device", "cpu", "--out", str(out)], capture_output=True, text=True, cwd=ROOT)
+        r = subprocess.run([PY, str(ROOT / "src/finetune.py"), *extra, "--limit", "10", "--device", "cpu", "--data-dir", str(data_dir(tmp)), "--out", str(out)], capture_output=True, text=True, cwd=ROOT)
         if r.returncode == 0 or out.exists():
             bad.append(f"{what}: exit {r.returncode}, out dir created: {out.exists()}")
     return bad
@@ -158,7 +171,7 @@ def l4(tmp):
     bad = []
     df, _ = messages()
     out = tmp / "dry"
-    r = subprocess.run([PY, str(ROOT / "src/finetune.py"), "--exclude-source", "uci_sms_spam", "--smoke", "--limit", "40", "--no-save-model", "--device", "cpu", "--out", str(out)],
+    r = subprocess.run([PY, str(ROOT / "src/finetune.py"), "--exclude-source", "uci_sms_spam", "--smoke", "--limit", "40", "--no-save-model", "--device", "cpu", "--data-dir", str(data_dir(tmp)), "--out", str(out)],
                        capture_output=True, text=True, cwd=ROOT, env={**os.environ, "HF_HUB_OFFLINE": "1"})
     if r.returncode != 0:
         return [f"dry run failed: {(r.stdout + r.stderr)[-600:]}"]
@@ -351,7 +364,7 @@ def l7(tmp):
         torch.manual_seed(init_seed)
         model = BertForSequenceClassification(cfg)
         out = tmp / f"run{init_seed}"
-        argv = ["finetune.py", "--exclude-source", "uci_sms_spam", "--no-save-model", "--epochs", "2", "--limit", "60", "--device", "cpu", "--out", str(out)]
+        argv = ["finetune.py", "--exclude-source", "uci_sms_spam", "--no-save-model", "--epochs", "2", "--limit", "60", "--device", "cpu", "--data-dir", str(data_dir(tmp)), "--out", str(out)]
         with mock.patch.object(sys, "argv", argv), mock.patch.dict(finetune.LOSO_REFERENCE, {"epochs": 2}), \
                 mock.patch.object(finetune.AutoTokenizer, "from_pretrained", return_value=tok), \
                 mock.patch.object(finetune.AutoModelForSequenceClassification, "from_pretrained", return_value=model), \

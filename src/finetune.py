@@ -7,6 +7,7 @@ import torch
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
+import pii
 from textprep import model_text, URL_TOKEN, MAX_CHARS
 from realguard import guard_inputs   # tripwire: the real-message TEST set (data/real/) is never a training input
 
@@ -53,7 +54,10 @@ from realguard import guard_inputs   # tripwire: the real-message TEST set (data
 
 SPLIT_MAP_SHA256 = "8263df1c304de7154290f57f648387ddc396cab303630753aa40200619bd4e6c"   # splits-v2 (2026-10-21); keep in step with CLAUDE.md
 MODELS = {"muril": "google/muril-base-cased", "mdeberta": "microsoft/mdeberta-v3-base", "xlmr": "FacebookAI/xlm-roberta-base"}
-GROUP_KEYS = ("cluster_id", "template_family", "company_key", "translation_of")   # rows sharing any of these must share a split
+GROUP_KEYS = ("cluster_id", "template_family", "company_key", "translation_of", "real_group")   # rows sharing any of these must share a split
+# real_group (splits-v3: the intake's template group of a phones_pool row) is a column only of a build that had a pool; load_data requires it as soon as a phones_pool row exists
+OPTIONAL_KEYS = ("real_group",)
+POOL_SOURCE = "phones_pool"
 # The settings of the shipped bundle models/finetune/muril_len128_20261021T135255Z (shield_meta.json "settings"): a LOSO fold must train exactly like it,
 # so the only difference is the dropped source. Kept here, not read from the bundle, because the bundle is git-ignored and Kaggle does not have it;
 # tests/test_loso.py compares this dict with the bundle's shield_meta.json whenever the bundle is on disk.
@@ -70,6 +74,21 @@ def sha256(path):
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def read_mask_version(data_dir):
+    """The pii.py mask set the data in `data_dir` was masked with, from the build_meta.json build_text.py wrote next to messages.csv. A training run refuses data without it
+    (a model trained on masks the app does not know is read as v2 and silently sees different text, rule 11), or with an unknown version. A stale build_meta.json
+    (row counts that do not match messages.csv / split_map.csv) is caught in load_data. Returns (mask_version, sha256 of build_meta.json, the parsed file)."""
+    path = Path(data_dir) / "build_meta.json"
+    if not path.exists():
+        raise SystemExit(f"{path} is missing: build_text.py writes it next to messages.csv and it records the mask_version the data was masked with. Refusing to train on data "
+                         "whose mask version is unknown (rule 11). Rebuild the data on the Mac, or upload build_meta.json with the other files.")
+    meta = json.loads(path.read_text(encoding="utf-8"))
+    version = meta.get("mask_version")
+    if version not in pii.MASK_VERSIONS:
+        raise SystemExit(f"{path}: mask_version {version!r} is missing or unknown; this code knows {list(pii.MASK_VERSIONS)}")
+    return version, sha256(path), meta
 
 
 def git_state():
@@ -138,7 +157,7 @@ def assert_loso_clean(tr, va, held_va, held_te, src, src_rows):
     val / test, and disjoint from train / val."""
     clusters = set(src_rows["cluster_id"].astype(str))
     hashes = set(src_rows["text_hash"])
-    fams = {k: set(src_rows[k].dropna().astype(str)) - {""} for k in ("template_family", "company_key")}
+    fams = {k: set(src_rows[k].dropna().astype(str)) - {""} for k in ("template_family", "company_key", "real_group") if k in src_rows}
     for name, d in (("train", tr), ("val", va)):
         assert not (d["source"] == src).any(), f"{src} rows in {name}"
         n = int(d["cluster_id"].astype(str).isin(clusters).sum())
@@ -164,10 +183,17 @@ def load_data(data_dir, use_aug, held_out, loso_source=None):
                          "Pull the repo / copy the right data, or update SPLIT_MAP_SHA256 together with CLAUDE.md.")
     frozen = pd.read_csv(sm_path).set_index("text_hash")["split"]
     df = pd.read_csv(data_dir / "messages.csv", low_memory=False)
+    if (data_dir / "build_meta.json").exists():   # a stale build_meta.json (from another build) is caught by its row counts; main() requires the file and its mask_version
+        bm = json.loads((data_dir / "build_meta.json").read_text(encoding="utf-8"))
+        for key, have in (("rows", len(df)), ("split_map_rows", len(frozen))):
+            assert bm.get(key, have) == have, f"build_meta.json says {key} = {bm.get(key)}, the files have {have}: the metadata is from another build"
     mapped = df["text_hash"].map(frozen)
     assert mapped.notna().all(), f"{mapped.isna().sum()} messages.csv rows are missing from split_map.csv"
     assert (df["split"] == mapped).all(), "messages.csv doesn't match split_map.csv; rerun build_text.py on the Mac"
     for key in GROUP_KEYS:
+        if key not in df.columns and key in OPTIONAL_KEYS:
+            assert not (df["source"] == POOL_SOURCE).any(), f"messages.csv has {POOL_SOURCE} rows but no {key} column: the pool's template groups cannot be checked"
+            continue
         k = df[key].fillna("").astype(str)
         n = df["split"][k != ""].groupby(k[k != ""]).nunique()
         assert not (n > 1).any(), f"{key}: {(n > 1).sum()} groups straddle splits, e.g. {list(n[n > 1].index[:3])}"
@@ -327,6 +353,7 @@ def main():
     out = Path(args.out or f"models/finetune/{run_name}{'_smoke' if args.smoke else ''}").expanduser().resolve()
     data_dir = Path(args.data_dir).expanduser().resolve()
     guard_inputs([data_dir])   # before anything is created: data/real/ is never an input
+    mask_version, build_meta_sha, _ = read_mask_version(data_dir)   # splits-v3: refuse data whose mask_version is unknown, before anything is created; goes into shield_meta.json
     if args.exclude_source:
         check_loso_args(args)
         srcs = pd.read_csv(data_dir / "messages.csv", usecols=["source", "split", "label"], low_memory=False)
@@ -361,7 +388,8 @@ def main():
     df, aug, adv, data_files, test_hashes = load_data(data_dir, args.aug, args.score_held_out, args.exclude_source)
     log(f"device {device}{f' ({gpu}, compute capability {cap})' if gpu else ''}; precision {precision} "
         f"(requested {args.precision}){'; fp16 GradScaler on' if scaler else ''}")
-    log(f"data {data_dir} -> run {out}")
+    data_files["build_meta.json"] = build_meta_sha
+    log(f"data {data_dir} -> run {out}; mask_version {mask_version} (build_meta.json)")
     log(f"split_map.csv SHA-256 ok (splits-v2); messages.csv matches it row for row; no {'/'.join(GROUP_KEYS)} straddles splits")
     tr, va, te = (df[df["split"] == s] for s in ("train", "val", "test"))   # te is empty unless --score-held-out (or a LOSO fold: only SRC's test rows)
     loso = held_va = held_te = None
@@ -508,6 +536,7 @@ def main():
     meta = {
         "model_name": model_id, "short_name": short,
         "textprep": {"url_token": URL_TOKEN, "max_chars": MAX_CHARS},   # the same key app.py checks on the baseline bundle
+        "mask_version": mask_version,   # the pii.py mask set of the training data: the app masks input with it (shield.messages.text_head); missing would be read as v2
         "split_map_sha256": SPLIT_MAP_SHA256, "data_sha256": data_files,
         "git_commit": commit, "git_dirty": dirty,
         "threshold_suspicious": t_susp, "threshold_likely": t_likely,

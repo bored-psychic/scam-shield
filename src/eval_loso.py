@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np, pandas as pd
 from sklearn.metrics import average_precision_score, f1_score, recall_score, roc_auc_score
 
+import pii
+from gates_v3 import g4_numbers, require_val
 from textprep import URL_TOKEN, MAX_CHARS
 from finetune import SPLIT_MAP_SHA256, LOSO_REFERENCE, LOSO_REFERENCE_PRECISION, LOSO_RULE, LOSO_FOLDS, sha256, split_loso
 
@@ -330,15 +332,65 @@ def write_section(report, body):
     Path(report).write_text(text[:i] + HEADING + "\n\n" + body.rstrip("\n") + "\n\n", encoding="utf-8")   # ends like eval_text_head.py's report
 
 
+# ---------------------------------------------------------------------------------------------------------------- --val-only (splits-v3 gate G4)
+VAL_ONLY_DIR = PREDS / "loso_val_only"
+
+
+def val_only_frame(preds):
+    """The val rows of a fold's predictions_loso.csv. Its test rows (the fold scores the held-out source's val AND test rows) are dropped here, counted and never looked at
+    again; a split other than val / test is an error. Returns (val rows, number of test rows dropped)."""
+    other = sorted(set(preds["split"].astype(str)) - {"val", "test"})
+    if other:
+        raise SystemExit(f"predictions_loso.csv has rows of split {other}; expected val and test only")
+    val = preds[preds["split"].astype(str) == "val"].reset_index(drop=True)
+    return require_val(val, "LOSO predictions (val rows)"), int((preds["split"].astype(str) == "test").sum())
+
+
+def val_only(folds, df, messages_sha, out_dir=VAL_ONLY_DIR, allow_precision_mismatch=False):
+    """Splits-v3 gate G4: for each fold, check it like the full evaluation does (same checks, plus a recorded mask_version), keep its VAL rows only, write them to
+    <out_dir>/<source>/predictions_loso_val.csv (text_hash, split, label, score: what gates_v3.py --loso-val reads) and print genuine accuracy at 0.5, scam recall and
+    AUROC on them. Section 9 of the report and the cache of full fold predictions are not touched, and no test row is scored, written or summarised."""
+    results = {}
+    local_meta = ROOT / "data/final/build_meta.json"
+    for src, folder in folds.items():
+        meta = json.loads((folder / "shield_meta.json").read_text(encoding="utf-8"))
+        preds = pd.read_csv(folder / "predictions_loso.csv")
+        checks = verify_fold(meta, preds, df, messages_sha, allow_precision_mismatch)
+        checks.append(("mask_version recorded in shield_meta.json (a splits-v3 fold)", meta.get("mask_version") in pii.MASK_VERSIONS))
+        if local_meta.exists():
+            checks.append(("mask_version = the local build_meta.json's", meta.get("mask_version") == json.loads(local_meta.read_text(encoding="utf-8")).get("mask_version")))
+        print(f"fold {src} ({folder.name}):")
+        for name, ok in checks:
+            print(f"  [{'ok' if ok else 'FAIL'}] {name}")
+        assert all(ok for _, ok in checks), f"fold check failed for {src}; nothing written"
+        val, n_test = val_only_frame(preds)
+        dest = Path(out_dir) / src
+        dest.mkdir(parents=True, exist_ok=True)
+        val.to_csv(dest / "predictions_loso_val.csv", index=False)
+        r = g4_numbers(val)
+        results[src] = r
+        print(f"  val rows only ({len(val)}; {n_test} test rows in the file were dropped unread): genuine accuracy at 0.5 {r['genuine_accuracy']:.3f}, scam recall {r['scam_recall']:.3f}, "
+              f"AUROC {r['auroc']:.3f} (n {r['n_genuine']} genuine / {r['n_scam']} scam) -> {dest / 'predictions_loso_val.csv'}")
+    return results
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("folds", nargs="*", help="fold folders (default: models/finetune/muril_loso_*, smoke folders skipped)")
+    ap.add_argument("--val-only", action="store_true", help="splits-v3 G4: check the folds, keep their VAL rows only, write them (for gates_v3.py --loso-val) and print the val numbers; "
+                    "does not cache the folds or touch the report, and no test row is used")
+    ap.add_argument("--val-out", type=Path, default=VAL_ONLY_DIR, help="where --val-only writes (default %(default)s)")
     ap.add_argument("--report", type=Path, default=REPORT)
     ap.add_argument("--replace", action="store_true", help="overwrite cached predictions of a fold that already has different ones")
     ap.add_argument("--allow-precision-mismatch", action="store_true", help=f"accept folds whose precision is not the shipped bundle's ({LOSO_REFERENCE_PRECISION}); the report says so")
     a = ap.parse_args()
     df, messages_sha = load_messages()
     folds = find_folds(a.folds)
+    if a.val_only:
+        if not folds:
+            raise SystemExit("--val-only needs at least one fold folder")
+        val_only(folds, df, messages_sha, a.val_out, a.allow_precision_mismatch)
+        return
     if folds:
         update_cache(folds, df, messages_sha, replace=a.replace, allow_precision_mismatch=a.allow_precision_mismatch)
     write_section(a.report, section9_body(df, messages_sha=messages_sha))
