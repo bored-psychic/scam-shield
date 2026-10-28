@@ -17,6 +17,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 # Group counting (the plan says "per group"): a group is a real_group (the intake's template group) for real rows and a template_family for the synthetic UPI family; a group
 # is flagged at a level if ANY of its rows has a calibrated score at or above that level's cut-off (= its maximum score does), the conservative reading: a template the
 # model flags once is a false alarm.
+# G3 rule of 2026-10-29 (plan section 3, rule 4): if the synthetic-vs-real shortcut check (shortcut_checks.synth_vs_real, run inside gate_g3) flags, G3 uses the real collect groups only; < 5 real groups = not measurable.
 # Not built here (plan section 4 "Also reported"): the shortcut checks (<OTP> cue AUROC, length-only AUROC with and without POOL) are sanity_checks.py's job; G-inv exists
 # only if Phase B is "go" on 1 Nov and is listed as not applicable.
 
@@ -160,12 +161,29 @@ def gate_g2(val, models):
     return out
 
 
+def synth_vs_real_check(val):
+    """The synthetic-vs-real shortcut check of shortcut_checks.py (plan section 3) on these val rows: (status, flagged cues, note). status: 'flagged' (some cue at strength >= 0.70),
+    'not flagged', 'not measurable' (too few rows on a side) or 'family off' (no synth_upi_collect_v3 rows). Same text as the shortcut checks read: textprep.model_text."""
+    import shortcut_checks
+    from textprep import model_text
+    df, note = shortcut_checks.synth_vs_real(val.assign(text=val["text"].map(model_text)))
+    if df is None:
+        return "family off", [], note
+    if df["flag"].any():
+        return "flagged", df[df["flag"]]["cue"].tolist(), note
+    return ("not measurable" if df["AUROC"].isna().all() else "not flagged"), [], note
+
+
 def gate_g3(val, models):
-    """G3 UPI collect: genuine collect-request groups, Likely scam <= 10 % of groups, for the real proxy (POOL-val, regex) and the synthetic family, each if it has >= 5 groups."""
+    """G3 UPI collect: genuine collect-request groups, Likely scam <= 10 % of groups, for the real proxy (POOL-val, regex) and the synthetic family, each if it has >= 5 groups.
+    Pre-registered 2026-10-29 (plan section 3): if the synthetic-vs-real shortcut check flags (strength >= 0.70 on any cue), the synthetic family is no longer a stand-in for the real
+    collect requests, so G3 is computed on the real collect groups only (the synthetic result is still reported, not gated); with fewer than 5 real groups G3 is "not measurable"."""
     real_rows = (val["source"] == POOL_SOURCE) & (val["label"] == 0) & val["text"].map(lambda t: bool(COLLECT_RX.search(str(t))))
     syn_rows = val["source"] == SYNTH_UPI_SOURCE
     proxies = {"real (POOL-val collect-request alerts)": (real_rows, val["real_group"]), "synthetic (synth_upi_collect_v3 families)": (syn_rows, val["template_family"])}
-    out = {"gate": "G3", "name": "UPI collect", "blocking": True, "proxies": {}}
+    sv_status, sv_cues, sv_note = synth_vs_real_check(val)
+    real_only = sv_status == "flagged"
+    out = {"gate": "G3", "name": "UPI collect", "blocking": True, "proxies": {}, "synth_vs_real": {"status": sv_status, "cues": sv_cues, "note": sv_note}, "real_only": real_only}
     existing = []
     for pname, (rows, groups) in proxies.items():
         n = groups[rows].nunique()
@@ -174,19 +192,28 @@ def gate_g3(val, models):
             k, n_ = group_rate(m.likely()[rows], groups[rows])
             res["models"][m.name] = {"likely": k, "n": n_}
         out["proxies"][pname] = res
-        if n >= G3_MIN_GROUPS:
+        if n >= G3_MIN_GROUPS and not (real_only and pname.startswith("synthetic")):
             existing.append(pname)
     v3_ok = lambda p: "v3" in out["proxies"][p]["models"] and out["proxies"][p]["models"]["v3"]["likely"] / out["proxies"][p]["n_groups"] <= G3_LIKELY_MAX
+    sv_text = f"synthetic-vs-real check: {sv_status}" + (f" ({', '.join(sv_cues)})" if sv_cues else "")
     if not existing:
         out["status"] = NOT_MEASURABLE
-        out["why"] = "neither proxy has >= %d groups (%s); the gate blocks" % (G3_MIN_GROUPS, ", ".join(f"{p.split(' (')[0]} {out['proxies'][p]['n_groups']}" for p in out["proxies"]))
+        counts = ", ".join(f"{p.split(' (')[0]} {out['proxies'][p]['n_groups']}" for p in out["proxies"])
+        out["why"] = (f"{sv_text}: G3 is computed on real collect groups only and there are {out['proxies'][next(iter(proxies))]['n_groups']} < {G3_MIN_GROUPS}; the gate blocks"
+                      if real_only else f"neither proxy has >= {G3_MIN_GROUPS} groups ({counts}); the gate blocks")
         return out
     bad = [p for p in existing if not v3_ok(p)]
     out["status"] = FAIL if bad else PASS
     out["why"] = "; ".join(f"{p.split(' (')[0]}: v3 Likely scam {level_text(out['proxies'][p]['models']['v3']['likely'], out['proxies'][p]['n_groups'])} (pass if <= {G3_LIKELY_MAX:.0%})" for p in existing)
-    skipped = [p.split(' (')[0] for p in out["proxies"] if p not in existing]
-    if skipped:
-        out["why"] += f"; {', '.join(skipped)} has < {G3_MIN_GROUPS} groups and is not gated"
+    if real_only:
+        syn = out["proxies"]["synthetic (synth_upi_collect_v3 families)"]
+        out["why"] += f"; {sv_text}, so real collect groups only (synthetic reported, not gated: {syn['n_groups']} groups)"
+    else:
+        skipped = [p.split(' (')[0] for p in out["proxies"] if p not in existing]
+        if skipped:
+            out["why"] += f"; {', '.join(skipped)} has < {G3_MIN_GROUPS} groups and is not gated"
+        if sv_status in ("not measurable", "family off") and "synthetic" in out["why"].split("; ")[0]:
+            out["why"] += f"; {sv_text}"
     return out
 
 
@@ -296,6 +323,9 @@ def render(gates, extra_lines, models, val):
     L += ["", "G3 (Likely scam among genuine collect-request groups):"]
     for pname, r in gates[2]["proxies"].items():
         L.append(f"- {pname}, {r['n_groups']} groups: " + "; ".join(f"{n} {level_text(x['likely'], x['n'])}" for n, x in r["models"].items()))
+    g3 = gates[2]
+    L.append(f"- synthetic-vs-real shortcut check: {g3['synth_vs_real']['status']}" + (f" ({', '.join(g3['synth_vs_real']['cues'])})" if g3["synth_vs_real"]["cues"] else "")
+             + (f"; {g3['synth_vs_real']['note']}" if g3["synth_vs_real"]["note"] else "") + ("; **G3 computed on real collect groups only**" if g3["real_only"] else ""))
     L += ["", "G5 (v2-core val genuine flagged at least Suspicious):"]
     for name, k in gates[4]["flagged"].items():
         L.append(f"- {name}: {k}/{gates[4]['n_genuine']} = {k / gates[4]['n_genuine']:.2%}")

@@ -142,7 +142,7 @@ def synth_vs_real(val):
     syn = val["source"] == SYNTH_UPI_SOURCE
     if not syn.any():
         return None, "the synthetic UPI collect family is not in this build: not checked"
-    real = (val["source"] == POOL_SOURCE) & val["text"].str.contains(COLLECT_RX)
+    real = (val["source"] == POOL_SOURCE) & (val["label"] == 0) & val["text"].str.contains(COLLECT_RX)   # genuine, as the synthetic family and gates_v3.gate_g3
     sel = syn | real
     X = cue_frame(val)
     rows = [auroc_row(X.loc[sel, c], syn[sel].astype(int), c, "synthetic family vs real collect rows", MIN_SYNTH_REAL) for c in X.columns]

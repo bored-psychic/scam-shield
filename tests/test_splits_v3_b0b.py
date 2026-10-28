@@ -461,6 +461,44 @@ def b8(tmp):
     r, *_ = run(v3={}, shipped={}, baseline={}, val_=only_syn)
     if r["G3"]["status"] != gates_v3.PASS or "not gated" not in r["G3"]["why"]:
         bad.append(f"G3 with only the synthetic proxy should pass on it alone and say the other is not gated: {r['G3']['status']} {r['G3']['why']}")
+    # ---- G3 rule of 2026-10-29: if the synthetic-vs-real shortcut check flags (>= 0.70), G3 is computed on real collect groups only; < 5 real groups -> not measurable
+    def sv_val(n_real_groups, rows_per_real_group, same_text):
+        v = invented_val(n_syn=12)   # 12 synthetic families (12 rows: the check needs >= 10 per side)
+        syn_text = "You have a collect request of Rs <ACCOUNT> from <NAME>" if same_text else "Collect request demo <UPI_ID> sample"
+        v.loc[v["source"] == "synth_upi_collect_v3", "text"] = syn_text
+        keep = v[~v["real_group"].str.startswith("collect") | (v["real_group"].str[len("collect"):].pipe(pd.to_numeric, errors="coerce") < n_real_groups)]
+        extra = keep[keep["real_group"].str.startswith("collect")]
+        rep = pd.concat([extra] * (rows_per_real_group - 1)) if rows_per_real_group > 1 else extra.iloc[0:0]
+        out_ = pd.concat([keep, rep], ignore_index=True)
+        out_["text_hash"] = [f"v{i}" for i in range(len(out_))]
+        rng_ = np.random.default_rng(4)
+        both = out_["source"].eq("synth_upi_collect_v3") | out_["real_group"].str.startswith("collect")
+        out_.loc[both, "text"] = [t + " " + "x" * int(rng_.integers(0, 25)) for t in out_.loc[both, "text"]]   # a length independent of the group, per row (identical texts would make every cue constant)
+        return out_
+    for label, nrg, rpg, same, want_flag in (("12 real groups, different text", 12, 1, False, True), ("4 real groups x 3 rows, different text", 4, 3, False, True),
+                                             ("4 real groups x 3 rows, same text", 4, 3, True, False)):
+        v_ = sv_val(nrg, rpg, same)
+        syn_idx = v_.index[v_["source"] == "synth_upi_collect_v3"]
+        sc_ = {i: HIGH for i in syn_idx[:6]}   # half the synthetic families at Likely: 50 % fails G3 if the synthetic proxy is gated
+        r, *_ = run(v3=sc_, shipped={}, baseline={}, val_=v_)
+        g3 = r["G3"]
+        flagged = g3["synth_vs_real"]["status"] == "flagged"
+        if flagged != want_flag:
+            bad.append(f"G3 [{label}]: synthetic-vs-real check status {g3['synth_vs_real']['status']!r}, wanted {'flagged' if want_flag else 'not flagged'}")
+            continue
+        if want_flag and nrg >= 5:
+            if g3["status"] != gates_v3.PASS or not g3["real_only"] or "real collect groups only" not in g3["why"]:
+                bad.append(f"G3 [{label}]: flagged, 12 real groups clean, half the synthetic groups at Likely: want PASS on real only, got {g3['status']}: {g3['why']}")
+            sc2 = {**sc_, **{i: HIGH for i in v_.loc[v_["real_group"].str.startswith("collect")].groupby("real_group").head(1).index[:2]}}
+            r2, *_ = run(v3=sc2, shipped={}, baseline={}, val_=v_)
+            if r2["G3"]["status"] != gates_v3.FAIL:
+                bad.append(f"G3 [{label}]: flagged, 2 of 12 real groups at Likely: want FAIL on real only: {r2['G3']['status']}")
+        if want_flag and nrg < 5:
+            if g3["status"] != gates_v3.NOT_MEASURABLE or "real collect groups only" not in g3["why"]:
+                bad.append(f"G3 [{label}]: flagged and < 5 real groups: want not measurable although the synthetic family has 12 groups: {g3['status']}: {g3['why']}")
+        if not want_flag:   # check ran, no flag: the old rule, the synthetic family alone is gated (and fails at 50 % Likely)
+            if g3["real_only"] or g3["status"] != gates_v3.FAIL or g3["synth_vs_real"]["status"] != "not flagged":
+                bad.append(f"G3 [{label}]: not flagged, synthetic family alone at 50 % Likely: want the old rule (FAIL on the synthetic proxy): {g3}")
     # ---- G4
     r, *_ = run(v3={}, shipped={}, baseline=one_flag_baseline, loso_=None)
     if r["G4"]["status"] != gates_v3.NOT_MEASURABLE:
@@ -612,7 +650,7 @@ CHECKS = [("B1", "company_key: name rule, guards, one/several/none/ambiguous, st
           ("B5", "real_group in assert_no_leakage, pool.straddles, finetune.GROUP_KEYS", b5),
           ("B6", "finetune: mask_version required and recorded; real_group and stale build_meta caught in load_data", b6),
           ("B7", "synth_upi_collect: 8 families, label 0, synthetic, 5 val / 3 train, never test, no near-duplicates", b7),
-          ("B8", "gates_v3: pass / fail / not measurable for G1-G5, test rows refused, val-only loader, CLI", b8),
+          ("B8", "gates_v3: pass / fail / not measurable for G1-G5 (G3 real-only rule when synthetic-vs-real flags), test rows refused, val-only loader, CLI", b8),
           ("B9", "eval_loso --val-only: test rows dropped unread, v2 fold numbers reproduce", b9),
           ("B10", "(opt-in B0B_E2E=1) build_text.py on an invented pool: ledger, 0 straddles, 0 pool rows in test", b10)]
 

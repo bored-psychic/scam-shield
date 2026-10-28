@@ -268,6 +268,14 @@ comparison; below that the row is "too few rows" and never flags). The numbers w
    flag of that cue is then a BLOCKER (not only the line for the SMS-type source), and the line names the source(s) that triggered it.
 3. The **known splits-v2 label shortcuts** are **REPORT only, listed as known**: length in `uci_sms_spam`, `scam_ham_india`, `scam_dialogue`, `india_fraud_final`; `<URL>` in `scam_ham_india`.
 
+4. **Synthetic-vs-real flag changes G3 (added 2026-10-29, same pre-registration, before the real pool build).** If the synthetic-vs-real check flags (any cue at strength >= 0.70, >= 10 rows on each side:
+   `synth_upi_collect_v3` val rows against genuine real collect-request val rows of the pool), the synthetic family is no longer a stand-in for real collect requests, so **G3 is computed on the real collect
+   groups only**: the synthetic result is still reported but not gated, and if the real collect groups are **fewer than G3's minimum (5)**, **G3 = "not measurable"** (which blocks), even if the synthetic
+   family has enough groups and passes. `gates_v3.gate_g3` runs the same check on the val rows it is given (text as `textprep.model_text`) and prints the check's status and cues in the G3 line. If the check is
+   not flagged, G3 is unchanged (each proxy with >= 5 groups is gated). If the check cannot run (fewer than 10 rows on a side, or the family is off) it cannot flag, so G3 is also unchanged: a synthetic family that
+   passes alone can still carry G3 when the real side is thin; the report prints "synthetic-vs-real check: not measurable" next to it so the 2 Nov review sees that. Tests: `tests/test_splits_v3_b0b.py` B8.
+   The check's real rows are now genuine only (label 0), as G3's own real proxy and the comment already said.
+
 Not covered by these three rules, so printed as REPORT and marked ("not on the known v2 list" / "no rule covers this one"): any other label-cue flag, and any synthetic-vs-real flag. A new label
 shortcut or a synthetic-vs-real flag therefore never blocks by itself; the 2 Nov review (section 5) reads them.
 
@@ -291,7 +299,7 @@ reported beside it, never gated.
 |---|---|---|---|---|
 | **G1 Indian genuine alerts** | POOL-val alerts, per group, at the v3 cut-offs | n >= 39 groups (`data_acquisition.md` section 2, +-15 points) **and** at least Suspicious <= 10 % of groups (D5 ship gate) **and** Likely scam <= 2 % of groups. Report Wilson 95 % upper bounds and D5's targets (5 % / 1 %) | re-scored on the same rows, reported | yes |
 | **G2 no regression** | v2-core val, F1 at each model's own val-chosen Likely cut-off | v3 >= shipped (re-scored on v3 text) **- 0.005** (the D27 rule's tolerance: 0.946 = 0.951 - 0.005). Shipped on v2 text: 0.9514 (`reports/eval_muril_v2.md` section 1) | 0.9514 | yes |
-| **G3 UPI collect** | UPI-collect proxy, per group | Likely scam <= 10 % of groups, real and synthetic each (whichever exists; if neither has >= 5 groups, G3 is "not measurable" and blocks) | re-scored, reported | yes |
+| **G3 UPI collect** (rule 4 of the section 3 pre-registration, 2026-10-29: if the synthetic-vs-real check flags, real groups only, < 5 real groups = not measurable) | UPI-collect proxy, per group | Likely scam <= 10 % of groups, real and synthetic each (whichever exists; if neither has >= 5 groups, G3 is "not measurable" and blocks) | re-scored, reported | yes |
 | **G4 LOSO `india_fraud_final`** | one fold, v3 data, cluster-strict rule; **its 350 val rows only** (195 genuine / 155 scam) | "improved" = genuine accuracy at 0.5 >= 0.30 **and** val AUROC >= 0.828. v2 fold, same rows: genuine accuracy 0.149, scam recall 0.961, val AUROC 0.828 (computed from the cached `predictions_loso.csv`, val rows only) | 0.149 / 0.828 | **no** (report-only, decided by the user 2026-10-27) |
 | **G5 flag policy** | v2-core val genuine, at least Suspicious | v3 MuRIL <= the v3 TF-IDF baseline refit (D27 Suspicious flag policy) | MuRIL 1.56 % vs baseline 4.06 % on v2 (D27) | yes |
 | **G-inv** (only if Phase B "go") | investment val rows, per group | genuine at least Suspicious <= 10 % **and** scam recall >= 0.80 (investment plan section 6, condition 1 thresholds) | reported | yes |
