@@ -100,8 +100,11 @@ def load_rows(path):
     with open(path, encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
 
-def score_rows(rows, live):
-    """{head: (flags, text scores, not-judged count)} through the full router (shield.core.router.analyse) for each text head."""
+def score_rows(rows, live, heads=None):
+    """{head: (flags, text scores, not-judged count)} through the full router (shield.core.router.analyse) for each text head.
+    The rows are intake-masked text (the intake's masks, not the model's): the router masks every input with the head's own mask_version
+    (textprep.model_text), so a v3 bundle sees the v3 masks on top of the intake's and a v2 bundle the v2 ones; tests/test_masks.py M8.
+    `heads` replaces the two shipped heads (tests only)."""
     from shield import config
     from shield.core import router
     from shield.links.gambling import load_gambling
@@ -114,7 +117,8 @@ def score_rows(rows, live):
     load_gambling()
     warm_lists()
     url_model = load_url_model()
-    heads = {"MuRIL": MurilScorer(config.MURIL_DIR, config.TEXT_DEVICE), "baseline": load_baseline()}
+    if heads is None:
+        heads = {"MuRIL": MurilScorer(config.MURIL_DIR, config.TEXT_DEVICE), "baseline": load_baseline()}
     out = {}
     for name, head in heads.items():
         flags, scores, unjudged = [], [], 0

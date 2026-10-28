@@ -12,9 +12,10 @@ import pii
 #       intake patterns and word lists have the frozen digest
 #   M4  MASKS_V3 cases: greeting names, ALL-CAPS payers on SMS-type channels only, glued account numbers, OTP / card / tails; and what must NOT be masked
 #       (brands, months, places that are also words, "MS Office", "hi how are you", job-post headings, ordinary numbers)
-#   M5  MASKS_V3 properties on the golden strings: idempotent; hides at least what v2 hid; leaves intake-masked text alone unless a name rule fires
+#   M5  MASKS_V3 properties on the golden strings: idempotent (v3(v3(x)) == v3(x), also on intake-masked text); hides at least what v2 hid; changes intake-masked text only by a name or OTP rule
 #   M6  the app follows the bundle: model_text and router.analyse use the head's mask_version (missing = v2), an unknown one is refused, the shipped heads declare v2
 #   M7  build_text.py takes --mask-version (v2 / v3 only) and --out-dir; a bad version stops before anything is built or written
+#   M8  eval_real.py (and the router under it) applies the bundle's mask set on top of the intake-masked real-message text: a v3 head sees the English OTP the intake left, a v2 head does not
 
 V2_PATTERN_DIGEST = "04da81e6fb42b362e1ef30db57cc10891fc003b942154b98944d71c7d29b73c7"
 INTAKE_DIGEST = "be3a9ca0e6428695774932628d04b245e18fc39f461c459dd5a7aa546857dd52"
@@ -86,6 +87,13 @@ V3_CASES = [
     # ALL-CAPS payers: SMS-type channels, and the app (no channel); not mail, calls, job posts
     ("Received Rs 500 from SURESH on 12 Jan", "sms", "Received Rs 500 from <NAME> on 12 Jan"),
     ("paid to RENU KUMAR today.", "whatsapp", "paid to <NAME> today."),
+    ("Credited by RENU R KUMAR on 12 Mar", "sms", "Credited by <NAME> on 12 Mar"),   # one run, initials included
+    ("Paid to K SURESH KUMAR via UPI", "sms", "Paid to <NAME> via UPI"),
+    ("Rs 10 from A. B. RAO SHETTY today", "sms", "Rs 10 from <NAME> today"),
+    ("received from AMIT I will pay", "sms", "received from <NAME> I will pay"),   # an initial without a dot may not end the run; "I" / "A" are words
+    ("from A TO Z", "sms", "from A TO Z"),
+    ("sent to AMIT TO PAY", "sms", "sent to <NAME> TO PAY"),   # a 2-letter token ends the run
+    ("from RENU R KUMAR PAYTM", "sms", "from RENU R KUMAR PAYTM"),   # a stoplisted word in the run leaves the run alone
     ("credited by RAMESH.", None, "credited by <NAME>."),
     ("Received Rs 500 from SURESH on 12 Jan", "email", "Received Rs 500 from SURESH on 12 Jan"),
     ("Received Rs 500 from SURESH on 12 Jan", "email_or_sms", "Received Rs 500 from SURESH on 12 Jan"),   # copies of mail rows must mask like the mail rows (dedupe)
@@ -93,6 +101,13 @@ V3_CASES = [
     ("Received Rs 500 from SURESH on 12 Jan", "call", "Received Rs 500 from SURESH on 12 Jan"),
     # numbers: the intake's, glued ones included
     ("Your OTP is 482913. 123456 is your verification code", "sms", "Your OTP is <OTP>. <OTP> is your verification code"),
+    ("Your OTP for Grapevine is 919157", "sms", "Your OTP for Grapevine is <OTP>"),   # the keyword with the number further on (v3 only)
+    ("Your OTP for txn of Rs.500.00 at AMAZON PAY INDIA is 123456. Do not share", "sms", "Your OTP for txn of Rs.500.00 at AMAZON PAY INDIA is <OTP>. Do not share"),
+    ("One time password for login is 887766", "sms", "One time password for login is <OTP>"),
+    ("verification code : 998877 expires soon", "sms", "verification code : <OTP> expires soon"),
+    ("OTP: 4521 valid. Ref is 123456", "sms", "OTP: <OTP> valid. Ref is 123456"),   # the gap stops at a sentence end
+    ("OTP will expire in 10 min. Balance is 123456", "sms", "OTP will expire in 10 min. Balance is 123456"),
+    ("Your OTP is shared by nobody, total is 1500.50", "sms", "Your OTP is shared by nobody, total is 1500.50"),   # not a 4-8 digit run on its own (decimal)
     ("A/c XX1234 debited. Card ending 4455. a/c no. 12345", "sms", "A/c XX<ACCOUNT> debited. Card ending <ACCOUNT>. a/c no. <ACCOUNT>"),
     ("card 1234 5678 9012 3456 used", "sms", "card <ACCOUNT> used"),
     ("txn FMPIB1234567890 done", "sms", "txn FMPIB<ACCOUNT> done"),
@@ -133,11 +148,13 @@ def m5():
                     bad.append(f"v3 is not idempotent on {key}[{i}] ({ch})")
                 if pii.MASKS_V2(once) != once:
                     bad.append(f"v3 hides less than v2 on {key}[{i}] ({ch}): the v2 masks still change its output")
-    for i, (a, b) in enumerate(GOLDEN["intake_v1"]):   # b = intake_real.mask(a): v3 leaves it alone unless a name rule (which intake_real only suggests) fires
+    for i, (a, b) in enumerate(GOLDEN["intake_v1"]):   # b = intake_real.mask(a), i.e. POOL text: v3 is idempotent on it, and changes it only by a name rule or the widened OTP rule
         k = set()
         out = V3(b, channel="sms", kinds=k)
-        if out != b.replace("<UPI>", "<UPI_ID>") and not k & {"greeting_name", "caps_name"}:   # (v2 and v3 unify web_scams' <UPI> tag; the intake does not)
-            bad.append(f"v3 changes intake-masked golden string {i} without a name rule")
+        if V3(out, channel="sms") != out:
+            bad.append(f"v3 is not idempotent on intake-masked golden string {i}")
+        if out != b.replace("<UPI>", "<UPI_ID>") and not k & {"greeting_name", "caps_name", "otp"}:   # (v2 and v3 unify web_scams' <UPI> tag; the intake does not)
+            bad.append(f"v3 changes intake-masked golden string {i} without a name or OTP rule")
     return bad
 
 class Head:
@@ -208,13 +225,37 @@ def m7():
             bad.append("--help does not list the flags")
     return bad
 
+def m8():
+    """splits-v3 D-v3.5: real_test_v1 / POOL text is intake-masked; a v3 bundle must see it with the v3 masks on top (a v2 bundle exactly as it is)."""
+    import eval_real
+    from intake_real import mask as intake_mask
+    bad = []
+    raw = "Hey Rahul, your OTP for Grapevine is 919157. Received Rs 500 from RENU R KUMAR, a/c no. 123456789012."
+    pool = intake_mask(raw)   # what a POOL / TEST row holds
+    if "<OTP>" in pool or "919157" not in pool:
+        bad.append(f"fixture is wrong: the intake now masks the English OTP form: {pool!r}")
+    rows = [{"text": pool}]
+    heads = {"v3": Head("v3"), "v2": Head("v2"), "none": Head()}
+    eval_real.score_rows(rows, False, heads=heads)
+    from textprep import model_text
+    for k, h in heads.items():
+        want = model_text(pool, mask_pii=True, mask_version="v3" if k == "v3" else "v2")
+        if len(h.seen) != 1 or h.seen[0] != want:
+            bad.append(f"eval_real fed the {k} head {h.seen!r}, expected the {k} masks on top of the intake text")
+        if k == "v3" and h.seen and ("919157" in h.seen[0] or "<OTP>" not in h.seen[0]):
+            bad.append(f"the v3 head still sees the OTP: {h.seen[0]!r}")
+        if k != "v3" and h.seen and "919157" not in h.seen[0]:
+            bad.append(f"the {k} head must see the text as the v2 masks leave it: {h.seen[0]!r}")
+    return bad
+
 CHECKS = [("M1", "MASKS_V2 frozen: pattern digest, 140 golden strings, defaults, mask_version strings", m1),
           ("M2", "MASKS_V2 byte-identical to the pre-B0a pii.py on every row of messages.csv (digest only)", m2),
           ("M3", "MASKS_INTAKE_V1 frozen and pinned: golden strings with / without names, digest, intake_real aliases", m3),
           ("M4", f"MASKS_V3 cases ({len(V3_CASES)}): names, ALL-CAPS payers by channel, glued numbers; brands, months, MS Office, hi how are you not masked", m4),
-          ("M5", "MASKS_V3 properties: idempotent, hides at least what v2 hid, leaves intake-masked text alone unless a name rule fires", m5),
+          ("M5", "MASKS_V3 properties: idempotent (also on intake text), hides at least what v2 hid, changes intake text only by a name or OTP rule", m5),
           ("M6", "the app masks input by the head's mask_version (missing = v2); unknown refused; shipped head is v2", m6),
-          ("M7", "build_text.py --mask-version / --out-dir: v2 / v3 only, a bad version stops first", m7)]
+          ("M7", "build_text.py --mask-version / --out-dir: v2 / v3 only, a bad version stops first", m7),
+          ("M8", "eval_real applies the head's mask set on top of intake-masked text (v3 head sees the English OTP masked, v2 head does not)", m8)]
 
 def results():
     return [(cid, what, fn()) for cid, what, fn in CHECKS]

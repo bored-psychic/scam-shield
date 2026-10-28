@@ -229,6 +229,13 @@ else:
         masked.append(mask_fn(t, channel=ch, kinds=k))
         kinds_of.append(k)
     df["text"] = pd.Series(masked, index=df.index)
+    # splits-v3 D-v3.1 / D-v3.5: the masks are idempotent, v3(v3(x)) == v3(x), so a POOL row the intake masked (or a stored row) goes through them again unchanged.
+    # A row the masks did not change is a fixed point already; only the changed rows can differ.
+    ch_rows = (df["text"] != unmasked).to_numpy()
+    again = [mask_fn(t, channel=ch) for t, ch in zip(df["text"][ch_rows], df["channel"][ch_rows])]
+    not_idem = int(sum(a != b for a, b in zip(again, df["text"][ch_rows])))
+    assert not_idem == 0, f"STOP: the {ARGS.mask_version} masks are not idempotent on {not_idem} of {int(ch_rows.sum())} changed rows"
+    print(f"{ARGS.mask_version} masks idempotent on all {int(ch_rows.sum())} rows they change")
     # splits-v3 D-v3.5: the masks change a translation only where they change its English parent the same way
     chg = is_tr & (df["text"] != unmasked)
     kinds_s = pd.Series(kinds_of, index=df.index)   # df's index has gaps (the length filter above does not reset it)

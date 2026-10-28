@@ -66,6 +66,17 @@ CARD_RX = re.compile(r"\b(?:\d{4}[ -]){3}\d{4}\b")
 OTP_RX = re.compile(r"(?i)\b(otp|code|pin|password)\b(?:\W{0,3}\b(?:is|was|number|no|code)\b){0,2}\W{0,5}(\d{4,8})\b")
 # the code before its keyword: "482913 is your OTP", "123456 is the verification code", "Use 5566 as your login code"
 OTP_BEFORE_RX = re.compile(r"(?i)\b\d{4,8}\b(?=\s*(?:is|as|are|was)\s+(?:your|the|an?|ur|my)?\s*[^.\d]{0,30}?\b(?:otp|code|pin|passcode|password)\b)")
+# v3 only (intake-v1 stays as it was): an OTP keyword with the number further on, "OTP for Grapevine is 919157", "your OTP for txn of Rs 500 at X is 1234". The keyword
+# set is the strong one (a bare "code" / "pin" / "password" is OTP_RX's, which needs the number right after it); the gap stops at a sentence end ('.' followed by a space)
+# and is at most 60 characters; the number is the 4-8 digit run after is / are / was / ':' / '=' and is not a decimal.
+OTP_NEAR_RX = re.compile(r"(?i)\b(?:otp|passcode|one[- ]time\s+(?:password|passcode|pin|code)|(?:verification|security|login|auth\w*|transaction|confirmation)\s+code)\b"
+                         r"(?:[^.\n]|\.(?=\S)){0,60}?(?:\b(?:is|are|was)\b|[:=])\s*\W{0,3}?(\d{4,8})\b(?![.,]\d)")
+# v3 copies of the two keyword rules that must not read the keyword inside a mask token: "<OTP>" holds the word OTP, so a second pass over "code + <OTP>\n52098236" masked the
+# next number (v3 is idempotent, v3(v3(x)) == v3(x); the intake's OTP_RX, pinned, has this flaw). Same pattern text otherwise.
+OTP_RX_V3 = re.compile(r"(?i)(?<!<)" + OTP_RX.pattern[len("(?i)"):])
+OTP_NEAR_RX = re.compile(r"(?i)(?<!<)" + OTP_NEAR_RX.pattern[len("(?i)"):])
+def _otp_near(t):
+    return OTP_NEAR_RX.sub(lambda m: m.group(0)[: m.start(1) - m.start(0)] + "<OTP>", t)
 # any run of 9+ digits left after the other masks, glued to letters or inside a link included: the v2 masks need word boundaries and stop at
 # 18 digits, so a 21-digit transaction id and order / tracking ids like FMPIB1234567890 got through
 LONG_RX = re.compile(r"\d{9,}")
@@ -183,12 +194,27 @@ DUNZO MEESHO NYKAA BLINKIT ZEPTO DOMINOS PIZZA LENSKART TATA RELIANCE INFOSYS WI
 INR RS XXXX XXXXX CBI NIA RBI SEBI TRAI UIDAI IRDAI NPCI EPFO ED ITR GST IRCTC RTO DOT NCB BESCOM MSEDCL BSES PSPCL TPDDL TNEB KSEB MSEB CESC BEST AWS EOD BVN CBN
 """.split())
 
+# The payer / payee rule (v3): after from / to / by / paid to ... a run of up to 4 ALL-CAPS tokens, initials included ("RENU R KUMAR" is one <NAME>). A token is 3+
+# capitals or an initial (one capital, with or without a dot); a 2-letter token ("TO", "IN", "ON") ends the run, an initial without a dot may not end it ("AMIT I will pay"),
+# and "A" / "I" without a dot are the English words, not initials. One 3+ token on a stoplist (COMMON, ACRONYMS, CAPS_NOT_NAMES_V3) anywhere in the run leaves the run alone.
+CAPS_NAME_RX_V3 = re.compile(r"\b(?i:from|to|by|paid to|sent to|received from|credited by|beneficiary|payee)\s+([A-Z]+\.{0,2}(?:\s+[A-Z]+\.{0,2}){0,3})(?![A-Za-z])")
+
 def _caps_name(m):
-    phrase = m.group(1).rstrip(".")
-    words = phrase.split()
-    if any(w.title() in COMMON for w in words) or set(words) & ACRONYMS or set(words) & CAPS_NOT_NAMES_V3:
+    keep = []
+    for t in re.finditer(r"[A-Z]+\.{0,2}", m.group(1)):
+        core = t.group(0).rstrip(".")
+        if len(core) == 2 or (len(core) == 1 and core in "AI" and t.group(0) == core):
+            break
+        keep.append(t)
+    while keep and len(keep[-1].group(0).rstrip(".")) == 1 and keep[-1].group(0) == keep[-1].group(0).rstrip("."):
+        keep.pop()
+    words = [t.group(0).rstrip(".") for t in keep]
+    if not any(len(w) >= 3 for w in words):
         return None
-    return phrase, m.group(1)[len(phrase):]
+    if any(len(w) >= 3 and (w.title() in COMMON or w in ACRONYMS or w in CAPS_NOT_NAMES_V3) for w in words):
+        return None
+    end = keep[-1].start() + len(keep[-1].group(0).rstrip("."))   # the dots after the last token stay (a sentence end)
+    return m.group(1)[:end], m.group(1)[end:]
 
 def _mask_names_v3(t, channel, kinds):
     def greeting(m):
@@ -205,7 +231,7 @@ def _mask_names_v3(t, channel, kinds):
             if hit is None:
                 return m.group(0)
             return m.group(0)[: m.start(1) - m.start(0)] + "<NAME>" + hit[1]
-        new = CAPS_NAME_RX.sub(caps, t)
+        new = CAPS_NAME_RX_V3.sub(caps, t)
         if kinds is not None and new != t:
             kinds.add("caps_name")
         t = new
@@ -226,8 +252,9 @@ def _mask_v3(text, channel=None, kinds=None):
     t, urls = protect_urls(t)
     t = _mask_names_v3(t, channel, kinds)
     t = step(t, CARD_RX.sub("<ACCOUNT>", t), "card")
-    t = step(t, OTP_RX.sub(lambda m: m.group(0)[: m.start(2) - m.start(0)] + "<OTP>", t), "otp")
+    t = step(t, OTP_RX_V3.sub(lambda m: m.group(0)[: m.start(2) - m.start(0)] + "<OTP>", t), "otp")
     t = step(t, OTP_BEFORE_RX.sub("<OTP>", t), "otp")
+    t = step(t, _otp_near(t), "otp")
     t = step(t, ACCT_TAIL_RX.sub(lambda m: m.group(1) + "<ACCOUNT>", t), "acct_tail")
     t = step(t, XX_TAIL_RX.sub("<ACCOUNT>", t), "acct_tail")
     for pat, tok in NUMBER_MASKS:

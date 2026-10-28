@@ -68,7 +68,7 @@ Each: **recommendation**, the alternative, what it costs, and what you decide.
 - Groups labelled after the freeze (bucket 4, labelled by you between 31 Oct and the build) are POOL rows like the others and follow the same
   rule. Labelling more `kyc-bank` / `delivery` groups before 1 Nov is the cheapest way to make the val gate (G1) measurable.
 - Asserts (rule 2): no `real_group` in two splits; no POOL row in test; every POOL row's `text_hash` absent from the real TEST keys (realguard);
-  the v3 masks change no POOL text (D-v3.5); the intake's freeze manifest exists (the pool is post-freeze).
+  the v3 masks are idempotent, v3(v3(x)) == v3(x) (checked by `build_text.py` on every row it changes), so a POOL row goes through them again unchanged except where a v3-only rule fires (greeting name, widened OTP, ALL-CAPS payer; D-v3.5); the intake's freeze manifest exists (the pool is post-freeze).
 
 **Alternative:** 30 % val / 70 % train. More training signal (~230 genuine groups), but val falls to ~100 groups, below D5's 150 for a 5 %
 target (D5 1.4) and only just above the 75 needed to show <= 5 % with zero false alarms.
@@ -155,7 +155,12 @@ masking itself isn't a label signal").
   BUGS.md said a fix "needs a rule that tells an account number from a reference number": this plan chooses not to tell them apart).
 - **Names:** intake's greeting rule (`GREETING_NAME_RX`, a word after hey / hi / dear / ... that is not in `NOT_NAMES` -> `<NAME>`) on every
   source; intake's ALL-CAPS payer rule (`CAPS_NAME_RX`, "from RENU R ...") on SMS-type channels only (sms, whatsapp, telegram, app, chat,
-  email_or_sms, other), because on job posts and call transcripts it mostly hits headings (918 and 502 hits below).
+  other; **not** email_or_sms, decided 2026-10-28: ealvaradob_phishing copies phishing_email rows, a channel-dependent mask un-merges the dedupe), because on job posts and call transcripts it
+  mostly hits headings (918 and 502 hits below). **Decided 2026-10-28 (B0a follow-up):** the rule masks a whole run of up to 4 ALL-CAPS tokens, single-letter initials included
+  ("RENU R KUMAR" -> one `<NAME>`); and v3's OTP rule is widened to the English form with the number further on ("OTP for X is 919157", one-time password / verification code ... is N),
+  v3 only (the intake stays pinned). The dedupe and label-conflict checks use the v2 hash first, so v3 never un-merges what v2 merged.
+- **Evaluation of a v3 bundle on intake-masked text:** `real_test_v1.csv` and the POOL are intake-masked, not v3-masked. Any evaluation of a v3 bundle on them (`eval_real.py`, through
+  `router.analyse`) applies the bundle's mask set on top first; because v3 is idempotent, text a v3 build already holds is unchanged. Tested: `tests/test_masks.py` M8.
 - **App input:** `textprep.model_text(mask_pii=True)` uses the same masks, so train and serve agree (rule 11). **The shipped bundle was trained
   on the v2 masks**, so the masks the app applies must follow the bundle: the bundle records `mask_version`, and the app uses `MASKS_V2` for
   the shipped bundle and the v3 set for a v3 bundle. Without this the shipped model would silently see `<OTP>` / `<NAME>` in the app.
@@ -312,7 +317,7 @@ diff for leakage and split mistakes (CLAUDE.md).
 | 5 Nov | Buffer (a technical re-run only, stop rule). Fallback: gates not met by today -> the shipped MuRIL stays, the report says so. Then `eval_real.py --final`, once, on whichever model ships | Sonnet high | `reports/real_eval_ledger.md` line |
 | 6 Nov | Deliver | | |
 
-**B0a (versioned masks) done 2026-10-28:** `reports/splits_v3_b0a.md`, commit "splits-v3 B0a: versioned masks". Open before B1: (1) the OTP rule gap (English "OTP for X is 123456" is not masked, its translation is; report section 3.1), (2) `finetune.py` / the notebook must write `mask_version` into `shield_meta.json`, (3) the `email_or_sms` deviation from the SMS-type channel list. B0b (POOL loader, `real_group`, company key, gates) is not started.
+**B0a (versioned masks) done 2026-10-28:** `reports/splits_v3_b0a.md`, commit "splits-v3 B0a: versioned masks". Follow-up commit "splits-v3 B0a: OTP widen, caps-name runs" (decisions of 2026-10-28: widen the v3 OTP rule to the English forms, idempotence instead of "v3 changes no POOL text", `eval_real.py` applies the bundle's masks on top, `email_or_sms` exclusion and v2-hash-first dedupe approved, ALL-CAPS payer runs up to 4 tokens with initials). **Goes into B0b:** `finetune.py` and `notebooks/kaggle_finetune.ipynb` write `mask_version` into `shield_meta.json` (a v3 bundle without it would be read as v2 by the app), plus the POOL loader, `real_group`, company key and gates. B0b is not started.
 
 **Fallback if B0 is not done by 31 Oct:** the timeline does not fit. Cut in this order: the synthetic UPI family (G3 then reads only real
 POOL rows, or is "not measurable" and the run cannot ship), the company-name key (VAM stays a known gap), then the ALL-CAPS name rule.
