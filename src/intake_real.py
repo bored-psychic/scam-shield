@@ -159,6 +159,10 @@ class Sensitive:
     def drop_names(self, vetoed):
         self.names = {n for n in self.names if n.lower() not in vetoed}
 
+    def phone_rx(self):
+        """pii.known_phone_rx over the numbers seen so far (separators between the digits tolerated), or None."""
+        return pii.known_phone_rx(self.phones)
+
     def name_rx(self):
         if not self.names:
             return None
@@ -491,11 +495,22 @@ def check_input_path(p):
 
 protect_urls, restore_urls, in_link_rx = pii.protect_urls, pii.restore_urls, pii.in_link_rx
 
-def mask(text, name_rx=None):
+def mask(text, name_rx=None, phone_rx=None):
     """The intake's masks: pii.MASKS_INTAKE_V1 (the v2 masks with URLs kept, plus card, OTP, account-tail and long digit runs, and every contact /
-    sender name seen in the input as <NAME>). Pinned to that version: a later pii set (v3) must not change the digit-collapsed group keys the
-    registry is built on, or a TEST group's later messages could stop being recognised."""
-    return pii.MASKS_INTAKE_V1(text, name_rx=name_rx)
+    sender name seen in the input as <NAME>, every phone number seen in the input as <PHONE> even with a separator between digits). Pinned to that
+    version: a later pii set (v3) must not change the digit-collapsed group keys the registry is built on, or a TEST group's later messages could
+    stop being recognised."""
+    return pii.MASKS_INTAKE_V1(text, name_rx=name_rx, phone_rx=phone_rx)
+
+def remask_examples(rows, name_rx, phone_rx):
+    """Display text only: example_1 / example_2 of every sheet row (current, labelled and orphan rows alike) masked again with the names and phones
+    known now, so an example kept from an earlier run, masked before a name or number was known, cannot carry it. group_id, label and the state
+    registry are never touched."""
+    for r in rows:
+        for c in ("example_1", "example_2"):
+            if r.get(c):
+                r[c] = mask(r[c], name_rx, phone_rx)
+    return rows
 
 def defang(text):
     """Every link in a text made unclickable (hxxp, [.]) so a spreadsheet cannot turn it into a hyperlink (CLAUDE.md rule 8)."""
@@ -1080,8 +1095,9 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
           + (f"; {len(files['other'])} other file(s) not read" if files["other"] else ""))
     received = {src: n - sum(v for (s_, why), v in drops.items() if s_ == src and why in (NOT_RECEIVED, MMS_DROP)) for src, n in read.items()}
 
+    prx = sens.phone_rx()
     for r in recs:
-        r["masked"] = mask(r["text"])
+        r["masked"] = mask(r["text"], phone_rx=prx)
     extra, vetoed = read_names_file(names_file)
     auto = [w for w in auto_names(recs) if w not in vetoed]
     for w in auto:
@@ -1092,7 +1108,7 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
     nrx = sens.name_rx()
     if nrx:
         for r in recs:
-            r["masked"] = mask(r["text"], nrx)
+            r["masked"] = mask(r["text"], nrx, prx)
     auto_path = label_file.with_name(AUTO_NAMES_NAME)
     if auto:   # the words themselves go to a git-ignored file, never to the terminal or the report
         atomic_write(auto_path, "# words masked as names everywhere because they follow a greeting in many messages; written by src/intake_real.py on every run.\n"
@@ -1146,6 +1162,7 @@ def run(inputs=None, out=OUT, review=REVIEW, report=REPORT, freeze=False, messag
     prio, n_new_prio = assign_priorities(infos, state, old_rows)
     kw = {gid: kw_bucket(top_text(m)) for gid, m in groups.items()}
     sheet, orphans = label_rows(groups, need, old_rows, prio)
+    remask_examples(sheet + orphans, nrx, prx)
     stale = [gid for gid in labels if gid not in groups]
 
     # names: candidates to review for the rows that are kept; edits from the review file are applied
@@ -1362,7 +1379,11 @@ def write_summary(s, sha, out):
              f"(skip: {sum(s['labels'].get(g) == 'skip' for g in s['need'])}), still blank: **{len(s['unlabelled_groups'])}**. "
              f"Labels in the file that match no group: {len(s['stale'])} (kept at the end of the file: {len(s['orphans'])}).")
     L.append(f"- Phone numbers and names seen in the input and masked wherever they appear: {s['sens'][0]} numbers, {s['sens'][1]} names "
-             f"({s['sens'][2]} found after greetings, {s['sens'][3]} from `mask_names.txt`; values are not written anywhere).\n")
+             f"({s['sens'][2]} found after greetings, {s['sens'][3]} from `mask_names.txt`; values are not written anywhere).")
+    L.append("- Known-phone rule (2026-10-29): a number seen in the input is masked as `<PHONE>` also when up to one non-digit character (space, `-`, `.`, `/`, a letter) "
+             "splits any two of its digits, with an optional country-code or trunk-zero prefix; the separators go with it (a promo code such as `EYEC12345D67890` is only changed if "
+             "those digits are a known number). The `example_1` / `example_2` text of every sheet row, labelled and orphan rows included, is masked again on every run with "
+             "the names and numbers known now (display text only; group ids, labels and the registry are not touched).\n")
     L.append("## Labelling buckets (label_priority)\n")
     prio = pinfo["prio"]
     gs_ = pinfo["gstats"]

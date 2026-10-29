@@ -148,13 +148,27 @@ def _mask_v2(text, channel=None, kinds=None):
     return text
 
 
-def _mask_intake_v1(text, name_rx=None, kinds=None):
+def known_phone_rx(phones):
+    """One regex for the phone numbers seen in the input (each a 10-digit string): the number with at most one non-digit character (space, -, ., /, a
+    letter, anything) between any two digits, and an optional +91 / 0091 / 091 / 91 / 0 prefix (itself with at most one separator), so '98765 43210', '9876-543-210'
+    and a coupon code like 'EYEC98765D43210' are found. The match takes the separators with it. Digits directly next to the number do not stop it
+    (the contiguous 9+ digit rule would mask those anyway); the prefix only counts when no digit stands in front of it. None when there are no phones."""
+    if not phones:
+        return None
+    alts = [r"(?:(?<!\d)(?:(?:\+|00|0)?91|0)\D?)?" + r"\D?".join(p) for p in sorted(phones)]
+    return re.compile("|".join(alts))
+
+
+def _mask_intake_v1(text, name_rx=None, kinds=None, phone_rx=None):
     """src/pii.py v2 masks (emails and UPI ids first, then phones and accounts) with URLs kept, plus card, OTP, account-tail and long digit
     runs, and every contact / sender name seen in the input (name_rx) as <NAME>, inside links too (a link keeps its host and shape, never a
-    name: /u/<NAME>/orders). Moved from intake_real.mask (2026-10-28) without a change."""
+    name: /u/<NAME>/orders). Moved from intake_real.mask (2026-10-28) without a change. `phone_rx` (known_phone_rx, optional, 2026-10-29) masks the
+    numbers seen in the input as <PHONE> even when separators split their digits; with None the function is byte-identical to before."""
     t = text
     for pat, tok in ADDRESS_MASKS:
         t = re.sub(pat, tok, t)
+    if phone_rx is not None:
+        t = phone_rx.sub("<PHONE>", t)
     t, urls = protect_urls(t)
     if name_rx is not None:
         t = name_rx.sub("<NAME>", t)

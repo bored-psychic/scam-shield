@@ -46,6 +46,11 @@ FIXTURE = HERE / "fixtures" / "real_fake.csv"
 #       open across the trim keeps its labels; N below the labelled count keeps them all; a second, different trim and a trim after the freeze are refused
 #   R22 privacy over every output of R18-R21 and R23 (preview, test, pool, label sheet, review, reports, state and manifest JSON, labeller output): no number, contact
 #       name, family name (also inside a link: /track/Name/, ?ref=Name123) or address; the JSON files hold ids, hashes and numbers only
+# Separator-tolerant known-phone mask and re-masked examples (2026-10-29):
+#   R24 a known sender number is masked as <PHONE> when a letter / space / hyphen / dot / slash splits its digits (with or without +91 / 91 / 0 and the sheet's
+#       defanged links); a coupon with the same shape that is NOT a known number is unchanged; masking twice changes nothing; with no phones the masks are the old
+#       ones; end to end, a coupon with a split known number no longer stops the run, and an example kept from an earlier run (orphan row, labelled) is masked with
+#       the name and number learned since, its group_id, label and the registry untouched
 PREVIEW = "labelled_preview.csv"   # before a freeze the labelled rows go here; real_test_v1.csv is written only by --freeze
 FAKE_ROWS_IN_TRAIN = "Your package is waiting. Track at https://fake-parcel-track.example.invalid/x9 and pay the customs charge now."
 
@@ -1321,6 +1326,82 @@ def r23(tmp):
     return bad
 
 
+def r24(tmp):
+    import intake_real as I, pii
+    bad = []
+    s = I.Sensitive()
+    s.add_phone("+91 98765 00031")
+    prx = s.phone_rx()
+    s.add_name("Quentin Fakename")
+    nrx = s.name_rx()
+    must_mask = ["Use code EYEC98765D00031 at checkout", "call 98765 00031 now", "call 98765-00031 now", "call 9876-500-031 now", "call 98765.00031 now", "call 98765/00031 now",
+                 "call +91 98765 00031 now", "call +91-98765-00031 now", "call 091 98765 00031 now", "call 91-9876500031 now", "call 0 98765 00031 now",
+                 "see hxxps://fake-shop[.]example[.]invalid/c/EYEC98765D00031/x", "coupon 9X8X7X6X5X0X0X0X3X1 here".replace("X", "-")]
+    for t in must_mask:
+        m = I.mask(t, nrx, prx)
+        if re.search(r"9\D?8\D?7\D?6\D?5\D?0\D?0\D?0\D?3\D?1", m) or "<PHONE>" not in m:
+            bad.append(f"a known number split by a separator survived: {t!r} -> {m!r}")
+        if I.mask(m, nrx, prx) != m:
+            bad.append(f"masking twice changed {m!r}")
+    if I.mask("Use code EYEC98765D00031 now", nrx, prx) != "Use code EYEC<PHONE> now":
+        bad.append("the whole span (digits, the separator, +91) should become one <PHONE>")
+    for t in ("Use code EYEC12345D67890 at checkout", "ref 9876-500-032 total", "order 98765 00032 shipped", "promo SAVE98765D00032NOW", "id 5X5X5X5X5X5X5X5X5X5X".replace("X", " ")):
+        if I.mask(t, nrx, prx) != pii.MASKS_INTAKE_V1(t, name_rx=nrx):
+            bad.append(f"a number that is not a known one is not handled by the old masks alone: {t!r} -> {I.mask(t, nrx, prx)!r}")
+    for t in ("Use code EYEC12345D67890 at checkout", "promo SAVE98765D00032NOW"):
+        if I.mask(t, nrx, prx) != t:
+            bad.append(f"an unrelated coupon was changed: {t!r} -> {I.mask(t, nrx, prx)!r}")
+    if I.mask("Use code EYEC98765D00031 with 98765 00031 or Quentin Fakename") != pii.MASKS_INTAKE_V1("Use code EYEC98765D00031 with 98765 00031 or Quentin Fakename"):
+        bad.append("with no phone / name regex mask() must be the old masks")
+    if pii.known_phone_rx(set()) is not None:
+        bad.append("no phones should give no regex")
+    # end to end: a coupon with the sender's number split by a letter
+    raw = tmp / "r24raw"
+    raw.mkdir()
+    rows = [("AX-FAKESH-S", f"Fake Mart festival sale: use code EYEC98765D00031 at checkout and save {n}% on your next order, offer ends soon.") for n in (10, 20, 30)]
+    rows += [("AX-FAKESH-S", "Fake Mart festival sale: use code EYEC12345D67890 at checkout and save 40% on your next order, offer ends soon."),
+             ("+919876500031", "Meet Quentin Fakename at the gate tomorrow morning at nine please, I will bring the keys."),
+             ("AX-FAKEBK-S", "Rs 500.00 debited from A/c XX1234 on 29-10-26 by UPI ref 100200300. Avl bal Rs 9,000.00. Not you? Call Fake Bank care."),
+             ("AX-FAKEBK-S", "Rs 750.00 debited from A/c XX1234 on 30-10-26 by UPI ref 100200301. Avl bal Rs 8,250.00. Not you? Call Fake Bank care.")]
+    sms_xml(raw / "phone_1.xml", rows)
+    try:
+        d, paths, _ = e2e(tmp, raw, "p1")
+    except I.Stop as e:
+        return bad + [f"the run stopped on a split known number: {str(e)[:120]}"]
+    sheet = rows_of(paths["label_file"])
+    text = paths["label_file"].read_text(encoding="utf-8")
+    coupon = find_group(sheet, "festival sale: use code EYEC<PHONE>")
+    if "98765D00031" in text or "EYEC12345D67890" not in text:
+        bad.append("the split known number survived in the sheet, or the unrelated coupon was changed")
+    # an example kept from an earlier run: labelled orphan row masked before a name and number were known
+    old = {**{c: "" for c in I.LABEL_COLS}, "group_id": "Gdeadbeef", "label": "scam", "size": "9", "label_priority": "4",
+           "example_1": "Call Quentin Fakename on EYEC98765D00031 today", "example_2": " Quentin Fakename wrote hxxps://fake[.]example[.]invalid/u/Quentin Fakename/x ..."}
+    lf = tmp / "r24_labels.csv"
+    write_csv(lf, I.LABEL_COLS, [[r[c] for c in I.LABEL_COLS] for r in sheet] + [[old[c] for c in I.LABEL_COLS]])
+    names = tmp / "r24_names.txt"
+    names.write_text("Quentin Fakename\n", encoding="utf-8")
+    d, paths2, _ = e2e(tmp, raw, "p2", label_file=lf, names_file=names)
+    st = d / "label_me_state.json"
+    state_after = st.read_text() if st.exists() else None
+    after = rows_of(lf)
+    orphan = [r for r in after if r["group_id"] == "Gdeadbeef"]
+    if len(orphan) != 1 or orphan[0]["label"] != "scam" or orphan[0]["size"] != "9" or orphan[0]["label_priority"] != "4":
+        bad.append(f"the orphan row lost its id / label / size: {orphan}")
+    elif any(w in orphan[0]["example_1"] + orphan[0]["example_2"] for w in ("Quentin", "98765D00031")) or "<NAME>" not in orphan[0]["example_1"] \
+            or "<PHONE>" not in orphan[0]["example_1"]:
+        bad.append(f"the orphan's old examples were not masked with the name / number learned since: {orphan[0]['example_1']!r} | {orphan[0]['example_2']!r}")
+    elif not orphan[0]["example_2"].startswith(" ") or not orphan[0]["example_2"].endswith("..."):
+        bad.append(f"the cut or the leading space changed: {orphan[0]['example_2']!r}")
+    # (the message from the known number is a different group once its name is masked, so only the three bank / sale groups can be compared)
+    if len({r["group_id"] for r in after} & {r["group_id"] for r in sheet}) < 2 or len(after) != len(sheet) + 1:
+        bad.append("group ids changed or rows were added / lost")
+    # a rerun on its own output changes nothing
+    d, paths3, _ = e2e(tmp, raw, "p2", label_file=lf, names_file=names)
+    if rows_of(lf) != after or (st.read_text() if st.exists() else None) != state_after:
+        bad.append("a second rerun changed the sheet or the registry")
+    return bad
+
+
 def r22(tmp):
     """Every output of R18-R21 and R23 (they ran before this one in the same temp folder), plus a labeller session's screen."""
     import json
@@ -1372,7 +1453,8 @@ CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1)
           ("R20", "--freeze: grouped 50/50 split, 0 shared groups / near-duplicates, realguard, once only", r20),
           ("R21", "after the freeze: new phone -> pool, TEST messages dropped, test file unchanged", r21),
           ("R23", "--trim-bucket2: labelled stay, seeded sample to N, rest -> bucket 4, kept by reruns, refused twice / after the freeze", r23),
-          ("R22", "privacy: no number / name / address in any output, JSON holds ids and numbers only", r22)]
+          ("R22", "privacy: no number / name / address in any output, JSON holds ids and numbers only", r22),
+          ("R24", "known-phone mask tolerates separators; kept examples are re-masked, labels and ids kept", r24)]
 
 
 def run():
