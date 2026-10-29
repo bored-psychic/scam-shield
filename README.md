@@ -104,7 +104,7 @@ This table is the original plan. The dated timeline that is actually being follo
 - [x] App permissions table (`src/build_apps.py`, optional module)
 - [x] TF-IDF smoke-test baseline (`src/baseline.py`)
 - [ ] Rule-based baseline (rules-only control): not built; moves to the ablation item below
-- [x] Real-message intake and labeller from our own phones (`src/intake_real.py`, `src/label_real.py`; the Google Form got no responses). Grouped TEST / POOL freeze (D-a) is due by 31 Oct; advisories are collected by hand (the RBI site blocks scrapers)
+- [x] Real-message intake and labeller from our own phones (`src/intake_real.py`, `src/label_real.py`; the Google Form got no responses). Grouped TEST / POOL freeze (D-a) done 2026-10-30 (`real_test_v1.csv`: 988 rows / 583 groups, 98 scam; POOL 985 rows / 580 groups; single annotator, no second-labeller kappa; hash in CLAUDE.md); advisories are collected by hand (the RBI site blocks scrapers)
 - [ ] More Hinglish/Hindi/Kannada templates (current splits are lumpy: e.g. no Hinglish scam in test)
 - [x] Hindi / Kannada machine translations with IndicTrans2, train only (D20, D26); paraphrase / back-translation augmentation was not done
 - [x] Freeze splits (`data/final/split_map.csv`, tag `splits-v1`; re-frozen with the Hindi / Kannada translations and the PII-mask fix as `splits-v2`, 2026-10-21)

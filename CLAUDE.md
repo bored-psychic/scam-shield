@@ -140,4 +140,6 @@ Later modules (only after the core is solid): apps (permission-based), UPI/payme
 
 ## Frozen hashes (real-message test set)
 
-Not frozen yet: the real messages come from our own phones (SMS XML, WhatsApp txt; the Form got no responses). Drop the exports in `data/real/raw/`, run `.venv/bin/python src/intake_real.py`, label buckets 1-3 with `.venv/bin/python src/label_real.py`, rerun the intake, review `data/real/review_names.csv`, then `.venv/bin/python src/intake_real.py --freeze --allow-unlabelled` splits TEST / POOL once and writes the line here (file, rows, SHA-256, pool line). Changing a frozen hash needs a decision, not a rewrite.
+- `data/real/real_test_v1.csv`: 988 rows / 583 groups (98 scam, 890 genuine), SHA-256 `bcf4b14f62fadbb697388c02aa892e2fc8a4e432829036a3e6ec1958ba1f38ab` (frozen 2026-10-30, the TEST half of a grouped 50/50 split). TEST ONLY: never a training, tuning or calibration input (src/realguard.py).
+- `data/collected/phones/pool.csv`: the POOL half (985 rows / 580 groups at freeze: 87 scam, 898 genuine; grows when a new phone or screenshots are added). Allowed for training / validation in splits-v3; shares no template group and no near-duplicate with the test file (`data/real/freeze_manifest.json`).
+- Labels: single annotator (the project owner), written rule; no second-labeller kappa.
