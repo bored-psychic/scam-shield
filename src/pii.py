@@ -148,15 +148,50 @@ def _mask_v2(text, channel=None, kinds=None):
     return text
 
 
+def _phone_alt(p):
+    return r"(?:(?<!\d)(?:(?:\+|00|0)?91|0)\D?)?" + r"\D?".join(p)
+
+
+@functools.lru_cache(maxsize=4096)
+def _phones_subset_rx(hit):
+    """The alternation for just these numbers (a sorted tuple), in the order the full one would try them."""
+    return re.compile("|".join(_phone_alt(p) for p in hit))
+
+
+_NON_ASCII_DIGIT_RX = re.compile(r"[^0-9]+")
+
+
+class KnownPhoneRx:
+    """The numbers seen in the input as a masker with the `.sub(repl, text)` of one big alternation, without paying for it on every message. A match
+    has the number's 10 digits in a row once everything that is not an ASCII digit is removed (separators sit between digits and a prefix only adds
+    digits in front), so a text whose digits hold none of the numbers in any 10-digit window cannot match and is returned as it is; otherwise the
+    regex for just the numbers found in those windows runs on the text. Every alternative that can match at all is in that subset, in the full
+    alternation's order, so the output is the full alternation's."""
+    def __init__(self, phones):
+        self.phones = frozenset(phones)
+        self.order = sorted(self.phones)
+
+    def hits(self, text):
+        digits = _NON_ASCII_DIGIT_RX.sub("", text)
+        if len(digits) < 10:
+            return ()
+        found = {digits[i:i + 10] for i in range(len(digits) - 9)} & self.phones
+        return tuple(p for p in self.order if p in found)
+
+    def sub(self, repl, text):
+        hit = self.hits(text)
+        return _phones_subset_rx(hit).sub(repl, text) if hit else text
+
+
 def known_phone_rx(phones):
-    """One regex for the phone numbers seen in the input (each a 10-digit string): the number with at most one non-digit character (space, -, ., /, a
+    """The phone numbers seen in the input (each a 10-digit string) as a masker with `.sub`: the number with at most one non-digit character (space, -, ., /, a
     letter, anything) between any two digits, and an optional +91 / 0091 / 091 / 91 / 0 prefix (itself with at most one separator), so '98765 43210', '9876-543-210'
     and a coupon code like 'EYEC98765D43210' are found. The match takes the separators with it. Digits directly next to the number do not stop it
-    (the contiguous 9+ digit rule would mask those anyway); the prefix only counts when no digit stands in front of it. None when there are no phones."""
+    (the contiguous 9+ digit rule would mask those anyway); the prefix only counts when no digit stands in front of it. None when there are no phones.
+    Returns a `KnownPhoneRx` (pre-filtered, 2026-10-29), same output as one regex of all the numbers."""
     if not phones:
         return None
-    alts = [r"(?:(?<!\d)(?:(?:\+|00|0)?91|0)\D?)?" + r"\D?".join(p) for p in sorted(phones)]
-    return re.compile("|".join(alts))
+    return KnownPhoneRx(phones)
 
 
 def _mask_intake_v1(text, name_rx=None, kinds=None, phone_rx=None):

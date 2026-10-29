@@ -1326,6 +1326,38 @@ def r23(tmp):
     return bad
 
 
+def _phone_prefilter_equal():
+    """The pre-filtered pii.known_phone_rx gives byte-identical output to the one big alternation it replaced (kept here as the reference), on the R24 cases
+    and 2,000 seeded fixture-style messages (digit runs, separators, prefixes, coupons, unicode digits, numbers that are not known ones)."""
+    import random, pii
+    def full(phones):   # the function as of a045705
+        alts = [r"(?:(?<!\d)(?:(?:\+|00|0)?91|0)\D?)?" + r"\D?".join(p) for p in sorted(phones)]
+        return re.compile("|".join(alts))
+    rng = random.Random(24)
+    phones = {"".join(rng.choice("6789") if i == 0 else rng.choice("0123456789") for i in range(10)) for _ in range(60)} | {"9876500031", "9876543210"}
+    plist = sorted(phones)
+    seps = ["", "", "", " ", "-", ".", "/", "A", "x", "\n", "\u0661"]
+    def noisy(p):
+        pre = rng.choice(["", "", "+91", "91", "0", "0091", "091", "+91 ", "91-", "1", "9"])
+        return pre + "".join(c + rng.choice(seps) for c in p[:-1]) + p[-1]
+    words = "your a/c debited rs 500 ref use code EYEC at checkout call now otp 123456 order total save 20% on".split()
+    texts = ["Use code EYEC98765D00031 now", "call +91 98765 00031 or 9876-500-031 or 098765-00031", "ref 100200300 total 9876500031999", "9876543210" * 2,
+             "1 2 3 4 5 6 7 8 9 0 1 2 3", "", "x", "\u0669\u0668\u0667\u0666\u0665\u0660\u0660\u0660\u0663\u0661"]
+    for _ in range(2000):
+        parts = [rng.choice(words) for _ in range(rng.randint(2, 14))]
+        for _ in range(rng.choice([0, 0, 1, 1, 2, 3])):
+            p = rng.choice(plist) if rng.random() < 0.8 else "".join(rng.choice("0123456789") for _ in range(10))
+            parts.insert(rng.randint(0, len(parts)), noisy(p) if rng.random() < 0.7 else p)
+        texts.append(" ".join(parts) if rng.random() < 0.8 else "".join(parts))
+    new, old = pii.known_phone_rx(phones), full(phones)
+    diff = [t for t in texts if new.sub("<PHONE>", t) != old.sub("<PHONE>", t)]
+    hits = sum(old.sub("<PHONE>", t) != t for t in texts)
+    out = [f"the pre-filtered known-phone mask differs from the full alternation on {len(diff)} of {len(texts)} texts, e.g. {diff[0]!r}"] if diff else []
+    if hits < 500:
+        out.append(f"setup: only {hits} of {len(texts)} texts hold a known number")
+    return out
+
+
 def r24(tmp):
     import intake_real as I, pii
     bad = []
@@ -1355,6 +1387,7 @@ def r24(tmp):
         bad.append("with no phone / name regex mask() must be the old masks")
     if pii.known_phone_rx(set()) is not None:
         bad.append("no phones should give no regex")
+    bad += _phone_prefilter_equal()
     # end to end: a coupon with the sender's number split by a letter
     raw = tmp / "r24raw"
     raw.mkdir()
