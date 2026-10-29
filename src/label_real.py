@@ -4,6 +4,7 @@
     .venv/bin/python src/label_real.py --max-bucket 4  # also bucket 4
 
 Keys (no Enter needed):  s = scam   g = genuine   k = skip   b = back one (clears the last label you gave and shows that group again)   q = quit.
+A paste is ignored whole ("paste ignored - type one key"): if more keys are already waiting when one arrives, none of them counts.
 Every key writes label_me.csv at once (temp file + rename), so closing the window, Ctrl-C, a crash or a kill never loses a label, and a rerun starts
 at the first group without a label. skip is a label (the group is left out of both halves of the freeze split). If src/intake_real.py rewrites the
 sheet while this is open (a new phone file), the next key reloads it and puts this session's labels back before saving.
@@ -11,7 +12,7 @@ Each screen shows the bucket and your progress in it, the group's size, which ph
 and two masked, defanged examples (terminal control characters stripped; the joiners Hindi and Kannada need are kept). No model score is read,
 computed or shown. When buckets 1-3 are done the script prints the next commands, ending with the freeze, and stops.
 """
-import argparse, contextlib, csv, os, re, sys
+import argparse, contextlib, csv, os, re, select, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,6 +135,36 @@ def read_key(stream):
             return ch
 
 
+PASTE_WAIT = 0.05   # s: more input already waiting this long after a key = a paste, not typing
+
+
+def _waiting(fd):
+    return bool(select.select([fd], [], [], PASTE_WAIT)[0])
+
+
+class KeyReader:
+    """read_key plus a paste guard. On a terminal it reads the raw bytes of the tty (the stdin text wrapper would swallow a whole paste into its own
+    buffer, where select() cannot see it) and, if more than the one key arrived or more is waiting after PASTE_WAIT, drains all of it and reports
+    pasted=True: the caller applies nothing. On a pipe (tests, scripts) it is read_key and nothing is ever a paste."""
+    def __init__(self, stream):
+        self.stream = stream
+        self.tty = stream.isatty()
+
+    def get(self):
+        """(key, pasted). key '' = end of input."""
+        if not self.tty:
+            return read_key(self.stream), False
+        fd = self.stream.fileno()
+        data = os.read(fd, 4096)
+        if not data:
+            return "", False
+        pasted = len(data) > 1 or _waiting(fd)
+        while pasted and _waiting(fd):
+            if not os.read(fd, 4096):
+                break
+        return ("" if pasted else data.decode("utf-8", "replace")), pasted
+
+
 def show_text(s):
     return CTRL_RX.sub("", s or "")
 
@@ -169,6 +200,7 @@ def walk(path, max_bucket=3, stdin=None, out=None):
     """The labelling loop. Returns 'done', 'quit' or 'eof'."""
     stdin, out = stdin or sys.stdin, out or sys.stdout
     sheet = Sheet(path)
+    keys = KeyReader(stdin)
     history, forced = [], None   # history: group ids labelled in this session, for b
     if not order(sheet.rows, max_bucket):
         print(f"nothing to label in buckets 1-{max_bucket} of {Path(path).name}", file=out)
@@ -183,7 +215,11 @@ def walk(path, max_bucket=3, stdin=None, out=None):
             return "done"
         screen(r, walk_rows, max_bucket, out)
         while True:
-            key = read_key(stdin).lower()
+            key, pasted = keys.get()
+            if pasted:   # a burst of keys is a paste: nothing in it is an answer, not even a 'q'
+                print("\npaste ignored - type one key\n> ", end="", file=out, flush=True)
+                continue
+            key = key.lower()
             if key in ("", "q", "\x04"):
                 print(f"\nsaved. {sum(not labelled(x) for x in walk_rows)} groups left in buckets 1-{max_bucket}.", file=out)
                 return "quit" if key else "eof"
@@ -205,7 +241,7 @@ def walk(path, max_bucket=3, stdin=None, out=None):
                 was = (sheet.get(gid) or {}).get("label", "")
                 sheet.set(gid, "")
                 forced = gid
-                print(f"back (it was {was or 'blank'})", file=out)
+                print(f"back -> previous group (its label was {was or 'blank'})", file=out)
                 break
             # any other key is ignored
 

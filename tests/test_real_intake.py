@@ -1,4 +1,4 @@
-import ast, csv, hashlib, os, re, shutil, subprocess, sys, tempfile
+import ast, csv, hashlib, io, os, re, shutil, subprocess, sys, tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -950,7 +950,7 @@ def r19(tmp):
     lab = {r["group_id"]: r["label"] for r in rows_of(sh)}
     if p.returncode != 0 or [lab[gid] for gid in order[:4]] != ["scam", "genuine", "genuine", ""] or sum(bool(v) for v in lab.values()) != 3:
         bad.append(f"piped keys s g k b g q gave {[lab[gid] for gid in order[:4]]} (rc {p.returncode}, {p.stderr.decode()[-200:]})")
-    if L.GUIDE not in outp or "bucket 1: 0/3" not in outp or "bucket 1: 2/3" not in outp or "back (it was skip)" not in outp:
+    if L.GUIDE not in outp or "bucket 1: 0/3" not in outp or "bucket 1: 2/3" not in outp or "back -> previous group (its label was skip)" not in outp:
         bad.append("guide line / progress / back message missing from the screen")
     if "score" in outp.lower():
         bad.append("the labeller printed something called a score")
@@ -1225,6 +1225,71 @@ def r21(tmp):
     return bad
 
 
+def r25(tmp):
+    """Paste guard: a burst of keys on a terminal changes nothing (a 'q' inside it does not quit either); a single typed key still labels."""
+    import label_real as L
+    import intake_real as I
+    import threading, time
+    try:
+        import pty, termios   # noqa: F401
+    except ImportError:
+        return []
+    bad = []
+    with small_buckets():
+        raw = phone_world(tmp / "w25" / "raw")
+        d = tmp / "w25" / "out"
+        run_world(I, raw, d)
+    fresh = d / "label_me.csv"
+    order = [r["group_id"] for r in L.order(rows_of(fresh), 3)]
+
+    def session(sheet, steps):
+        """steps: (delay_s, bytes) written to the tty from a thread; walk() reads the slave side like the real labeller. Returns (result, output)."""
+        master, slave = pty.openpty()
+        stream = os.fdopen(slave, "r", encoding="utf-8", closefd=False)
+        out = io.StringIO()
+        def feed():
+            for delay, data in steps:
+                time.sleep(delay)
+                os.write(master, data)
+        try:
+            with L.key_mode(stream):
+                t = threading.Thread(target=feed)
+                t.start()
+                res = L.walk(sheet, 3, stdin=stream, out=out)
+                t.join()
+        finally:
+            os.close(master)
+            os.close(slave)
+        return res, out.getvalue()
+
+    # the burst holds s / g / k / b letters and a q; then a pause, then one real 'g' and a real 'q'
+    sh = d / "p.csv"
+    shutil.copyfile(fresh, sh)
+    burst = b"Save 20% on your recharge: scam, genuine, skip, back and quit now"
+    res, outp = session(sh, [(0.1, burst), (0.5, b"g"), (0.3, b"q")])
+    lab = {r["group_id"]: r["label"] for r in rows_of(sh)}
+    base = {r["group_id"]: r["label"] for r in rows_of(fresh)}
+    if outp.count("paste ignored - type one key") != 1:
+        bad.append(f"expected one 'paste ignored' line, got {outp.count('paste ignored - type one key')}")
+    if res != "quit" or lab.get(order[0]) != "genuine" or sum(lab[k] != base[k] for k in lab) != 1:
+        bad.append(f"after a burst then one typed g: result {res}, first group {lab.get(order[0])}, changed rows {sum(lab[k] != base[k] for k in lab)}")
+    # a burst alone: no label changes at all, and the 'q' inside it does not quit (the typed q after the pause does)
+    sh2 = d / "p2.csv"
+    shutil.copyfile(fresh, sh2)
+    res, outp = session(sh2, [(0.1, burst), (0.5, b"q")])
+    if sh2.read_bytes() != fresh.read_bytes() or res != "quit" or "saved." not in outp:
+        bad.append(f"a burst alone changed the sheet or ended the session early (result {res})")
+    # one typed key at a time works as before
+    sh3 = d / "p3.csv"
+    shutil.copyfile(fresh, sh3)
+    res, outp = session(sh3, [(0.1, b"s"), (0.3, b"k"), (0.3, b"b"), (0.3, b"q")])
+    lab = {r["group_id"]: r["label"] for r in rows_of(sh3)}
+    if [lab[g] for g in order[:2]] != ["scam", ""] or "paste ignored" in outp or "back -> previous group (its label was skip)" not in outp:
+        bad.append(f"typed s k b q gave {[lab[g] for g in order[:2]]}; paste line shown: {'paste ignored' in outp}")
+    # a pipe is never a paste: all keys at once still count (R19 relies on it)
+    return bad
+
+
 def r23(tmp):
     import json
     import intake_real as I
@@ -1487,6 +1552,7 @@ CHECKS = [("R1", "header mapping stops on unexpected / missing / ambiguous", r1)
           ("R21", "after the freeze: new phone -> pool, TEST messages dropped, test file unchanged", r21),
           ("R23", "--trim-bucket2: labelled stay, seeded sample to N, rest -> bucket 4, kept by reruns, refused twice / after the freeze", r23),
           ("R22", "privacy: no number / name / address in any output, JSON holds ids and numbers only", r22),
+          ("R25", "label_real.py paste guard: a burst of keys on a tty changes nothing, typed keys still label", r25),
           ("R24", "known-phone mask tolerates separators; kept examples are re-masked, labels and ids kept", r24)]
 
 
