@@ -47,7 +47,7 @@ Read for this note (2026-10-30): `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/deci
 | Messages | MuRIL head (D27) with TF-IDF fallback; OTP / PIN / CVV rule, PIN-to-receive R2, investment A1-A12 (template for rule modules: a `RULES` table of code, evidence id, function, floor, radar tag, title), tactic tags, D11 folded view, D5 language cap, sender rule (dormant) | long texts read head-only (first 128 tokens of `model_text`) |
 | Links | host-only URL model capped at Suspicious (C2), offline + live evidence ladder R1-R10 / P1-P2 through `net.py`, gambling G1, shortener expansion on a button | nothing new needed |
 | Screenshots | `/api/ocr`: Tesseract over a pipe, image in memory (`upload.read_part`, hard cap, no temp file) | no QR decoding |
-| Payments / UPI | R2 and the `payment` tactic (collect request, scan the QR) only inside messages; `pii.UPI_HANDLES` (80 handles) used **for masking only** | **no `transactions/` code or data** (ARCHITECTURE §7). `pii.UPI_HANDLES` has **no recorded source or date** (checked in `pii.py` and `reports/splits_v2.md`), so it cannot serve as the fact list |
+| Payments / UPI | R2 and the `payment` tactic (collect request, scan the QR) only inside messages; `pii.UPI_HANDLES` (79 handles) used **for masking only** | **no `transactions/` code or data** (ARCHITECTURE §7). `pii.UPI_HANDLES` has **no recorded source or date** (checked in `pii.py` and `reports/splits_v2.md`), so it cannot serve as the fact list |
 | Apps / APK | `data/final/apps.csv` (7,299 permission sets from `android_malware_hf`, built by `src/build_apps.py` in early research; not used by the app) | **no `apps/` code, no catalog, no APK parsing** (ARCHITECTURE §7) |
 | Email | none: an email pasted into the message box is analysed as a message | no sender, header or attachment checks |
 | Contract | Report schema "5"; `Module` already lists `transactions` and `apps`; `Fact` rows exist for links (`LinkInfo`) | no input kind, no non-link fact sheet |
@@ -861,7 +861,7 @@ Decisions (the recommended option first; these are D29.1-D29.14 in the decision 
 Values (never guessed; each needs a source URL or method and a date):
 
 15. **NPCI UPI handle list** with the app / bank behind each handle: the official npci.org.in page that lists them (URL) and the date read, or
-    your OK for a one-off plain fetch of the page you name. The 80 handles in `pii.UPI_HANDLES` have no recorded source or date.
+    your OK for a one-off plain fetch of the page you name. The 79 handles in `pii.UPI_HANDLES` have no recorded source or date.
 16. **Catalog values via adb** (4.6): package, publisher (Play Store page), version, certificate SHA-256, date, for the target apps; the 12 MUST
     apps first.
 17. Whether NPCI's discontinuation of person-to-person collect requests (reported for 1 Oct 2025) is in force: the circular's URL and date. If it
@@ -927,12 +927,20 @@ Prajval approved D29 on 2026-10-30 with the changes below. Each is folded into t
 
 - **NPCI circular on P2P collect requests** (Prajval's reference: NPCI/UPI/OC/220/2025-26, 29 Jul 2025, effective 1 Oct 2025, person-to-person
   collect discontinued): OK given to fetch the official PDF from npci.org.in **once**, record URL + date, and use it in the UP13 / UP14
-  wording. If the official text differs from that reference, the work stops and Prajval is told. Result: pending the fetch.
+  wording. If the official text differs from that reference, the work stops and Prajval is told. **Result (2026-10-30): not fetched.** The
+  listing could not be read: `https://www.npci.org.in/what-we-do/upi/circular` gave HTTP 403 to a plain GET (a 412-byte bot block, nothing
+  received) and an empty JavaScript shell to WebFetch; one Firecrawl scrape of it returned only the site menu (which points to
+  `https://www.npci.org.in/circulars/upi`); one Firecrawl scrape of that page returned a cached NPCI error page (500). 2 Firecrawl credits
+  spent, no PDF URL found. Secondary reports (news, TeamLease RegTech) give the same number, date and 1 Oct 2025 effect, but they are not
+  the official text, so **UP13 / UP14 keep their current wording** until the PDF is read. Next: Prajval downloads the PDF in a browser, or
+  OKs one live (uncached) scrape.
 - **cybercrime.gov.in "Report & Check Suspect -> Check suspect (mobile, email etc)":** a **link** in the help row, **for UPI results only**.
   The app never queries the page and never sends the ID; nothing is fetched to build the link. The exact page URL is to be copied by Prajval
   from the browser (not guessed, not fetched).
 - **NPCI UPI handle list:** OK given to fetch the official NPCI page **once**; record URL + date (the snapshot is kept so W9 does not fetch
-  again). Result: pending the fetch. BUGS.md now records that `pii.UPI_HANDLES` has no source.
+  again). **Result (2026-10-30): not attempted**, after the circular fetch showed that npci.org.in blocks plain requests and renders its
+  pages with JavaScript; it waits for Prajval's choice with the circular (W9 is SHOULD, so nothing is blocked). BUGS.md now records that
+  `pii.UPI_HANDLES` has no source.
 - **adb catalog:** Prajval, later; 6 apps first, only apps already on family phones (4.6, W14).
 
 ## Sources (read 2026-10-30)
