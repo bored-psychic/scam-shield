@@ -1,8 +1,8 @@
 # Multi-input checks: Payment / UPI, App / APK, Email and a tabbed input (design)
 
-**Status: PROPOSED 2026-10-30, awaiting the user's approval (decision D29 in `docs/decisions/README.md`). Design only: no product code was
-written, and no data, model, split, threshold or frozen file was touched.** Model / effort for the design: Opus, high. Approval starts the build in
-the order of section 8; it does not run any measurement by itself.
+**Status: APPROVED 2026-10-30 with changes (decision D29 in `docs/decisions/README.md`; the changes are listed in section 11). Design
+only so far: no product code was written, and no data, model, split, threshold or frozen file was touched.** Model / effort for the design:
+Opus, high. Approval starts the build in the order of section 8.4 (W1, then W5); it does not run any measurement by itself.
 
 Rule ids in this note: **UP** = payments / UPI, **AP** = apps / APK, **EM** = email. Test ids: **PT** (payments), **AT** (apps), **ET** (email),
 **UT** (UI), **CT** (contract), **ST** (safety). None of these collide with existing ids (R1-R10, A1-A12, P1 / P2, C1-C3, G1, D-series).
@@ -26,9 +26,11 @@ Rule ids in this note: **UP** = payments / UPI, **AP** = apps / APK, **EM** = em
 5. **Tabs**: Message / Link / Email / Payment-UPI / App-APK / Screenshot, a scrollable tab row on phones; the Message tab routes a bare link,
    UPI ID or `upi://` string with a notice.
 6. **Cut-line:** MUST = contract v6 + tabs + Link tab + payment text checks + payment proof + message hooks (val-gated, merged before the 5 Nov
-   real-test run) + app lookup and questionnaire + email-lite + docs (~36 h). SHOULD = NPCI handle list, QR decode, email headers, APK upload
-   (~22.5 h). LATER = windowing, embedded APK links, UPI IDs inside messages, Hindi / Kannada copy, Bharat QR (~19 h).
-7. **Blocked on Prajval** (section 9): approval of the 14 sub-decisions, the sourced NPCI handle list, and the adb catalog values.
+   real-test run, otherwise shipped OFF) + app lookup and questionnaire + email-lite + docs (~36 h). SHOULD, in this order = NPCI handle list,
+   email headers, APK upload, QR decode, and the fresh-session review of the upload code (~22.5 h). LATER = windowing, embedded APK links, UPI
+   IDs inside messages, Hindi / Kannada copy, Bharat QR (~19 h).
+7. **Still open with Prajval** (section 9): the free-mail list (D29.13, shown for review), the cybercrime.gov.in "Check suspect" page URL, and
+   the adb catalog values (later; 6 apps first, from family phones). The 14 sub-decisions are approved (section 11).
 
 ---
 
@@ -119,9 +121,9 @@ No warning signs 0) and Can't judge none, the same as a bare link today (see the
 
 - Every new rule is a **floor** (raise-only), applied like the investment rules: `level = max(level, floor)`, where the base Can't judge
   (`None` in the router) counts as below Suspicious, exactly as `router.analyse` floors a Can't-judge message today. No rule lowers a level.
-- **Flagged for approval (not a lowering, but a positive fact that decides which rules run):** AP1, a verified catalog match, makes an APK's
+- **Flagged, approved 2026-10-30 (D29.4; not a lowering, but a positive fact that decides which rules run):** AP1, a verified catalog match, makes an APK's
   base level No warning signs found and skips AP4-AP11 (D29.4). Reason in 4.5.
-- **Flagged:** UP20 turns a receipt-shaped *screenshot* from No warning signs found into Can't judge; it never touches a warning level.
+- **Flagged, approved with the plan 2026-10-30:** UP20 turns a receipt-shaped *screenshot* from No warning signs found into Can't judge; it never touches a warning level.
   Can't judge has no rank (`LEVEL_RANK`), so this follows the existing "only unjudgeable links -> Can't judge" logic rather than raising.
 - D5 language cap: unchanged. It lowers only a Likely scam that the text head alone produced; rule floors (old and new) are not capped.
 - Existing message rules (OTP / PIN / CVV, R2, A1-A12, gambling G1, the link ladder): unchanged. The UP hooks are new rules beside them.
@@ -211,7 +213,7 @@ Levels: L = Likely scam, S = Suspicious, NW = No warning signs found, CJ = Can't
 | UP12 | A `url` parameter in the QR | link ladder | (the link's own reasons; the link is a child Report) | PT44 |
 | UP13 | A payment request whose text has a money-in promise (`MONEY_IN`, or R2's receive cue) | L | "Approving a payment request sends money from your account. It never receives money." | PT01-PT04 (genuine PT45) |
 | UP14 | The user answered "No" to "Did you start this payment?" | S | "You did not start this request. Decline it: approving sends money from your account." | PT46 |
-| UP15 | The user answered "Yes", and no other UP rule fired | NW (base) | "You started this request. Nothing else in it looks wrong." | PT47 |
+| UP15 | The user answered "Yes", and **no other rule fired** on the input: no UP rule, no R2 (PIN to receive), no OTP / PIN / CVV rule, no investment rule, no link rated Suspicious or higher | NW (base) | "You started this request. Nothing else in it looks wrong." | PT47 (other rule fired: PT47b) |
 | UP16 | **Message hook.** An instruction to scan a QR / code with a receive cue in the same sentence or within 12 words (R2's `_near`, R2's `_negated`) | S | "Asks you to scan a QR code to receive money (scanning a QR only ever pays)." | PT48-PT50 (genuine PT51, negated PT52) |
 | UP17 | **Message hook.** approve / accept / authorise (a, the, this) (collect / payment / UPI) request + a receive cue, same window | S | "Asks you to approve a payment request to receive money (approving only ever pays)." | PT53-PT55 (genuine PT56) |
 | UP18 | **Message hook.** A mistake cue (by mistake, wrongly, accidentally, galti se, wrong number / account / UPI ID) + a credit cue (sent, credited, transferred, received) + a return ask (return, send back, refund it, reverse, wapas bhej) in one message, not negated | S | "Says money was sent to you by mistake and asks you to send it back. Check your own bank app first; if money did arrive, ask your bank to reverse it." | PT57-PT60 (genuine PT61; documented false positive PT62) |
@@ -228,7 +230,8 @@ val gate (8.3) ships them off without a code change.
 
 It **cannot know**: (1) who owns a UPI ID: the registered name is held by the payee's bank and shown only inside a payment app at payment time;
 we never query it, because there is no public lookup and it would send the ID off the device; (2) whether an ID has fraud reports: there is no
-official offline list we can use (whether cybercrime.gov.in offers a citizen lookup we could *link* to is in section 9); (3) whether a shop's
+official offline list we can use; cybercrime.gov.in's "Report & Check Suspect -> Check suspect" page is **linked** from the help row of UPI
+results (approved 2026-10-30, section 11), never queried, and the ID is never sent; (3) whether a shop's
 QR was replaced by a sticker; (4) whether money actually arrived: only the user's own bank app or statement shows that; (5) whether the user
 started a request, unless they say so; (6) whether the name in a QR (`pn`) is true: whoever made the QR typed it.
 
@@ -264,14 +267,14 @@ with scheme (v1 / v2 / v3), entry count, flags (truncated, unusual compression),
 
 | Guard | Design |
 |---|---|
-| Size cap | **50 MB** (D29.5), enforced by `upload.read_part` while streaming; `Content-Length` over the cap is refused before reading (413). The frontend checks size and the `.apk` extension before uploading |
+| Size cap | **50 MB** (D29.5, approved), enforced by `upload.read_part` while streaming; `Content-Length` over the cap is refused before reading (413). The frontend checks size and the `.apk` extension before uploading and, for a file over the cap, shows a **Can't judge** result (nothing is sent) with the reason: "This file is larger than 50 MB, so it was not checked. Files are read only in this device's memory and never saved; the limit keeps that quick and safe. Do not install an app file that someone sent you: get apps from the Play Store." The backend's 413 maps to the same result. **Why 50 MB:** the whole file is held in memory (no temp file, 2.5), the parse worker has a 10 s budget and a 768 MB watchdog, and `resources.arsc` + the manifest + the signature files are capped well below that; a larger cap would raise peak memory on the 16 GB Mac without reading more of what the rules use |
 | Type by magic bytes | the first 4 bytes must be `PK\x03\x04` and the central directory must list `AndroidManifest.xml`; anything else is 415 "This is not an Android app file (.apk)." A file that starts with a DEX header (the Janus layout, CVE-2017-13156) fails here. Bundles (.xapk / .apks / .apkm: a zip of APKs) -> Can't judge "App bundles are not supported yet" |
 | Isolation | parsing runs in a **short-lived child Python process** (`multiprocessing` spawn context) that receives the bytes over a pipe, handles **one** file and exits; a fresh standby worker is started for the next upload, so no state survives between files. The library code is ours and pinned (no external tool, no Java, no `aapt`) |
 | Timeout | 10 s wall clock for the whole parse (QR decode: 3 s); the parent kills the worker on expiry -> Can't judge "The file took too long to read." |
-| Memory limit | macOS refuses per-process limits: on this Mac (Darwin 25.6.0, Python 3.13.3, 2026-10-30) `resource.setrlimit` raised `ValueError` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS`. So: (1) byte budgets by construction (below); (2) a watchdog thread inside the worker reads `resource.getrusage(RUSAGE_SELF).ru_maxrss` every 50 ms and exits at **768 MB**; (3) the parent treats any abnormal exit as Can't judge |
+| Memory limit | macOS refuses per-process limits: on this Mac (Darwin 25.6.0, Python 3.13.3, 2026-10-30) `resource.setrlimit` raised `ValueError` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS`. So: (1) byte budgets by construction (below); (2) a watchdog thread inside the worker reads `resource.getrusage(RUSAGE_SELF).ru_maxrss` every 50 ms and exits at **768 MB**; (3) the parent treats any abnormal exit as Can't judge. **`ru_maxrss` has different units per platform:** bytes on macOS (`sys.platform == "darwin"`), kilobytes on Linux. The limit is written per platform in one constant, `WATCHDOG_MAXRSS = {"darwin": 768 * 1024**2, "linux": 768 * 1024}`, and any other platform refuses to start the worker (APK upload off, the App tab says so); a unit test checks both values and the refusal. `ru_maxrss` is the peak, so the watchdog stops a slow climb; one huge allocation inside native code can still pass the limit before the next 50 ms tick, which is why the byte budgets come first |
 | Zip-bomb guard | only the needed members are inflated, with `zlib.decompressobj(...).decompress(chunk, max_length)` so a declared size cannot lie: `AndroidManifest.xml` <= 4 MB, `resources.arsc` <= 32 MB, each `META-INF/*.RSA|DSA|EC|SF|MF` <= 1 MB, the dex string scan (AP13) <= 64 MB in total; a member whose declared ratio exceeds 200:1 is not inflated (flag "unusual compression"); at most 50,000 central-directory entries are read |
 | No execution | bytes are parsed, never loaded, installed, run or emulated; no `adb`, no emulator, no dynamic sandbox |
-| No disk, no network, no logs in the worker | before importing the parser the worker replaces `builtins.open` / `os.open` with versions that refuse write modes, disables `tempfile`'s constructors and `socket.socket`, and calls `loguru.logger.remove()` (androguard logs file hashes and names at INFO / ERROR). Exceptions become a fixed status word, as in `net.NetError` |
+| No disk, no network, no logs in the worker | before importing the parser the worker replaces `builtins.open` / `os.open` with versions that refuse write modes, disables `tempfile`'s constructors and `socket.socket`, and calls `loguru.logger.remove()` (androguard logs file hashes and names at INFO / ERROR). Exceptions become a fixed status word, as in `net.NetError`. **Scope, stated honestly:** these guards act at the Python level only. Native code (lxml's libxml2, cryptography's Rust / OpenSSL, zxing-cpp) calls the C library directly and is not stopped by them; for those libraries the design relies on what they are used for (parsing bytes already in memory: none of the calls used opens a file or a socket) and on the worker being short-lived. AT56 and ST01-ST10 test the Python-level guards and say so; they do not prove that native code writes nothing |
 | Delete after | the bytes live in the request handler and the worker only; the worker exits after one file; nothing references them after the response |
 
 ### 4.3 Libraries and pins (all checked 2026-10-30 against `https://pypi.org/pypi/<name>/json`)
@@ -323,7 +326,7 @@ strings, capped, as text only.
 | AP8 | No launcher activity | disp (caution evidence; counts for AP9) | "Has no app icon, so it can run hidden." | AT29 |
 | AP9 | AP5 together with AP6, the overlay or device-admin part of AP7, or AP8; or three or more distinct capabilities among AP5-AP8 | L | "Can read your OTPs and control or hide on your phone: the pattern of banking-fraud apps." | AT30-AT33 |
 | AP10 | (AP3 or AP4) and AP5 | L | "Claims to be {brand} and asks to read your messages." | AT34, AT35 |
-| AP11 | The delivery context is invitation, bill / challan, KYC / bank update, parcel / courier or reward / cashback / refund; or the file name contains invite, invitation, wedding, shaadi, card, bill, challan, rto, kyc, courier, parcel, delivery, reward, points, cashback, refund, pmkisan, aadhaar | L | "Bills, challans, KYC updates, parcels and invitations never come as app files." | AT36-AT39 (genuine AT40) |
+| AP11 | **(a) Questionnaire:** the delivery context the user picked is invitation, bill / challan, KYC / bank update, parcel / courier or reward / cashback / refund. **(b) File name:** a **whole token** of the file name (split on non-letters / non-digits, camelCase and letter / digit boundaries, lower-cased, extension dropped) is one of invite, invitation, wedding, shaadi, card, bill, challan, rto, kyc, courier, parcel, delivery, reward, points, cashback, refund, pmkisan, aadhaar. No substring match: `Billing` is not `bill`, `Cardiology` is not `card` | (a) L; (b) S (one evidence; (a) and (b) together give L from (a)) | (a) "Bills, challans, KYC updates, parcels and invitations never come as app files." (b) "The file name uses the word '{word}'. Bills, challans, KYC updates, parcels and invitations never come as app files." | (a) AT36, AT38; (b) AT37, AT39; genuine AT40, AT61 |
 | AP12 | Lookup (input `app`): a catalog package -> NW ("This is the official {app} by {publisher}. Install it only from the Play Store and check the publisher's name."); a catalog app name -> CJ with the official package and publisher shown; a brand + KYC / rewards / update / support / refund / points / bonus name that is not a catalog app -> S ("Banks do not ask you to install a separate {word} app."); AP3 on a typed package -> S; anything else -> CJ | NW / CJ / S | as listed | AT41-AT46 |
 | AP13 | **LATER.** URLs in the app's strings, offline checks only: a list hit (R1) or homograph (R3) -> L; look-alike (R4), exact brand (R10), raw IP (R5) -> S; the rest only counted | L / S | "Contains a link to {domain}, which {the link check's reason}." | AT47, AT48 |
 | AP14 | **LATER.** Indian mobile numbers in the app's strings | disp | "Contains {n} phone numbers." (shown masked) | - |
@@ -368,7 +371,8 @@ certificates per package are allowed (key rotation, a second signer).
 
 **adb steps (Mac, phone with USB debugging on; one app at a time; the APK is a genuine app from your own phone and is deleted afterwards):**
 
-1. Install or update the app **from the Play Store** on the phone. Check the installer and find the package:
+1. Use an app **already installed** on the family phone (nothing is installed for the catalog); updating it from the Play Store first is fine.
+   Check that the Play Store installed it, and find the package:
    `adb shell pm list packages -i | grep -i <brand word>` (a line reads `package:<pkg>  installer=com.android.vending`).
 2. Version: `adb shell dumpsys package <pkg> | grep -E "versionName|versionCode"`.
 3. Path of the base APK: `adb shell pm path <pkg>` (the first line ends in `base.apk`; `split_config.*.apk` lines are splits, signed with the same key).
@@ -384,8 +388,10 @@ certificates per package are allowed (key rotation, a second signer).
 Target list (names only; every package, publisher and certificate is a value Prajval collects): banks: YONO SBI, HDFC Bank, ICICI iMobile Pay,
 Axis Mobile, Kotak, PNB ONE, bob World, Canara ai1, Union Bank, IDFC FIRST; payments: Google Pay, PhonePe, Paytm, BHIM, Amazon (Amazon Pay);
 government: mAadhaar, DigiLocker, UMANG, mParivahan / NextGen mParivahan, Income Tax (AIS), IRCTC Rail Connect, Sanchar Saathi; couriers:
-India Post (IPPB), Blue Dart, Delhivery, DTDC; telecom: MyJio, Airtel Thanks, Vi. MUST for 6 Nov: the 12 most impersonated (SBI, HDFC, ICICI,
-Axis, PNB, Google Pay, PhonePe, Paytm, BHIM, mParivahan, mAadhaar, India Post), only if Prajval has the time (W14).
+India Post (IPPB), Blue Dart, Delhivery, DTDC; telecom: MyJio, Airtel Thanks, Vi. **Decided 2026-10-30:** Prajval collects the values later,
+**6 apps first, and only apps already installed on family phones** (nothing is installed for the catalog). Which 6 is Prajval's choice; the
+most impersonated (SBI, HDFC, ICICI, Axis, PNB, Google Pay, PhonePe, Paytm, BHIM, mParivahan, mAadhaar, India Post) are the useful ones if they
+are on a family phone. Until the catalog has entries, AP1-AP3 and AP12's catalog answers stay off and the Report says "not checked" (2.6).
 
 ### 4.7 What the apps engine cannot know, and the wording
 
@@ -453,9 +459,20 @@ Header reading rules: only the first `Authentication-Results` header in the past
 lower ones can be planted by a sender); `spf`, `dkim`, `dmarc` and `header.from` / `header.d` / `smtp.mailfrom` are parsed with a regex per
 RFC 8601's result syntax; no DNS lookup, no ARC evaluation. No header -> the fact row "Sender checks: not provided".
 
-Free-mail list (hand-written for review, `freemail.json`): gmail.com, googlemail.com, yahoo.com, yahoo.co.in, ymail.com, rocketmail.com,
-outlook.com, hotmail.com, live.com, msn.com, rediffmail.com, icloud.com, me.com, mac.com, aol.com, proton.me, protonmail.com, zohomail.com,
-zohomail.in, gmx.com, mail.com, yandex.com, tutanota.com, tuta.io.
+Free-mail list (`freemail.json`, hand-written, **shown to Prajval for review on 2026-10-30 (D29.13); final OK pending**; needed by W7 only).
+Every entry is a domain where anyone can open a personal mailbox; a company would not send official mail from it. Written from general
+knowledge, not fetched, so each row carries a status:
+
+| Group | Domains | Status |
+|---|---|---|
+| India (named by Prajval) | rediffmail.com, yahoo.co.in | named by Prajval |
+| India (proposed) | yahoo.in, zohomail.in, rediff.com, sify.com, bsnl.in, vsnl.net (the last two: old ISP mailboxes) | proposed, needs Prajval's OK |
+| India (unverified country variants) | hotmail.co.in, outlook.in, live.in | **not sure these were ever offered as mailboxes**: kept out unless Prajval confirms |
+| Global | gmail.com, googlemail.com, yahoo.com, ymail.com, rocketmail.com, outlook.com, hotmail.com, live.com, msn.com, icloud.com, me.com, mac.com, aol.com, proton.me, protonmail.com, zohomail.com, gmx.com, mail.com, yandex.com, tutanota.com, tuta.io | proposed (unchanged from the first draft) |
+| Left out on purpose | indiatimes.com (the Times group sends its own newsletters from it, so a brand-like display name there can be genuine) | - |
+
+A wrong entry costs a false Suspicious only when the display name also claims a brand (EM2) or for the Reply-To check (EM5); a missing
+entry only loses those two rules for that provider.
 
 ### 5.4 What the email engine cannot know, and the report line
 
@@ -593,6 +610,7 @@ not locked). Frontend: vitest + the existing Playwright scripts.
 | PT45 | request "Swiggy is requesting Rs 349 for order #5521", no answer | CJ | genuine |
 | PT46 | PT45 + started = No | S | UP14 |
 | PT47 | PT45 + started = Yes | NW | UP15 |
+| PT47b | request "Swiggy is requesting Rs 349. Share the OTP to confirm" + started = Yes | >= S (the OTP rule fired, so UP15 does not apply) | UP15 scope |
 | PT48-PT50 | message "Scan this QR code to receive your refund of Rs 2,000" / "Scan karke apna cashback receive karein" / "To get the prize money, scan the code below" | UP16 fires (>= S) | UP16 |
 | PT51 | message "Scan the QR at the counter to pay" | UP16 silent | genuine |
 | PT52 | message "You never need to scan a QR code to receive money" | UP16 silent | negation |
@@ -610,7 +628,7 @@ not locked). Frontend: vitest + the existing Playwright scripts.
 | PT69 | `SBI.KYC@YBL` | same as lower case | parsing |
 | PT70 | a 300-character "UPI ID" | CJ "not a valid UPI ID" | parsing |
 
-### 7.3 Apps: AT01-AT60
+### 7.3 Apps: AT01-AT62
 
 F = rule test on an `ApkFacts` object; B = a synthetic APK built in memory and parsed in the worker; H = through the API; K = catalog / lookup.
 
@@ -635,7 +653,8 @@ F = rule test on an `ApkFacts` object; B = a synthetic APK built in memory and p
 | AT29 (F) | no launcher activity, nothing else | CJ + caution evidence | AP8 |
 | AT30-AT33 (F) | READ_SMS + accessibility; RECEIVE_SMS + overlay; notification listener + no icon; overlay + install + admin | L | AP9 |
 | AT34, AT35 (F) | label "HDFC Bank KYC" + READ_SMS; AP3 package + RECEIVE_SMS | L | AP10 |
-| AT36-AT39 (H) | harmless file with context "wedding invitation"; file name `RTO_Challan_2026.apk`; context "parcel / courier"; file name `Wedding Card.apk` | L | AP11 |
+| AT36, AT38 (H) | harmless file with context "wedding invitation"; context "parcel / courier" | L | AP11 (a) |
+| AT37, AT39 (H) | harmless file named `RTO_Challan_2026.apk` (tokens rto, challan, 2026); `Wedding Card.apk` (tokens wedding, card); no context given | S | AP11 (b) |
 | AT40 (H) | harmless file, context "a website I chose" | CJ | genuine |
 | AT41 (K) | query `in.example.bank` | NW | AP12 |
 | AT42 (K) | query "Example Bank" | CJ + official package and publisher | AP12 |
@@ -651,11 +670,13 @@ F = rule test on an `ApkFacts` object; B = a synthetic APK built in memory and p
 | AT53 (H) | 51 MB body | 413 before the body is read in full | size cap |
 | AT54 (H) | worker made slow (patched `extract`) | CJ "took too long", worker killed, the next upload works | timeout |
 | AT55 (H) | worker made to allocate 1 GB (patched) | CJ, worker exits, API unaffected | watchdog |
-| AT56 (H) | normal parse with `open` / `os.open` / `tempfile` / `socket` instrumented in the worker, stderr captured | 0 writes, 0 sockets, 0 log lines | no disk / network / logs |
+| AT56 (H) | normal parse with `open` / `os.open` / `tempfile` / `socket` instrumented in the worker, stderr captured | 0 Python-level writes, 0 Python-level sockets, 0 log lines. **Python level only:** native code (libxml2, OpenSSL, zxing-cpp) is not instrumented, so this test does not show that native code writes nothing (4.2) | no disk / network / logs (Python level) |
 | AT57 (H) | a zip of two APKs (`.apks`) | CJ "bundles not supported" | AP15 |
 | AT58 (K) | catalog entry without `collected` or `method` | refused at load; app starts with that entry dropped and says so | provenance |
 | AT59 (F) | the catalog certificate on a different package | not AP1; fact "signed with {publisher}'s certificate" (display) | AP1 scope |
 | AT60 (H) | a zip with duplicate names and a central directory that disagrees with the local headers | parsed via apkInspector or CJ; never a crash | robustness |
+| AT61 (F + H) | harmless file named `Kirana Billing.apk` (tokens kirana, billing), no context | AP11 silent (`billing` is not the token `bill`); CJ from AP16 | AP11 whole tokens |
+| AT62 (unit) | `WATCHDOG_MAXRSS` on `darwin` = 768 * 1024**2 (bytes), on `linux` = 768 * 1024 (KB); any other platform refuses to start the worker | as stated | watchdog units |
 
 ### 7.4 Email: ET01-ET46
 
@@ -704,7 +725,7 @@ F = rule test on an `ApkFacts` object; B = a synthetic APK built in memory and p
 - **UT01-UT18** (vitest + Playwright): tab keyboard (arrows, Home / End), `aria-selected` / `aria-controls`; phone row scrolls with no page
   overflow at 360-430 px and the active tab in view (`e2e/overlap.mjs` extended); the routing notice for each (tab, input) pair; per-input
   `LEVEL_SUMMARY`; the payment card on every payment result; the APK picker refuses > 50 MB and non-`.apk` before any request; "More details"
-  closed by default; the payment-screenshot mode sends `{"kind": "payment_proof"}` and no image; `DetailsPanel` renders `Report.details`;
+  closed by default; a file over 50 MB shows the Can't judge result with the size reason (4.2) and sends nothing; the payment-screenshot mode sends `{"kind": "payment_proof"}` and no image; `DetailsPanel` renders `Report.details`;
   APK results have no underline panel; axe 0 violations and the rendered-pixel contrast check on every new screen in both themes; helpline row
   on warnings for every input.
 - **CT01-CT08** (`test_contracts.py`): v6 fields; `input` literal; module <-> input and details.kind <-> module consistency; child Reports
@@ -713,7 +734,9 @@ F = rule test on an `ApkFacts` object; B = a synthetic APK built in memory and p
   `assess_links` changes nothing).
 - **ST01-ST10** (`test_api.py`): T7's zero-network gate extended to every new offline path; live calls only to `net.py`'s hosts; no disk write
   in the API process or the worker (patched `open` / `os.open` / `tempfile`); T12's log capture extended to the new endpoints, including failing
-  analyses; the upload caps act before the body is read; a worker per job; fixed error messages, never a file name or content.
+  analyses; the upload caps act before the body is read; a worker per job; fixed error messages, never a file name or content. **What they do
+  not prove:** the write and socket checks patch Python functions, so they catch Python-level writes and sockets only; native libraries (libxml2,
+  OpenSSL, zxing-cpp) call the C library directly and are not observed (4.2). The test names and docstrings say "Python-level".
 
 ### 7.6 Coverage
 
@@ -734,16 +757,16 @@ Hours = build session including tests and fixes; Prajval's own hours are listed 
 | W2 | Tab row, Link tab, per-input copy, `check()` + generalised live re-check, `DetailsPanel`, routing notice; vitest + e2e at phone widths | 8 | W1 | MUST |
 | W3 | Payments core: UPI ID parsing, UP3-UP5, UP13-UP15, UP19, fact sheet, payment card (UP1 / UP2 wait for W9) | 5 | W1 | MUST |
 | W4 | Payment tab widget (ID / request text, "Did you start it?", payment-screenshot mode) | 3 | W2, W3 | MUST |
-| W5 | Message hooks UP16-UP18 + `tricky_inputs.py` entries + the val gate (8.3) + `config.PAYMENT_HOOKS` | 4 | W3; splits-v3 val (B1, 1 Nov PM) | MUST, **merged by 4 Nov** |
+| W5 | Message hooks UP16-UP18 + `tricky_inputs.py` entries + the val gate (8.3) + `config.PAYMENT_HOOKS` (off by default) | 4 | W1 (build order only); splits-v3 val (B1, 1 Nov PM) for the gate | MUST, **merged by 4 Nov**; ships OFF if the gate cannot run by the end of 3 Nov or fails (8.3) |
 | W6 | App lookup (AP12, AP3, AP4 on names), catalog format + fail-closed loader, App tab name field + the no-upload questionnaire (AP11, AP16) | 4 | W1, W2 | MUST |
 | W7 | Email-lite: Email tab, EM1-EM5, EM9-EM11 through `analyse(..., email=)` | 5 | W1, W2 | MUST |
 | W8 | Docs and limits: ARCHITECTURE §2 / §7 / §10, module `CLAUDE.md` files, BUGS.md entries, README evaluation line for email | 2 | the rest | MUST |
 | W9 | NPCI handle file + UP1, UP2 and the handle row | 2 | the sourced list (section 9) | SHOULD |
 | W10 | `/api/image` (QR first, then OCR), zxing-cpp in the parse worker, UP7-UP12, Screenshot tab QR path, UP20 | 7 | W3, the worker (shared with W11) | SHOULD |
 | W11 | APK upload: worker, guards, minimal androguard install, extraction, AP1-AP10, AP15, App tab file picker | 10 | W6 | SHOULD |
-| W12 | Fresh-session review (Opus, high) of the upload / worker code and the contract change | 1.5 | W10 or W11 | MUST if W10 / W11 ship |
+| W12 | Fresh-session review (Opus, high) of the upload / worker code and the contract change | 1.5 | W11 (and W10 if landed) | required if W11 lands; covers W10 too |
 | W13 | Email headers: EM6-EM8 | 2 | W7 | SHOULD |
-| W14 | Catalog values via adb (Prajval) | (3, Prajval) | approval | SHOULD |
+| W14 | Catalog values via adb (Prajval, later): 6 apps first, only apps already installed on family phones | (3, Prajval) | approval | SHOULD |
 | W15 | AP13 embedded links (dex strings, offline ladder) | 4 | W11 | LATER |
 | W16 | Email windowing: `score_long`, val experiment, decision | 6 | splits-v3 head and val | LATER |
 | W17 | Hindi / Kannada copy for the new lines, marked under review (D15 / D17) | 3 + review | W2-W7 | LATER |
@@ -760,7 +783,7 @@ Totals: **MUST 36 h** (W1-W8), **SHOULD 22.5 h** (W9, W10, W11, W13 and the W12 
 | 31 Oct | (real-message freeze already done 30 Oct) | Prajval approves D29 and answers section 9; W1 starts |
 | 1 Nov | bucket-4 labelling, Phase B go / no-go, B1 build | W1, W3 |
 | 2 Nov | review, freeze splits-v3, Kaggle runs | W2 |
-| 3 Nov | calibration, gates G1-G5 on v3 val | W4, W5 (its val gate runs on splits-v3 val, incl. POOL-val), W6 |
+| 3 Nov | calibration, gates G1-G5 on v3 val | W4, W5's val gate (splits-v3 val, incl. POOL-val; **no v3 val by the end of 3 Nov = hooks ship OFF**), W6 |
 | 4 Nov | test once, write-up, app switch D28 (fixtures regenerated once, after W1 / W2) | W7, W8; **message path frozen at the end of 4 Nov** |
 | 5 Nov | `eval_real.py --final`, once, on the shipped router | only SHOULD items that do not touch the message path (W9, W13, W10, W11 + W12) |
 | 6 Nov | deliver | deliver |
@@ -771,10 +794,16 @@ still land on 5 Nov because the real test set never reaches it.
 
 ### 8.3 Val gate for the message hooks (pre-registered, val only)
 
-On splits-v3 val (all sources, including POOL-val's real genuine messages; never TEST, never `real_test_v1.csv`), counts only: fires by label and
-source for UP16, UP17, UP18; verdict changes. Ship a hook ON if it fires on **at most 2 genuine val rows and 0 genuine POOL-val rows**, each read
-and accepted as a documented false positive; otherwise it ships OFF (`SHIELD_PAYMENT_HOOKS=0`) and the limit goes into BUGS.md. Also run
-`tests/tricky_inputs.py`, the 363 contract inputs and the demo set (levels must not change except where a hook fires, each listed).
+On splits-v3 val (all sources, including POOL-val's real genuine messages; never TEST, never `real_test_v1.csv`, never anything under
+`data/real/`), counts only: fires by label and source for UP16, UP17, UP18; verdict changes. Ship a hook ON if it fires on **at most 2 genuine
+val rows and 0 genuine POOL-val rows**, each read and accepted as a documented false positive; otherwise it ships OFF and the limit goes into
+BUGS.md. Also run `tests/tricky_inputs.py`, the 363 contract inputs and the demo set (levels must not change except where a hook fires, each
+listed).
+
+**Fallback (approved 2026-10-30, D29):** if splits-v3 val is **not available by the end of 3 Nov**, or a hook **fails** the gate, that hook
+ships **switched OFF**. Mechanism, so that the fallback needs no action: the W5 code lands with every hook off by default (`config.PAYMENT_HOOKS`
+empty; `SHIELD_PAYMENT_HOOKS=0` also forces all off), and a hook is switched on only by a separate commit that cites the gate report and is
+made by the end of 4 Nov. No gate report, no switch-on commit: the hooks stay off, `router.analyse` is unchanged, and the limit goes into BUGS.md.
 
 ### 8.4 Cut-line, ranked (ship in this order; stop where the time ends)
 
@@ -786,18 +815,28 @@ and accepted as a documented false positive; otherwise it ships OFF (`SHIELD_PAY
 6. W7 email-lite — MUST
 7. W8 docs and limits — MUST
    **— MUST line (~36 h) —**
-8. W9 NPCI handle file (only if the sourced list has arrived) — SHOULD
+8. W9 NPCI handle file (the official page was fetched once on 2026-10-30, section 11) — SHOULD
 9. W13 email headers — SHOULD
-10. W10 QR decode + Screenshot QR path — SHOULD (+ W12 review)
-11. W11 APK upload — SHOULD (+ W12 review). Not started after noon on 5 Nov: untrusted-file parsing is not shipped without a review
+10. W11 APK upload — SHOULD. Not started after noon on 5 Nov: untrusted-file parsing is not shipped without a review
+11. W10 QR decode + Screenshot QR path — SHOULD
+12. W12 fresh-session review of the upload / worker code — **required if W11 lands** (W11 does not ship without it); it also covers W10 if
+    W10 has landed
     **— SHOULD line —**
-12. LATER: W19, W16, W15, W17, W18, AP14.
+13. LATER: W19, W16, W15, W17, W18, AP14.
 
 If time runs short inside the MUST block, cut from the bottom: W7's EM5, then W6's questionnaire wording, never W1, W5's gate, or W8.
+
+**Build order (approved 2026-10-30):** W1, then **W5** (the message path freezes at the end of 4 Nov, 8.2), then W2, W3, W4, W6, W7, W8, then
+the SHOULD items in the order above. One commit per work item; nothing is pushed without the user's word. W5 does not need W3: the hooks
+import R2's helpers (`rules._near`, `rules._negated`, `rules._RECEIVE`) and live in `src/shield/transactions/text_rules.py`, the first file of
+that package.
 
 ---
 
 ## 9. Needs Prajval
+
+**Answered 2026-10-30:** every item below has an answer recorded in section 11 (the approval record). The list is kept as asked, so the
+questions and the answers can be read side by side.
 
 Decisions (the recommended option first; these are D29.1-D29.14 in the decision log):
 
@@ -840,7 +879,7 @@ Values (never guessed; each needs a source URL or method and a date):
 
 | Rule (brief / CLAUDE.md) | How | Flag |
 |---|---|---|
-| Rules raise-only; levels unchanged | every UP / AP / EM rule is a floor; same four levels; Promotional unused | AP1's positive gate and UP20's NW -> CJ, both flagged in 2.4 for approval |
+| Rules raise-only; levels unchanged | every UP / AP / EM rule is a floor; same four levels; Promotional unused | AP1's positive gate and UP20's NW -> CJ, both flagged in 2.4, approved 2026-10-30 |
 | D5 language cap and existing message rules unchanged | the cap and R2 / OTP / A1-A12 / G1 / R1-R10 untouched; the UP hooks are new rules beside them | the hooks change message verdicts: val-gated, merged before the real-test run |
 | No URL visited except through `net.py`; no page loads | QR / email links through the existing ladder; APK links offline only; Play Store links parsed, never fetched | none |
 | No APK downloaded, installed, executed or emulated; no sandbox; no malware samples | static parsing only, synthetic test APKs | the adb steps copy a **genuine app from Prajval's own phone** to read its certificate, at his request; deleted after, never committed |
@@ -850,6 +889,51 @@ Values (never guessed; each needs a source URL or method and a date):
 | Facts only from official sources or Prajval | three provenance files, fail closed; every value in section 9 | `pii.UPI_HANDLES` cannot be reused as a fact list |
 
 ---
+
+## 11. Approval record (2026-10-30)
+
+Prajval approved D29 on 2026-10-30 with the changes below. Each is folded into the section named.
+
+**Fixes to the proposal (from the read-through):**
+
+1. AP11 matches **whole tokens** only; a file-name hit is **Suspicious**; **Likely scam only from the questionnaire answer** (invitation, bill /
+   challan, KYC / bank update, parcel / courier, reward / cashback / refund). Test AT61: `Kirana Billing.apk` is not flagged by AP11 (4.5, 7.3).
+2. The watchdog limit is written per platform (`ru_maxrss` is bytes on macOS, kilobytes on Linux; other platforms refuse to start the worker,
+   AT62); AT56 and ST01-ST10 are worded as **Python-level** checks that do not cover native libraries (4.2, 7.3, 7.5).
+3. UP15 needs **no other rule** to have fired (any rule, R2 and the OTP rule included); test PT47b (3.3, 7.2).
+4. W5 fallback: if splits-v3 val is not available by the end of 3 Nov, or a hook fails the val gate, the hooks ship **OFF**; the code lands
+   off by default and only a gate-citing commit switches a hook on (8.1-8.3).
+
+**Decisions:**
+
+| # | Decided |
+|---|---|
+| D29.1 | MUST (W1-W8) approved. SHOULD order: **W9, W13, W11, W10, W12**; W12 is required if W11 lands (8.4). Build order: W1, then W5 |
+| D29.2 | Can't judge for a payment input with no rule hit; No warning signs found only for a request the user says they started (UP15) |
+| D29.3 | UP16-UP18 floor at Suspicious |
+| D29.4 | A verified catalog match makes an APK No warning signs found and skips AP4-AP11 |
+| D29.5 | **50 MB**, and the Can't judge reason says why (4.2); app bundles out of scope |
+| D29.6 | Uploads parsed in a short-lived child process per file |
+| D29.7 | The dependency set of 4.3 |
+| D29.8 | Report schema "6", landed before the D28 switch on 4 Nov |
+| D29.9 | No attachment types beyond the brief's list for 6 Nov |
+| D29.10 | Windowing protocol approved; head-only for 6 Nov |
+| D29.11 | "Did you start this payment?" in the Payment tab: yes |
+| D29.12 | D24's band floor kept for inputs without a text score |
+| D29.13 | Free-mail list **shown for review with Indian providers added** (5.3); final OK pending (needed by W7 only) |
+| D29.14 | Keep both the Screenshot tab and the paste box's screenshot button |
+
+**Values:**
+
+- **NPCI circular on P2P collect requests** (Prajval's reference: NPCI/UPI/OC/220/2025-26, 29 Jul 2025, effective 1 Oct 2025, person-to-person
+  collect discontinued): OK given to fetch the official PDF from npci.org.in **once**, record URL + date, and use it in the UP13 / UP14
+  wording. If the official text differs from that reference, the work stops and Prajval is told. Result: pending the fetch.
+- **cybercrime.gov.in "Report & Check Suspect -> Check suspect (mobile, email etc)":** a **link** in the help row, **for UPI results only**.
+  The app never queries the page and never sends the ID; nothing is fetched to build the link. The exact page URL is to be copied by Prajval
+  from the browser (not guessed, not fetched).
+- **NPCI UPI handle list:** OK given to fetch the official NPCI page **once**; record URL + date (the snapshot is kept so W9 does not fetch
+  again). Result: pending the fetch. BUGS.md now records that `pii.UPI_HANDLES` has no source.
+- **adb catalog:** Prajval, later; 6 apps first, only apps already on family phones (4.6, W14).
 
 ## Sources (read 2026-10-30)
 
