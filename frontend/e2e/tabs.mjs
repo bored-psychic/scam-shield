@@ -140,11 +140,89 @@ async function lightChecks(browser) {
   }
 }
 
+// ---- H the lift ----
+// every CSS transition on the page has ended (a fixed wait is too short when headless frames are slow: the software-drawn globe takes most of them)
+const settle = (page) => page.evaluate(async () => {
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  for (let i = 0; i < 4; i++) {
+    const running = document.getAnimations().filter((x) => x instanceof CSSTransition);
+    if (!running.length) break;
+    await Promise.allSettled(running.map((x) => x.finished));
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+});
+const metrics = (page, sel, nth = 0) => page.evaluate(({ sel, nth }) => {
+  const el = document.querySelectorAll(sel)[nth], r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+  return { top: r.top, shadow: cs.boxShadow };
+}, { sel, nth });
+// the home clickables, one per kind; each is [name, selector, nth, its pill or thumb behind it or null]
+const HOME_LIFT = [
+  ["tab (not selected)", '.tab[aria-selected="false"]', 0, null],
+  ["tab (selected)", '.tab[aria-selected="true"]', 0, ".tabthumb"],
+  ["toggle (not selected)", '.segbtn[aria-pressed="false"]', 0, null],
+  ["toggle (selected)", '.segbtn[aria-pressed="true"]', 0, ".segthumb"],
+  ["sample chip", ".ex button", 0, null],
+  ["Check", "button.go", 0, null],
+  ["the footer's not-live button", ".srcbtn", 0, null],
+];
+async function liftOne(page, tag, [name, sel, nth, behind], motion) {
+  await page.mouse.move(2, 2); await page.evaluate(() => document.activeElement?.blur?.()); await settle(page);
+  const a = await metrics(page, sel, nth), pill = behind ? await metrics(page, behind) : null;
+  const box = await page.evaluate(({ sel, nth }) => { const r = document.querySelectorAll(sel)[nth].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, { sel, nth });
+  await page.mouse.move(box[0], box[1]); await settle(page);
+  const b = await metrics(page, sel, nth), pillB = behind ? await metrics(page, behind) : null;
+  const rise = a.top - b.top, want = motion === "reduce" ? 0 : 2;
+  const shadowChange = behind ? pill.shadow !== pillB.shadow : a.shadow !== b.shadow;
+  check(`H1 ${tag} hover ${name}: rises ${want} px`, Math.abs(rise - want) < .06, `${rise.toFixed(2)} px`);
+  check(`H2 ${tag} hover ${name}: ${want ? "a deeper shadow" : "same shadow"}`, want ? shadowChange : !shadowChange);
+  if (behind) {
+    const pr = pill.top - pillB.top;
+    check(`H3 ${tag} hover ${name}: its pill rises with it`, Math.abs(pr - want) < .06, `${pr.toFixed(2)} px`);
+  }
+  if (motion !== "reduce") {   // pressed: back at the rest position, the transition a fast one. Released elsewhere, so nothing is clicked.
+    await page.mouse.down();
+    const took = await page.evaluate(({ sel, nth }) => { const t = document.querySelectorAll(sel)[nth].getAnimations().find((x) => x instanceof CSSTransition && x.transitionProperty === "translate"); return t ? t.effect.getTiming().duration : null; }, { sel, nth });
+    await settle(page);
+    const c = await metrics(page, sel, nth);
+    check(`H4 ${tag} pressed ${name}: settles in 60 ms`, Math.abs(c.top - a.top) < .06 && (took === null || took === 60), `${(a.top - c.top).toFixed(2)} px up, transition ${took} ms`);
+    if (behind) { const pc = await metrics(page, behind); check(`H4 ${tag} pressed ${name}: its pill settles`, Math.abs(pc.top - pill.top) < .06, `${(pill.top - pc.top).toFixed(2)} px up`); }
+    await page.mouse.move(2, 2);
+    await page.mouse.up();
+  }
+  // keyboard focus: the same rise
+  await page.mouse.move(2, 2); await settle(page);
+  await page.keyboard.press("Shift");   // the last input is the keyboard, so a focus shows as :focus-visible
+  const fv = await page.evaluate(({ sel, nth }) => { const el = document.querySelectorAll(sel)[nth]; el.focus(); return el.matches(":focus-visible"); }, { sel, nth });
+  await settle(page);
+  const f = await metrics(page, sel, nth), pillF = behind ? await metrics(page, behind) : null;
+  check(`H5 ${tag} focus-visible ${name}: rises ${want} px`, fv && Math.abs(a.top - f.top - want) < .06, `${(a.top - f.top).toFixed(2)} px, :focus-visible ${fv}`);
+  if (behind) check(`H6 ${tag} focus-visible ${name}: its pill rises with it`, Math.abs(pill.top - pillF.top - want) < .06, `${(pill.top - pillF.top).toFixed(2)} px`);
+}
+async function liftChecks(browser) {
+  for (const theme of THEMES) for (const motion of ["no-preference", "reduce"]) {
+    const { ctx, page, problems } = await open(browser, { theme, motion });
+    const tag = `${theme}${motion === "reduce" ? " reduced" : ""}`;
+    await page.fill("#msg", "Dear Customer, your account will be blocked today");   // Check is enabled
+    for (const item of HOME_LIFT) await liftOne(page, tag, item, motion);
+    await page.click('.segbtn:has-text("Screenshot")'); await page.mouse.move(2, 2);
+    await liftOne(page, tag, ["screenshot drop area", ".dropbtn", 0, null], motion);
+    await page.click('.segbtn:has-text("Paste text")');
+    // a disabled Check does not rise
+    await page.click("#tab-payment"); await settle(page);
+    const a = await metrics(page, "button.go"), box = await page.locator("button.go").boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await settle(page);
+    check(`H7 ${tag} a disabled Check does not rise`, Math.abs(a.top - (await metrics(page, "button.go")).top) < .06);
+    check(`H8 ${tag} no console problem`, !problems.length, problems.join("; "));
+    await ctx.close();
+  }
+}
+
 const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0.1", port: PORT, strictPort: true }, logLevel: "silent" });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 try {
   if (!ONLY || ONLY === "L") await lightChecks(browser);
+  if (!ONLY || ONLY === "H") await liftChecks(browser);
 } finally {
   await browser.close();
   await new Promise((res) => server.httpServer.close(res));

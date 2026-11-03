@@ -44,7 +44,7 @@
     --halo-sub: 0 0 2px rgba(4,6,10,.95), 0 0 10px rgba(4,6,10,.95), 0 0 22px rgba(4,6,10,.9);   /* tabs-home.html: the sub-line lies over the globe's bright India */
     --paste-red: var(--red);   /* the accent word of the home headline (D29.15) */
     --on-color: #04060A;   /* text and icons drawn on a solid verdict / tick colour */
-    --on-ink: #0B0D12; --kbd: #4A5363; --go-hover: #FF6262;
+    --on-ink: #0B0D12; --go-hover: #FF6262;
     --go-fill: var(--accent);   /* the Check button (D29.15, docs/design/tabs-home.html): the accent red, its text --on-color */
     --go-shadow: 0 6px 18px rgba(255,77,77,.22);
     /* the tabs' box (D29.15): the fields and toggles inside the glass */
@@ -52,8 +52,14 @@
     --seg-fill: rgba(4,6,10,.30); --seg-line: rgba(255,255,255,.12); --seg-thumb: rgba(237,241,247,.92);
     --dropbtn-fill: rgba(4,6,10,.22); --dropbtn-line: rgba(255,255,255,.22);
     --tab-fade: var(--bg);   /* the phone tab row's edge fades */
+    --tab-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(255,255,255,.03);   /* the phone row's pills: only what its scroller does not cut */
     /* the pointer light on the glass (lib/pointerLight.ts): the highlight's centre and middle, and the spot on the edge, at most +.15 over the static rim */
     --light-core: rgba(255,255,255,.08); --light-mid: rgba(255,255,255,.02); --rim-spot: rgba(255,255,255,.15);
+    /* the lift: a deeper shadow while a clickable is raised, per kind; the selected pill's and toggle thumb's own */
+    --lift-glass: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(255,255,255,.04), 0 16px 34px rgba(0,0,0,.5), 0 4px 10px rgba(0,0,0,.3);
+    --lift-soft: 0 8px 20px rgba(0,0,0,.4); --lift-go: 0 12px 26px rgba(255,77,77,.38);
+    --thumb-shadow: 0 6px 20px rgba(237,241,247,.16); --thumb-lift: 0 12px 26px rgba(237,241,247,.22); --segthumb-lift: 0 4px 10px rgba(0,0,0,.35);
+    --dropbtn-hover: rgba(255,255,255,.38);
     --page-dots: none;     /* the light theme's dot grid; none here */
     --vignette: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(4,6,10,.55) 70%, var(--bg) 100%);
     /* glass panels, chips and buttons (the "iOS-style glass finish" rule in components) */
@@ -129,13 +135,18 @@
        headline's accent word, which sits on the globe's dark dots (D29.15); this one keeps 4.5:1 there. */
     --paste-red: #A81818;
     --on-color: #FFFFFF;
-    --on-ink: #FFFFFF; --kbd: #AEB4BF; --go-hover: #C62828;
+    --on-ink: #FFFFFF; --go-hover: #C62828;
     --go-fill: var(--accent);
     --go-shadow: 0 6px 16px rgba(217,48,48,.22);
     --field-fill: #F7F8FA; --field-line: rgba(17,20,24,.14);
     --seg-fill: rgba(17,20,24,.045); --seg-line: rgba(17,20,24,.10); --seg-thumb: #15181D;
     --dropbtn-fill: #F7F8FA; --dropbtn-line: rgba(17,20,24,.26);
+    --tab-shadow: 0 1px 2px rgba(17,20,24,.10);
     --light-core: rgba(17,20,24,.055); --light-mid: rgba(17,20,24,.016); --rim-spot: rgba(17,20,24,.15);   /* white panels cannot get brighter: a soft darker tint */
+    --lift-glass: 0 2px 4px rgba(17,20,24,.07), 0 14px 30px rgba(17,20,24,.14);
+    --lift-soft: 0 6px 16px rgba(17,20,24,.14); --lift-go: 0 12px 26px rgba(217,48,48,.32);
+    --thumb-shadow: 0 6px 18px rgba(17,20,24,.22); --thumb-lift: 0 12px 26px rgba(17,20,24,.30); --segthumb-lift: 0 4px 10px rgba(17,20,24,.28);
+    --dropbtn-hover: rgba(17,20,24,.45);
     /* the dot grid: a 1 px ink dot every --dot-gap at 7% (texture, never noise) */
     --dot-gap: 22px;
     --page-dots: radial-gradient(rgba(22,24,29,.07) 1px, transparent 1.2px);
@@ -237,17 +248,16 @@
   .fchip.warn b { background: var(--red); }
   @keyframes pop { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
   .go { font: 600 16px var(--sans); color: var(--on-color); background: var(--ink); border: 0; border-radius: 13px; min-height: 46px; padding: 0 24px; cursor: pointer;
-    display: inline-flex; gap: 10px; align-items: center; transition: transform .15s, opacity .2s, background .2s; }
-  .go kbd { font: 500 11px var(--mono); color: var(--kbd); }
-  .go:hover:not(:disabled) { transform: translateY(-1px); background: var(--go-hover); }
+    display: inline-flex; gap: 10px; align-items: center; }
+  .go:hover:not(:disabled) { background: var(--go-hover); }
   .go:disabled { opacity: .35; cursor: default; }
   .go:focus-visible, .ex button:focus-visible, .ghost:focus-visible, .reason:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .ex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .ex span { font: 400 14px var(--sans); color: var(--faint); align-self: center; margin-right: 2px; text-shadow: var(--halo-sub); }
   .ex button { font: 400 14px var(--sans); color: var(--sub); background: var(--ex-fill); border: 1px solid var(--line); border-radius: 999px;
-    min-height: 32px; padding: 0 12px; cursor: pointer; transition: color .2s, border-color .2s, transform .15s; }
-  .ex button:hover { color: var(--ink); border-color: var(--strong-border); transform: translateY(-1px); }
+    min-height: 32px; padding: 0 12px; cursor: pointer; }
+  .ex button:hover { color: var(--ink); border-color: var(--strong-border); }
 
   /* checking (rendered only on the checking screen, so no display toggle) */
   .steps { display: grid; gap: 10px; padding: 18px; }
@@ -295,8 +305,8 @@
 
   .reasons { display: grid; gap: 8px; }
   .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 var(--fs-body)/1.5 var(--sans);
-    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; transition: border-color .2s, transform .15s; }
-  .reason:hover { border-color: var(--reason-hover-border); transform: translateX(2px); }
+    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+  .reason:hover { border-color: var(--reason-hover-border); }
   .reason .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; }
   .reason small { display: block; color: var(--muted); font-size: var(--fs-small); margin-top: 2px; }
   .reason.nospan { cursor: default; }   /* new: a reason with nothing to point at in the message (e.g. the wording model's) */
@@ -342,7 +352,7 @@
     padding-inline: 20px; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); font: 500 11px var(--mono); color: var(--faint); pointer-events: none; }
   @keyframes blink { 50% { opacity: .3; } }
   @media (max-width: 560px) {
-    .go kbd { display: none; } .local span { display: none; }
+    .local span { display: none; }
     footer { font-size: 10px; }
   }
   /* new (2026-10-18, phones; every width since 2026-11-03, when the home box with its five sample chips got taller): the footer is part of the page instead of a bar floating over it. Fixed to
@@ -460,7 +470,7 @@
   .g-why .reason { background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
     -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
   .g-why .reason::before { display: none; }
-  .g-why .reason:hover { background-color: var(--soft-fill); transform: none; }
+  .g-why .reason:hover { background-color: var(--soft-fill); }
   .g-why .reason.nospan:hover { background-color: transparent; }   /* new */
   .g-why > .note { margin: 0 4px 4px; }   /* new: the no-reasons line */
   .g-verdict .vword { font-size: var(--fs-verdict); }
@@ -649,11 +659,11 @@
   .wgt::after { content: attr(data-label); height: 0; overflow: hidden; visibility: hidden; font-weight: 500; }
 
   .tabswrap { position: relative; min-width: 0; }
-  .tabs { position: relative; display: flex; gap: 8px; justify-content: safe center; }
-  .tabthumb { position: absolute; left: 0; top: 0; height: 42px; width: 0; border-radius: 999px; background: var(--ink); box-shadow: 0 6px 20px var(--tint-quiet); }
-  .tab { z-index: 1; flex: none; box-sizing: border-box; height: 42px; padding: 0 17px; border-radius: 999px; color: var(--muted); font: 400 15.5px var(--sans); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; transition: color .25s; }
+  .tabs { --thumb-top: 0px; position: relative; display: flex; gap: 8px; justify-content: safe center; }
+  .tabthumb { position: absolute; left: 0; top: var(--thumb-top); height: 42px; width: 0; border-radius: 999px; background: var(--ink); box-shadow: var(--thumb-shadow); transition: top .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s; }
+  .tab { z-index: 1; flex: none; box-sizing: border-box; height: 42px; padding: 0 17px; border-radius: 999px; color: var(--muted); font: 400 15.5px var(--sans); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
   .tab:hover { color: var(--ink); }
-  .tab[aria-selected="true"] { color: var(--on-ink); font-weight: 500; background: transparent; background-color: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .tab[aria-selected="true"] { --lifted: none; color: var(--on-ink); font-weight: 500; background: transparent; background-color: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .tab[aria-selected="true"]::before { display: none; }
   .tab:focus-visible, .segbtn:focus-visible, .dropbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -679,10 +689,10 @@
   .more .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
   .seg { position: relative; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--seg-fill); border: 1px solid var(--seg-line); max-width: 100%; box-sizing: border-box; }
-  .segbtn { position: relative; z-index: 1; min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 400 14.5px/1.2 var(--sans); cursor: pointer; transition: color .2s; }
+  .segbtn { position: relative; z-index: 1; min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 400 14.5px/1.2 var(--sans); cursor: pointer; }
   .segbtn:hover { color: var(--ink); }
   .segbtn[aria-pressed="true"] { color: var(--on-ink); font-weight: 500; }
-  .segthumb { position: absolute; left: 0; top: 3px; width: 0; height: 32px; border-radius: 999px; background: var(--seg-thumb); }
+  .segthumb { position: absolute; left: 0; top: 3px; width: 0; height: 32px; border-radius: 999px; background: var(--seg-thumb); transition: top .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s; }
 
   .dropbtn { box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px; border-radius: 14px; color: var(--muted); font: 400 14px/1.4 var(--sans); text-align: left; cursor: pointer; border: 1.5px dashed var(--dropbtn-line); background: var(--dropbtn-fill); }
   .dropbtn svg { flex: none; }
@@ -692,10 +702,14 @@
     .col.home { margin-top: max(0px, calc(24vh - 150px)); }
     .hero h1 { display: grid; align-items: end; min-height: 2.28em; }   /* two lines reserved: a one-line headline does not pull the tabs up */
     /* plan 6.1: one scrolling row, 40 px pills, 14 px text, the selected tab kept in view, edge fades as the scroll hint, no sideways page scroll */
-    .tabs { overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-block: 4px; margin-block: -4px; gap: 6px; }
+    .tabs { --thumb-top: 4px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-block: 4px; margin-block: -4px; gap: 6px; }
+    /* a scroller clips its content: the row's pills have a shadow small enough not to show its cut edges */
+    .tabs .tab { --lifted: var(--tab-shadow); box-shadow: var(--tab-shadow); }
+    .tabs .tab[aria-selected="true"] { box-shadow: none; }
+    .tabthumb { box-shadow: none; }
     .tabs::-webkit-scrollbar { display: none; }
     .tab { height: 40px; padding: 0 13px; font-size: 14px; gap: 6px; scroll-snap-align: center; }
-    .tabthumb { top: 4px; height: 40px; }
+    .tabthumb { height: 40px; }
     .tabswrap::before, .tabswrap::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px; z-index: 2; pointer-events: none; opacity: 0; }
     .tabswrap::before { left: 0; background: linear-gradient(90deg, var(--tab-fade), transparent); }
     .tabswrap::after { right: 0; background: linear-gradient(270deg, var(--tab-fade), transparent); }
@@ -707,6 +721,31 @@
     .more .two { grid-template-columns: 1fr; }
     .ex button { min-height: 40px; }
     .acts { margin-left: auto; }
+  }
+}
+
+/* The lift: every clickable rises 2 px on hover and on keyboard focus, with a deeper shadow, and settles in 60 ms when pressed. By `translate`, which nothing else on these controls uses. The selected
+   tab's pill and a toggle's selected thumb sit behind their button and rise with it: GSAP moves them with a transform and pins `translate` inline, so they lift by `top`. Each :has() rule is written
+   on its own and differs from its neighbour (the focus ones add outline: 0): the CSS minifier merges identical rules into :is(...), and Chrome ignores :has() inside :is(). Reduced motion: no lift at
+   all. A touch screen has no hover (a tapped control would stay raised). Not on the theme button, whose hover belongs to the theme switch, nor on underlined text and disclosure titles. */
+@layer components {
+  .tab, .segbtn, .ex button, .go, .ghost, .rtab, .callbtn, .helplangbtn, .dropbtn, .srcbtn, .reason:not(.nospan), .radar button.lbl { --lifted: var(--lift-soft); transition: translate .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, background-color .18s ease, border-color .2s ease, color .25s ease, opacity .2s ease; }
+  .tab, .ex button, .ghost, .rtab { --lifted: var(--lift-glass); }
+  .go, .callbtn { --lifted: var(--lift-go); }
+  .tab[aria-selected="true"] { --lifted: none; }
+  .dropbtn:hover, .dropbtn:focus-visible { border-color: var(--dropbtn-hover); }
+  @media (prefers-reduced-motion: no-preference) {
+    :is(.tab, .segbtn, .ex button, .go, .ghost, .rtab, .callbtn, .helplangbtn, .dropbtn, .srcbtn, .reason:not(.nospan), .radar button.lbl):not(:disabled):focus-visible { translate: 0 -2px; box-shadow: var(--lifted); }
+    .tabs:has(.tab[aria-selected="true"]:focus-visible) .tabthumb { top: calc(var(--thumb-top) - 2px); box-shadow: var(--thumb-lift); outline: 0; }
+    .seg:has(.segbtn[aria-pressed="true"]:focus-visible) .segthumb { top: 1px; box-shadow: var(--segthumb-lift); outline: 0; }
+    @media (hover: hover) {
+      :is(.tab, .segbtn, .ex button, .go, .ghost, .rtab, .callbtn, .helplangbtn, .dropbtn, .srcbtn, .reason:not(.nospan), .radar button.lbl):not(:disabled):hover { translate: 0 -2px; box-shadow: var(--lifted); }
+      .tabs:has(.tab[aria-selected="true"]:hover) .tabthumb { top: calc(var(--thumb-top) - 2px); box-shadow: var(--thumb-lift); }
+      .seg:has(.segbtn[aria-pressed="true"]:hover) .segthumb { top: 1px; box-shadow: var(--segthumb-lift); }
+    }
+    :is(.tab, .segbtn, .ex button, .go, .ghost, .rtab, .callbtn, .helplangbtn, .dropbtn, .srcbtn, .reason:not(.nospan), .radar button.lbl):not(:disabled):active { translate: 0 0; transition-duration: .06s; }
+    .tabs:has(.tab[aria-selected="true"]:active) .tabthumb { top: var(--thumb-top); transition-duration: .06s; }
+    .seg:has(.segbtn[aria-pressed="true"]:active) .segthumb { top: 3px; transition-duration: .06s; }
   }
 }
 
