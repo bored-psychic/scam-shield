@@ -7,12 +7,15 @@
 //   L pointer light: the highlight layer's transform on the next frame equals the pointer within 1 px, on the box, a tab, a chip and a result panel, both themes; one pointermove listener
 //     for the light; rects read at most once a frame per on-screen widget; the glass's own background and backdrop-filter do not change while the pointer moves; hidden during a theme switch.
 //   K keyboard and ARIA: arrows, Home / End move the selection and the focus and wrap; aria-selected / aria-controls / tabindex follow; phone row: no sideways page scroll at 360-430 px,
-//     the selected tab in view, 40 px pills, 14 px text.
+//     the selected tab in view, 40 px pills, 14 px text; the footer covers nothing on any tab at seven screen sizes; the toggle thumbs sit on their buttons once the fonts are in.
 //   M motion: the tab switch sampled every 50 ms; the globe rise; a click during a switch; a theme switch during either; reduced motion.
 //   H the lift: every clickable rises 2 px on hover and on focus-visible with a deeper shadow; the selected pill and thumb rise with their button; :active settles; reduced motion: nothing moves.
 //   R the result page: tabs on top, min-heights per tab, no text under 14 px, no entrance animation, a click on a tab goes home on that tab.
+//   F files: the screenshot flow in the SMS / Email and Link tabs (picker, drop, an image-only paste, "replace your text?", a refused file) with /api/ocr answered in the page; the
+//     Payment tab uploads nothing; the APK picker refuses before anything happens; a file dropped where no box takes it does not open in place of the page. Nothing is sent by Payment or App.
 // Exit code 1 on any failure.
-import { mkdirSync, readFileSync } from "node:fs";
+import { closeSync, ftruncateSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
@@ -316,6 +319,35 @@ async function keyboardChecks(browser) {
     }
     await p.ctx.close();
   }
+  // the footer never covers the page: on every tab and box, also once its feed has filled up (its button and feed have their full size from the start)
+  for (const [w, h] of [[1280, 720], [1280, 800], [1366, 768], [1440, 900], [1024, 768], [1920, 1080], [390, 844]]) {
+    const p = await open(browser, { w, h, motion: "reduce" });
+    const steps = [["message", null], ["message", 'Email'], ["link", null], ["payment", null], ["payment", "Screenshot"], ["app", null], ["app", "App file"]];
+    const hits = [], sizes = [];
+    for (const [k, mode] of steps) {
+      await p.page.click(`#tab-${k}`);
+      if (mode) await p.page.click(`.segbtn:has-text("${mode}")`);
+      await nextFrame(p.page); await nextFrame(p.page);
+      const r = await p.page.evaluate(() => {
+        const box = (e) => e?.getBoundingClientRect(), hit = (a, b) => a && b && a.width && b.width && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0;
+        const page = [...document.querySelectorAll(".hero h1, .hero .sub, .tab, .box.entry, .ex span, .ex button")].map(box), bits = [box(document.querySelector(".srcbtn")), box(document.querySelector(".feed"))];
+        return { over: page.some((a) => bits.some((b) => hit(a, b))), scroll: document.documentElement.scrollHeight - innerHeight };
+      });
+      if (r.over) hits.push(`${k}${mode ? ` ${mode}` : ""}`);
+      sizes.push(r.scroll);
+    }
+    check(`K5 ${w}x${h}: the footer covers nothing on any tab`, !hits.length, hits.join(", "));
+    if (w > 640 && h >= 800) check(`K6 ${w}x${h}: the SMS tab fits one screen`, sizes[0] <= 0, `${sizes[0]} px to scroll`);
+    await p.ctx.close();
+  }
+  // a toggle's thumb stays on its button once the fonts are in, also on a phone, where the row keeps its width
+  for (const w of [390, 1440]) {
+    const p = await open(browser, { w, h: 844 });
+    await p.page.waitForTimeout(400);
+    const off = await p.page.evaluate(() => [...document.querySelectorAll(".seg")].map((s) => { const b = s.querySelector('[aria-pressed="true"]').getBoundingClientRect(), t = s.querySelector(".segthumb").getBoundingClientRect(); return Math.max(Math.abs(b.left - t.left), Math.abs(b.width - t.width)); }));
+    check(`K7 ${w} px: the toggle thumbs sit on their buttons`, off.every((x) => x < .6), off.map((x) => x.toFixed(2)).join(", "));
+    await p.ctx.close();
+  }
   const d = await open(browser, { motion: "reduce" });
   const all = await d.page.evaluate(() => { const row = document.querySelector(".tabs").getBoundingClientRect(); return [...document.querySelectorAll(".tab")].every((t) => { const r = t.getBoundingClientRect(); return r.left >= row.left && r.right <= row.right; }); });
   check("K4 desktop: all four tabs fit in one row", all);
@@ -399,6 +431,290 @@ async function liftChecks(browser) {
   }
 }
 
+// ---- R the result page ----
+const HEIGHTS = {   // tabs-result.html, its baked per-tab layout
+  message: { ".g-verdict": 514, ".g-why": 315, ".g-msg": 196, ".g-link": 294, ".g-todo": 324 },
+  link: { ".g-verdict": 514, ".g-why": 315, ".g-msg": 140, ".g-link": 345, ".g-todo": 329 },
+  payment: { ".g-verdict": 514, ".g-why": 315, ".g-msg": 164, ".g-link": 316, ".g-todo": 342 },
+  app: { ".g-verdict": 510, ".g-why": 330, ".g-msg": 193, ".g-link": 400, ".g-todo": 324 },
+};
+async function toResult(page, f, how = "sms") {
+  if (how === "link") { await page.click("#tab-link"); await page.fill("#url", f.text); }
+  else if (how === "email") { await page.click('.segbtn:has-text("Email")'); await page.fill("#em-subj", "Action required"); await page.fill("#em-body", f.text); }
+  else await page.fill("#msg", f.text);
+  await page.click("button.go");
+  await page.waitForSelector(".result .vword");
+  // the reduced-motion rule in styles.css makes every change a 0.01 ms transition, max-width included: two frames before anything is measured (as e2e/theme.mjs)
+  await nextFrame(page); await nextFrame(page);
+}
+const small = () => {   // every visible text on the page with a font under 14 px
+  const out = [], walker = document.createTreeWalker(document.querySelector(".result"), NodeFilter.SHOW_TEXT);
+  for (let n; (n = walker.nextNode()); ) {
+    const el = n.parentElement, t = n.textContent.trim();
+    if (!t || el.closest("[hidden]") || el.closest(".sr-only")) continue;
+    const cs = getComputedStyle(el), r = document.createRange(); r.selectNodeContents(n);
+    if (cs.visibility === "hidden" || cs.display === "none" || !r.getClientRects().length) continue;
+    if (parseFloat(cs.fontSize) < 14) out.push(`${parseFloat(cs.fontSize)}px <${el.tagName.toLowerCase()}.${el.className}> ${t.slice(0, 30)}`);
+  }
+  return [...new Set(out)];
+};
+const clipped = () => [...document.querySelectorAll(".bento .box")].flatMap((b) => {
+  const out = [], box = b.getBoundingClientRect();
+  if (b.scrollHeight > b.clientHeight + 1) out.push(`${b.className}: height ${b.scrollHeight} > ${b.clientHeight}`);
+  for (const el of b.querySelectorAll("*")) {   // text or a control past the panel's edge (the light layers are clipped on purpose)
+    if (el.closest(".light, .rimspot") || !el.getClientRects().length) continue;
+    const r = el.getBoundingClientRect();
+    if (r.left < box.left - 1 || r.right > box.right + 1) out.push(`${el.tagName.toLowerCase()}.${el.className} "${el.textContent.slice(0, 24)}" sticks out: ${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(box.left)}..${Math.round(box.right)}`);
+  }
+  return out;
+});
+const RESULT_LIFT = [
+  ["Check something else", ".ghost.back", 0, null],
+  ["result tab (not selected)", '.rtab[aria-pressed="false"]', 0, null],
+  ["result tab (selected)", '.rtab[aria-pressed="true"]', 0, null],
+  ["Call 1930", ".callbtn", 0, null],
+  ["cybercrime.gov.in", ".helplink", 0, null],
+  ["language switch", ".helplangbtn", 1, null],
+];
+async function resultChecks(browser) {
+  const jio = FIXTURES.find((x) => x.label === "jio-no-sender"), kyc = FIXTURES.find((x) => x.label === "kyc-promotional"), invest = FIXTURES.find((x) => x.label === "invest-vip-group-tips");
+  for (const theme of THEMES) {
+    const { ctx, page, problems } = await open(browser, { theme, report: jio.report, motion: "reduce" });
+    await page.evaluate(() => { window.__anim = []; document.addEventListener("animationstart", (e) => window.__anim.push(e.animationName), true); });
+    await page.fill("#msg", jio.text);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { window.__anim.length = 0; });   // what started on the home screen (its detection chips) is not the result page's
+    await toResult(page, jio);
+    await page.waitForTimeout(150);
+    const top = await page.evaluate(() => ({ back: document.querySelector(".ghost.back").textContent.trim(), tabs: [...document.querySelectorAll(".rtab")].map((b) => [b.textContent.trim(), b.getAttribute("aria-pressed")]), meta: document.querySelector(".rmeta").textContent,
+      left: document.querySelector(".bcol:first-child").getBoundingClientRect().width, right: document.querySelector(".bcol:last-child").getBoundingClientRect().width, gap: document.querySelector(".bcol:last-child").getBoundingClientRect().left - document.querySelector(".bcol:first-child").getBoundingClientRect().right }));
+    check(`R1 ${theme} the top bar: Check something else, the four tabs with SMS / Email pressed, the privacy line`, top.back === "← Check something else" && JSON.stringify(top.tabs) === JSON.stringify([["SMS / Email", "true"], ["Link", "false"], ["Payment / UPI", "false"], ["App / APK", "false"]]) && top.meta === "Checked on this device · nothing was stored", JSON.stringify(top.tabs));
+    check(`R2 ${theme} 1440 px: columns 552 and 690 px, 24 apart`, Math.abs(top.left - 552) < 1 && Math.abs(top.right - 690) < 1 && Math.abs(top.gap - 24) < 1, `${top.left} | ${top.gap} | ${top.right}`);
+    for (const k of ["message", "link", "payment", "app"]) {
+      // Payment and App have no result yet: their min-heights are read by setting the layout's tab
+      const mins = await page.evaluate(([k, H]) => { document.querySelector(".bento").dataset.tab = k; return Object.keys(H).map((sel) => { const el = document.querySelector(sel); return el ? [sel, parseFloat(getComputedStyle(el).minHeight), el.getBoundingClientRect().height] : [sel, null, null]; }); }, [k, HEIGHTS[k]]);
+      const bad = mins.filter(([sel, m, h]) => m !== null && (m !== HEIGHTS[k][sel] || h + .5 < m));
+      check(`R3 ${theme} ${k}: every box at least its approved height`, !bad.length, mins.map(([s, m, h]) => `${s} ${m}/${h === null ? "-" : Math.round(h)}`).join(" "));
+    }
+    await page.evaluate(() => { document.querySelector(".bento").dataset.tab = "message"; });
+    check(`R4 ${theme} nothing clipped in any panel`, !(await page.evaluate(clipped)).length, (await page.evaluate(clipped)).join("; "));
+    check(`R5 ${theme} no CSS zoom on the page`, await page.evaluate(() => [...document.querySelectorAll(".result, .result *")].every((e) => getComputedStyle(e).zoom === "1")));
+    const anim = await page.evaluate(() => window.__anim);
+    check(`R6 ${theme} no entrance animation`, !anim.some((a) => ["rise", "knobin", "pop"].includes(a)) && !(await page.evaluate(() => document.getAnimations().some((a) => a instanceof CSSTransition && a.effect.getTiming().duration > 1))), `started: ${[...new Set(anim)].join(", ") || "none"} (ping and spin are the radar's continuous pulse and sweep)`);
+    // a click on a result tab goes home on that tab
+    await page.click('.rtab:has-text("Link")');
+    await page.waitForSelector("#url");
+    check(`R7 ${theme} a result tab goes back to home on that tab`, (await finalIs(page, "link")) && !(await page.locator(".result").count()), await page.evaluate(() => document.querySelector(".hero h1").textContent));
+    await page.click("#tab-message");
+    check(`R8 ${theme} what was typed is still there`, (await page.inputValue("#msg")) === jio.text);
+    check(`R9 ${theme} no console problem`, !problems.length, problems.join("; "));
+    await ctx.close();
+    for (const [w, h] of [[1440, 900], [1280, 800], [390, 844], [360, 640]]) for (const f of [jio, kyc, invest]) {
+      const o = await open(browser, { theme, report: f.report, motion: "reduce", w, h });
+      await toResult(o.page, f);
+      await o.page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
+      const tiny = await o.page.evaluate(small), cut = await o.page.evaluate(clipped), over = await o.page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      check(`R10 ${theme} ${w} px ${f.label}: no text under 14 px, nothing clipped, no sideways scroll`, !tiny.length && !cut.length && over <= 0, [...tiny, ...cut, over > 0 ? `over ${over}` : ""].join("; "));
+      await o.ctx.close();
+    }
+    // the Link and Email tabs: what is sent, and how the result names it
+    for (const [how, title, noun] of [["link", "The link · not opened", "link"], ["email", "The email", "email"]]) {
+      const o = await open(browser, { theme, report: jio.report, motion: "reduce" });
+      const sent = [];
+      await o.page.route("**/api/analyse", (r) => { sent.push(JSON.parse(r.request().postData()).text); r.fulfill({ json: jio.report }); });
+      await toResult(o.page, { text: "https://sbi-kyc-update.top/login" }, how);
+      const lab = await o.page.locator(".g-msg .lab").textContent();
+      const pressed = await o.page.locator('.rtab[aria-pressed="true"]').textContent();
+      check(`R11 ${theme} ${how}: the right text was sent, the page names it`, sent[0] === (how === "email" ? "Action required\n\nhttps://sbi-kyc-update.top/login" : "https://sbi-kyc-update.top/login") && lab.startsWith(title) && pressed === (how === "link" ? "Link" : "SMS / Email"), JSON.stringify(sent[0]));
+      check(`R12 ${theme} ${how}: the line under the verdict says ${noun}`, (await o.page.locator(".vline").textContent()).includes(noun));
+      await o.ctx.close();
+    }
+    // the lift on the result page's clickables
+    for (const motion of ["no-preference", "reduce"]) {
+      const o = await open(browser, { theme, report: jio.report, motion });
+      await toResult(o.page, jio);
+      await o.page.waitForFunction(() => !!document.querySelector(".helprow"));
+      await o.page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await settle(o.page);
+      for (const item of RESULT_LIFT.slice(3)) await liftOne(o.page, `${theme}${motion === "reduce" ? " reduced" : ""}`, item, motion);
+      await o.page.evaluate(() => window.scrollTo(0, 0)); await settle(o.page);
+      for (const item of RESULT_LIFT.slice(0, 3)) await liftOne(o.page, `${theme}${motion === "reduce" ? " reduced" : ""}`, item, motion);
+      await o.ctx.close();
+    }
+  }
+}
+
+// ---- F files ----
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const fileOf = (name = "s.png", mimeType = "image/png", buffer = PNG) => ({ name, mimeType, buffer });
+const OCR_TEXT = "Dear Customer, update now: sbi-kyc-update.top/login and share the OTP";
+// drop or paste a real File, dispatched in the page (not an OS drag)
+const dropOn = (page, sel, name, type) => page.evaluate(({ sel, name, type }) => {
+  const el = document.querySelector(sel), dt = new DataTransfer();
+  dt.items.add(new File([new Uint8Array([137, 80, 78, 71])], name, { type }));
+  const opt = { bubbles: true, cancelable: true, dataTransfer: dt };
+  el.dispatchEvent(new DragEvent("dragenter", opt));
+  const over = el.dispatchEvent(new DragEvent("dragover", opt));
+  const notPrevented = el.dispatchEvent(new DragEvent("drop", opt));
+  return { overPrevented: !over, dropPrevented: !notPrevented };
+}, { sel, name, type });
+async function fileChecks(browser) {
+  for (const theme of THEMES) {
+    const { ctx, page, problems } = await open(browser, { theme, motion: "reduce" });
+    const posts = { ocr: 0, analyse: 0 };
+    let ocrAnswer = { status: 200, json: { text: OCR_TEXT, lines: [OCR_TEXT], dropped: 2 } };
+    await page.route("**/api/ocr", (r) => { posts.ocr++; r.fulfill(ocrAnswer); });
+    await page.route("**/api/analyse", (r) => { posts.analyse++; r.fulfill({ json: FIXTURES[0].report }); });
+    // SMS: the Screenshot mode's picker -> the text in the box, Paste text again, the notice, nothing checked by itself
+    await page.click('.segbtn:has-text("Screenshot")');
+    check(`F1 ${theme} Screenshot mode: a drop area, no text box, Check disabled`, (await page.locator(".dropbtn").count()) === 1 && !(await page.locator("#msg").count()) && await page.locator("button.go").isDisabled());
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.waitForSelector("#msg");
+    check(`F2 ${theme} the picked screenshot's text goes into the box, the mode back to Paste text`, (await page.inputValue("#msg")) === OCR_TEXT && await page.locator('.segbtn:has-text("Paste text")').getAttribute("aria-pressed") === "true");
+    const notice = await page.locator(".shotmsg").textContent();
+    check(`F3 ${theme} the notice asks to check the text, and says how many lines were removed; a thumbnail shows`, /especially amounts/.test(notice) && /Removed 2 lines/.test(notice) && (await page.locator(".thumb img").count()) === 1, notice);
+    check(`F4 ${theme} nothing was checked by itself: Check is enabled, /api/analyse not called`, posts.analyse === 0 && !(await page.locator("button.go").isDisabled()) && posts.ocr === 1);
+    // typed text is not replaced without asking
+    await page.fill("#msg", "my own words");
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.waitForSelector('.ghost:has-text("Keep my text")');
+    check(`F5 ${theme} a new screenshot asks before replacing typed text; Check waits`, (await page.inputValue("#msg")) === "my own words" && await page.locator("button.go").isDisabled());
+    await page.click('.ghost:has-text("Keep my text")');
+    check(`F6 ${theme} Keep my text keeps it`, (await page.inputValue("#msg")) === "my own words" && !(await page.locator(".thumb img").count()));
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.click('.ghost:has-text("Replace")');
+    await page.waitForFunction((t) => document.querySelector("#msg").value === t, OCR_TEXT);
+    check(`F7 ${theme} Replace replaces it`, (await page.inputValue("#msg")) === OCR_TEXT);
+    // drop and an image-only paste, in Paste text mode
+    await page.click('.ghost:has-text("Remove screenshot")');
+    await page.fill("#msg", "");
+    const drop = await dropOn(page, ".box.entry", "s.png", "image/png");
+    await page.waitForFunction((t) => document.querySelector("#msg").value === t, OCR_TEXT);
+    check(`F8 ${theme} a screenshot dropped on the box is read, and the browser does not open it`, drop.overPrevented && drop.dropPrevented);
+    await page.click('.ghost:has-text("Remove screenshot")');
+    await page.fill("#msg", "");
+    await page.evaluate(() => {
+      const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array([137, 80, 78, 71])], "s.png", { type: "image/png" }));
+      document.querySelector("#msg").dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: dt }));
+    });
+    await page.waitForFunction((t) => document.querySelector("#msg").value === t, OCR_TEXT);
+    check(`F9 ${theme} an image-only paste is read`, true);
+    await page.click('.ghost:has-text("Remove screenshot")');
+    // a refused file: no request
+    const before = posts.ocr;
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf("big.png", "image/png", Buffer.alloc(9 * 1024 * 1024)));
+    await page.waitForFunction(() => /too large/.test(document.querySelector(".shotmsg")?.textContent ?? ""));
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf("a.pdf", "application/pdf"));
+    await page.waitForFunction(() => /PNG, JPG or WEBP/.test(document.querySelector(".shotmsg")?.textContent ?? ""));
+    check(`F10 ${theme} a too large or wrong file is refused here, with no request`, posts.ocr === before);
+    await page.click('.ghost:has-text("Dismiss")');
+    // Email: the text goes into the body; the subject may stay empty after a screenshot, and must be filled otherwise
+    await page.fill("#msg", "");
+    await page.click('.segbtn:has-text("Email")');
+    await page.fill("#em-body", "typed body");
+    check(`F11 ${theme} an email needs its subject when typed`, await page.locator("button.go").isDisabled() && (await page.locator("button.go").textContent()) === "Check email");
+    await page.fill("#em-subj", "Hello");
+    check(`F12 ${theme} subject and body: Check is enabled`, !(await page.locator("button.go").isDisabled()));
+    await page.fill("#em-subj", ""); await page.fill("#em-body", "");
+    await page.click('.segbtn:has-text("Screenshot")');
+    check(`F13 ${theme} the email's Screenshot mode asks for the sender's full address`, /sender's full address/.test(await page.locator(".box.entry").textContent()));
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.waitForSelector("#em-body");
+    check(`F14 ${theme} a screenshot's text goes into the Body; Check is enabled with no subject`, (await page.inputValue("#em-body")) === OCR_TEXT && !(await page.locator("button.go").isDisabled()));
+    await page.click('.ghost:has-text("Remove screenshot")');
+    await page.fill("#em-body", "");
+    await page.click('.segbtn:has-text("SMS or chat")');
+    // Link: the first link of the text; none: says so and leaves the line alone
+    await page.click("#tab-link");
+    await page.click('.segbtn:has-text("Screenshot")');
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.waitForSelector("#url");
+    check(`F15 ${theme} Link: the first link of the screenshot goes into the line`, (await page.inputValue("#url")) === "sbi-kyc-update.top/login");
+    await page.click('.ghost:has-text("Remove screenshot")');
+    await page.fill("#url", "");
+    ocrAnswer = { status: 200, json: { text: "no address in here", lines: ["no address in here"], dropped: 0 } };
+    await page.click('.segbtn:has-text("Screenshot")');
+    await page.setInputFiles('.box.entry input[type="file"]', fileOf());
+    await page.waitForFunction(() => /No link found/.test(document.querySelector(".shotmsg")?.textContent ?? ""));
+    check(`F16 ${theme} Link: no link in the screenshot: it says so, the line stays empty`, (await page.locator(".dropbtn").count()) === 1);
+    await page.click('.ghost:has-text("Remove screenshot")');
+    // Payment: no file input in either mode, a dropped file goes nowhere, Check disabled, nothing sent
+    await page.click("#tab-payment");
+    const sent = { ...posts };
+    const payDrop = await dropOn(page, ".box.entry", "receipt.png", "image/png");
+    await page.fill("#upi", "refund.desk@ybl");
+    await page.click('.segbtn:has-text("Screenshot")');
+    const payDrop2 = await dropOn(page, ".box.entry", "receipt.png", "image/png");
+    await page.waitForTimeout(120);
+    check(`F17 ${theme} Payment: no file input at all, a dropped file is refused and not read, the plan's explanation`, !(await page.locator('[role="tabpanel"]:not([hidden]) input[type="file"]').count()) && payDrop.dropPrevented && payDrop2.dropPrevented && posts.ocr === sent.ocr
+      && /A screenshot cannot prove a payment, so there is nothing to upload\./.test(await page.locator(".box.entry").textContent()));
+    check(`F18 ${theme} Payment: Check disabled in both modes, one plain line`, await page.locator("button.go").isDisabled() && (await page.locator("button.go").textContent()) === "Show me what to do" && /not built yet/.test(await page.locator(".notbuilt").textContent()));
+    await page.click('.segbtn:has-text("UPI ID or payment request")');
+    check(`F19 ${theme} Payment: what was typed stays; the question is optional, nothing chosen first`, (await page.inputValue("#upi")) === "refund.desk@ybl" && !(await page.locator('.seg[aria-label="Did you start this payment?"] [aria-pressed="true"]').count()) && await page.locator("button.go").isDisabled());
+    // App: no Screenshot mode; the APK picker refuses; only its name is kept; nothing is sent
+    await page.click("#tab-app");
+    check(`F20 ${theme} App: no Screenshot mode`, !(await page.locator('[role="tabpanel"]:not([hidden]) .segbtn:has-text("Screenshot")').count()) && (await page.locator(".segbtn").count()) === 2);
+    const nameDrop = await dropOn(page, ".box.entry", "x.apk", "application/vnd.android.package-archive");
+    check(`F21 ${theme} App, Name or link: a dropped file is refused, the browser does not open it`, nameDrop.dropPrevented && !(await page.inputValue("#app-name")));
+    await page.click('.segbtn:has-text("App file")');
+    // one byte over 50 MB, as a sparse file on disk: Playwright takes no buffer that large
+    const tmp = mkdtempSync(join(tmpdir(), "tabs-")), big = join(tmp, "big.apk"), fd = openSync(big, "w");
+    ftruncateSync(fd, 50 * 1024 * 1024 + 1); closeSync(fd);
+    await page.setInputFiles('[role="tabpanel"]:not([hidden]) input[type="file"]', big);
+    rmSync(tmp, { recursive: true });
+    await page.waitForFunction(() => /too large/.test(document.querySelector('[role="status"].notbuilt')?.textContent ?? ""));
+    await page.setInputFiles('[role="tabpanel"]:not([hidden]) input[type="file"]', fileOf("a.pdf", "application/pdf"));
+    await page.waitForFunction(() => /\.apk file/.test(document.querySelector('[role="status"].notbuilt')?.textContent ?? ""));
+    check(`F22 ${theme} App file: over 50 MB or not an .apk is refused`, !(await page.inputValue("#app-file")));
+    await page.setInputFiles('[role="tabpanel"]:not([hidden]) input[type="file"]', fileOf("SBI KYC Update.apk", "application/vnd.android.package-archive"));
+    await page.waitForFunction(() => document.querySelector("#app-file").value === "SBI KYC Update.apk");
+    check(`F23 ${theme} App file: an .apk's name is kept; Check disabled; nothing was sent from Payment or App`, await page.locator("button.go").isDisabled() && posts.ocr === sent.ocr && posts.analyse === sent.analyse);
+    // a file dropped beside the boxes
+    const beside = await dropOn(page, ".hero h1", "s.png", "image/png");
+    check(`F24 ${theme} a file dropped beside the box does not open in place of the page`, beside.overPrevented && beside.dropPrevented);
+    // the samples
+    await page.click('.ex button:has-text("Fake bank email")');
+    check(`F25 ${theme} the email sample: the Email toggle on, subject and body filled, nothing checked`, await page.locator('.segbtn:has-text("Email")').getAttribute("aria-pressed") === "true" && /suspended/.test(await page.inputValue("#em-subj")) && posts.analyse === sent.analyse);
+    await page.click('.ex button:has-text("APK sent on WhatsApp")');
+    check(`F26 ${theme} the APK sample: App file, the name and the answer filled`, (await page.inputValue("#app-file")) === "SBI KYC Update.apk" && (await page.inputValue("#app-how")) === "kyc");
+    await page.click('.ex button:has-text("Payment screenshot")');
+    check(`F27 ${theme} the payment screenshot sample: the plan's explanation`, /nothing to upload/.test(await page.locator(".box.entry").textContent()));
+    await page.click('.ex button:has-text("KYC link SMS")');
+    await page.click("button.go");
+    await page.waitForSelector(".result .vword");
+    check(`F28 ${theme} the SMS sample checks through /api/analyse once`, posts.analyse === sent.analyse + 1);
+    check(`F29 ${theme} no console problem, no request outside the page`, !problems.length, problems.join("; "));
+    await ctx.close();
+  }
+}
+
+// ---- screenshots ----
+async function screenshots(browser, dir) {
+  const kyc = FIXTURES.find((x) => x.label === "kyc-promotional"), bare = FIXTURES.find((x) => x.label === "userinfo-trick");   // bare: a Report whose text is one link
+  for (const theme of THEMES) for (const [w, h] of [[1440, 900], [390, 844]]) {
+    const { ctx, page } = await open(browser, { theme, w, h, motion: "reduce", report: kyc.report });
+    await page.waitForTimeout(600);
+    for (const k of ["message", "link", "payment", "app"]) {
+      await page.click(`#tab-${k}`); await page.mouse.move(2, 2); await page.evaluate(() => document.activeElement?.blur?.()); await page.waitForTimeout(200);
+      await page.screenshot({ path: join(dir, `home_${k}_${theme}_${w}x${h}.png`) });
+    }
+    await ctx.close();
+    // the result per tab. SMS / Email and Link are real flows; Payment and App have no check yet, so their two shots are the same Report with the tab and its box heights set: layout only.
+    for (const k of ["message", "link", "payment", "app"]) {
+      const o = await open(browser, { theme, w, h, motion: "reduce", report: (k === "link" ? bare : kyc).report });
+      if (k === "link") { await o.page.click("#tab-link"); await o.page.fill("#url", bare.text); }
+      else await o.page.fill("#msg", kyc.text);
+      await o.page.click("button.go"); await o.page.waitForSelector(".result .vword");
+      if (k === "payment" || k === "app") await o.page.evaluate((k) => {
+        document.querySelector(".bento").dataset.tab = k;
+        document.querySelectorAll(".rtab").forEach((b, i) => b.setAttribute("aria-pressed", String(i === ["message", "link", "payment", "app"].indexOf(k))));
+      }, k);
+      await o.page.mouse.move(2, 2); await o.page.waitForTimeout(500);
+      await o.page.screenshot({ path: join(dir, `result_${k}_${theme}_${w}x${h}.png`), fullPage: true });
+      await o.ctx.close();
+    }
+  }
+}
+
 const server = await preview({ root: join(HERE, ".."), preview: { host: "127.0.0.1", port: PORT, strictPort: true }, logLevel: "silent" });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
@@ -407,6 +723,9 @@ try {
   if (!ONLY || ONLY === "H") await liftChecks(browser);
   if (!ONLY || ONLY === "M") await motionChecks(browser);
   if (!ONLY || ONLY === "K") await keyboardChecks(browser);
+  if (!ONLY || ONLY === "R") await resultChecks(browser);
+  if (!ONLY || ONLY === "F") await fileChecks(browser);
+  if (SHOTS) await screenshots(browser, SHOTS);
 } finally {
   await browser.close();
   await new Promise((res) => server.httpServer.close(res));

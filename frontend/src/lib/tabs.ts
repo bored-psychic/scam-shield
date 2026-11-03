@@ -35,6 +35,10 @@ export const NO_INPUTS: Inputs = {
   appMode: "name", appName: "", how: "", fileName: "",
 };
 
+/** What the result page calls what was checked (plan 6.4: links and emails follow the message wording). */
+export const nounOf = (tab: TabKey, i: Pick<Inputs, "kind">): Noun => (tab === "link" ? "link" : tab === "message" && i.kind === "email" ? "email" : "message");
+export type Noun = "message" | "email" | "link";
+
 /** An email as today's /api/analyse reads it (until W7): subject, a blank line, body. The optional sender, attachment and header fields are not sent. */
 export const emailText = (subject: string, body: string) => (subject.trim() ? `${subject.trim()}\n\n${body}` : body);
 

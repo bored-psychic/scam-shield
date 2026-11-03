@@ -21,6 +21,9 @@ export const LEVEL_SUMMARY: Record<Level, string> = {
   promotional: "Marketing from a registered business ID. Likely genuine, but not proof.",
 };
 
+/** The line for a level when what was checked is a link or an email (plan 6.4); a message's is LEVEL_SUMMARY's own. */
+export const levelSummary = (level: Level, noun: "message" | "email" | "link" = "message") => LEVEL_SUMMARY[level].replace(/message/g, noun);
+
 // Evidence colour by effect (the prototype's COL for danger / caution / neutral; reassuring and unknown are new).
 export const EFFECT_COLOR: Record<Effect, string> = {
   danger: "var(--red)", caution: "var(--amber)", neutral: "var(--grey)", reassuring: "var(--green)", unknown: "var(--grey)",

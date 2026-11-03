@@ -11,7 +11,7 @@ import ErrorPanel from "./components/ErrorPanel";
 import { analyse, CheckError, type Failure } from "./api";
 import { markLiveFailed, raisedByLive } from "./lib/facts";
 import { mayAnimate, onSwitchStart } from "./lib/motion";
-import { clearChecked, NO_INPUTS, textToCheck, type Inputs, type Sample, type TabKey } from "./lib/tabs";
+import { clearChecked, NO_INPUTS, nounOf, textToCheck, type Inputs, type Noun, type Sample, type TabKey } from "./lib/tabs";
 import { useTheme } from "./lib/theme";
 import type { Report } from "./types/report";
 
@@ -21,6 +21,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [tab, setTab] = useState<TabKey>("message");   // not stored (ARCHITECTURE 5.4); SMS / Email is the default
   const [inputs, setInputs] = useState<Inputs>(NO_INPUTS);
+  const [checkedAs, setCheckedAs] = useState<{ tab: TabKey; noun: Noun }>({ tab: "message", noun: "message" });   // which tab the current result came from
   const [checked, setChecked] = useState("");   // the text the current result is about: its evidence spans index this string
   const [report, setReport] = useState<Report | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -63,6 +64,7 @@ export default function App() {
     const sent = textToCheck(tab, inputs);
     if (!sent.trim()) return;
     const id = ++run.current;   // only the latest check may change the screen
+    setCheckedAs({ tab, noun: nounOf(tab, inputs) });
     setReport(null); setFailure(null); setRaised(false); setExpanding(null); setExpandFailed(null); setScreen("checking");
     analyse(sent).then(
       (r) => { if (run.current === id) { setChecked(sent); setReport(r); if (r.pending.length) live(sent, id, r); } },
@@ -78,8 +80,9 @@ export default function App() {
     );
   }
   const finishChecking = () => setScreen(report ? "result" : "error");   // called by Checking once the answer is in and the steps have ticked
-  const again = () => { run.current++; setInputs((i) => clearChecked(tab, i)); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
+  const again = () => { run.current++; setTab(checkedAs.tab); setInputs((i) => clearChecked(checkedAs.tab, i)); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
   const back = () => { setFocusBox(true); setScreen("home"); };
+  const homeOn = (k: TabKey) => { run.current++; setTab(k); setFocusBox(true); setScreen("home"); };   // a tab on the result page: back to home on that tab, with what was typed
   const pick = (s: Sample) => {   // a sample chip fills in its tab; the user still presses Check
     setTab(s.tab);
     patch(s.set);
@@ -101,11 +104,12 @@ export default function App() {
           {screen === "home" && (
             <Home tab={tab} onTab={setTab} inputs={inputs} patch={patch} onCheck={check} onSample={pick} messageRef={messageInput} linkRef={linkInput} autoFocus={focusBox} />
           )}
-          {screen === "checking" && <Checking outcome={outcome} onFinished={finishChecking} />}
+          {screen === "checking" && <Checking outcome={outcome} onFinished={finishChecking} noun={checkedAs.noun} />}
           {screen === "result" && report && (
-            <Result report={report} text={checked} onAgain={again} raised={raised} onExpand={expand} expanding={expanding} expandFailed={expandFailed} />
+            <Result report={report} text={checked} onAgain={again} raised={raised} onExpand={expand} expanding={expanding} expandFailed={expandFailed}
+              tab={checkedAs.tab} noun={checkedAs.noun} onTab={homeOn} />
           )}
-          {screen === "error" && failure && <ErrorPanel failure={failure} onRetry={check} onBack={back} />}
+          {screen === "error" && failure && <ErrorPanel failure={failure} onRetry={check} onBack={back} noun={checkedAs.noun} />}
         </div>
       </main>
       {screen !== "result" && <Footer hits={hits} />}

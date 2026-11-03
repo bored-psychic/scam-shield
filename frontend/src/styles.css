@@ -120,8 +120,8 @@
     --sans: "Lexend Variable", "Noto Sans Devanagari", "Noto Sans Kannada", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
     --display: "Libre Baskerville", Georgia, "Times New Roman", serif; --display-track: -.01em;
-    --fs-body: 15px; --fs-small: 13.5px; --fs-label: 12px; --fs-title: 18px;
-    --fs-hero: clamp(31px, 6.6vw, 54px); --fs-verdict: 40px; --fs-score: 50px;
+    --fs-body: 15px; --fs-small: 14px; --fs-label: 14px; --fs-title: 22px;
+    --fs-hero: clamp(31px, 6.6vw, 54px); --fs-verdict: 40px; --fs-score: 52px;
   }
   /* Light theme (reworked 2026-10-18 to docs/design/light-landing.html and light-result.html): a cool grey page with a faint dot grid, a shaded
      grey globe with a red glow, solid panels with subtle tinted fills on top (text never sits on the dots inside a panel), darker verdict
@@ -269,7 +269,7 @@
 
   /* result. The prototype's bar meter and gauge rules are not ported: the radar (8b) was chosen. */
   .result { display: grid; gap: 14px; }
-  .verdict { padding: 18px 18px 16px; display: grid; gap: 16px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+  .verdict { padding: 18px 18px 16px; display: grid; gap: 16px; }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .vtop { display: flex; align-items: center; gap: 12px; }
   .vicon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; }
@@ -278,7 +278,7 @@
   .vword { margin: 0; } .vword:focus { outline: none; }   /* new: the verdict word is an <h2> that takes focus when the result opens */
   .vline { color: var(--muted); font-size: var(--fs-body); line-height: 1.45; margin-top: 4px; }
 
-  .msg { padding: 16px 18px; line-height: 1.7; font-size: 15.5px; animation: rise .45s .08s cubic-bezier(.2,.7,.2,1) both; }
+  .msg { padding: 16px 18px; line-height: 1.7; font-size: 15.5px; }
   .msg .lab, .sect { font: 700 var(--fs-title)/1.3 var(--display); letter-spacing: var(--display-track); color: var(--ink); margin-bottom: 8px; display: block; }
   /* new (2026-10-18): panel titles are serif headings now; the hint after "Your message" stays a small Lexend note */
   .msg .lab small { font: 400 var(--fs-small) var(--sans); letter-spacing: 0; color: var(--muted); }
@@ -294,7 +294,7 @@
   mark.pulse { animation: pulse 1.2s ease 2; }
   @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--pulse-ring); } }
   .tip { position: fixed; z-index: 10; max-width: 260px; background: var(--tip-solid); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
-    font-size: 13px; line-height: 1.4; color: var(--ink); pointer-events: none; box-shadow: var(--tip-shadow); opacity: 0; transition: opacity .15s; }
+    font-size: 14px; line-height: 1.4; color: var(--ink); pointer-events: none; box-shadow: var(--tip-shadow); opacity: 0; transition: opacity .15s; }
   .tip.show { opacity: 1; }
   /* new: the message keeps its line breaks, long links wrap, and a long message scrolls inside its panel; the tooltip lists every
      piece of evidence of the underlined part, one line each */
@@ -305,14 +305,14 @@
 
   .reasons { display: grid; gap: 8px; }
   .reason { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 12px 14px; cursor: pointer; color: var(--ink); font: 400 var(--fs-body)/1.5 var(--sans);
-    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; animation: rise .45s cubic-bezier(.2,.7,.2,1) both; }
+    background: var(--glass); border: 1px solid var(--line); border-radius: 14px; }
   .reason:hover { border-color: var(--reason-hover-border); }
   .reason .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex: none; }
   .reason small { display: block; color: var(--muted); font-size: var(--fs-small); margin-top: 2px; }
   .reason.nospan { cursor: default; }   /* new: a reason with nothing to point at in the message (e.g. the wording model's) */
 
-  .link { padding: 14px 16px; display: grid; gap: 8px; animation: rise .45s .2s cubic-bezier(.2,.7,.2,1) both; }
-  .url { font: 500 14px var(--mono); overflow-wrap: anywhere; color: var(--muted); }
+  .link { padding: 14px 16px; display: grid; gap: 8px; }
+  .url { font: 500 15px var(--mono); overflow-wrap: anywhere; color: var(--muted); }
   .url b { color: var(--ink); font-weight: 500; background: var(--tint-danger); border-radius: 4px; padding: 0 3px; }
   /* new: the owner part is tinted by the link's most severe evidence; label dots are faint; a disguised link is written in words */
   .url b.caution { background: var(--tint-caution); } .url b.quiet { background: var(--tint-quiet); }
@@ -321,30 +321,30 @@
   .lblock { display: grid; gap: 6px; } .lblock + .lblock { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
   .checks { display: grid; gap: 6px; font-size: 14.5px; color: var(--muted); }
   .checks div { display: flex; gap: 8px; }
-  .todo { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; animation: rise .45s .28s cubic-bezier(.2,.7,.2,1) both; }
+  .todo { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   /* D24: What to do now is a numbered list (the tick boxes are gone). A real <ol>; the numbers are CSS counters. */
   .steplist { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
-  .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: var(--fs-body); line-height: 1.5; }
+  .steplist li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 16px; line-height: 1.5; }
   .steplist li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font: 600 13px var(--mono);
     font-variant-numeric: tabular-nums; color: var(--ink); background: var(--step-fill); border: 1px solid var(--line); }
   /* Helpline row (2026-10-23): the one place for 1930 / cybercrime.gov.in, under the steps in What to do now on Suspicious and Likely scam. A head line
      (label left, EN / हिंदी / ಕನ್ನಡ switch right, wrapping if the label is long) and the two buttons below it, which also wrap. Tokens only. */
-  .helprow { box-sizing: border-box; display: grid; gap: 10px; width: 100%; min-width: 0; margin-top: 4px; padding: 12px 14px; border-radius: 14px; background: var(--soft-fill); border: 1px solid var(--line); }
+  .helprow { box-sizing: border-box; display: grid; gap: 10px; width: 100%; min-width: 0; margin-top: 8px; padding: 14px 0 0; border-top: 1px solid var(--line); }
   .helphead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-width: 0; }
   .helplabel { flex: 1 1 140px; min-width: 0; font: 500 var(--fs-label)/1.35 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
   .helprow .helplabel:lang(hi), .helprow .helplabel:lang(kn) { font: 500 14px/1.4 var(--sans); letter-spacing: 0; text-transform: none; }   /* Hindi / Kannada: body font, not the mono uppercase label */
   .helplang { flex: none; display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line); }
-  .helplangbtn { box-sizing: border-box; min-width: 32px; min-height: 28px; padding: 3px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 500 13px/1.2 var(--sans); cursor: pointer; }
+  .helplangbtn { box-sizing: border-box; min-width: 32px; min-height: 34px; padding: 3px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 500 14px/1.2 var(--sans); cursor: pointer; }
   .helplangbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
   .helplink .arrow { margin-inline-start: 5px; }   /* a small gap before the arrow, inline so it stays with the last word when the label wraps */
   .helplangbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .helpbtns { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
   .callbtn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 18px; border-radius: 10px;
-    font: 700 var(--fs-body) var(--sans); color: var(--on-ink); background: var(--ink); text-decoration: none; text-align: center; }
+    font: 600 var(--fs-body) var(--sans); color: var(--on-color); background: var(--go-fill); box-shadow: var(--go-shadow); text-decoration: none; text-align: center; }
   .callbtn:hover { background: var(--go-hover); }
   .callbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .helprow .helplink { box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 10px 14px; font-size: var(--fs-body); text-align: start; min-width: 0; overflow-wrap: anywhere; }   /* .ghost comes later: same size 13px otherwise */
-  .ghost { font: 500 13px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
+  .ghost { font: 500 14px var(--sans); color: var(--ink); background: var(--soft-fill); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; text-decoration: none; }
   .ghost:hover { border-color: var(--strong-border); }
   .note { font-size: var(--fs-small); color: var(--muted); line-height: 1.5; }
 
@@ -372,7 +372,7 @@
      a soft sheen across the top and a deep floating shadow. One recipe, applied to every panel, chip and button.
      This rule's position: relative overrides the prototype's .tip { position: fixed } (a prototype bug: its hidden tooltip sits in
      the page flow and adds 18px of scroll), so the tooltip is declared fixed again after this rule. */
-  .box, .reason, .tab, .ex button, .ghost, .local, .themebtn, .fchip, .tip, .shot.on {
+  .box, .reason, .tab, .rtab, .ex button, .ghost, .local, .themebtn, .fchip, .tip, .shot.on {
     position: relative;
     background: var(--glass-sheen);
     background-color: var(--glass-fill);
@@ -380,13 +380,13 @@
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
   }
-  .box::before, .reason::before, .tab::before, .ex button::before, .ghost::before, .local::before, .themebtn::before, .shot.on::before {
+  .box::before, .reason::before, .tab::before, .rtab::before, .ex button::before, .ghost::before, .local::before, .themebtn::before, .shot.on::before {
     content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
     background: var(--glass-rim);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   }
-  .box, .tab, .ex button { background-color: var(--box-fill); }
+  .box, .tab, .rtab, .ex button { background-color: var(--box-fill); }
   .box { border-radius: 26px; }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
   .reason { border-radius: 22px; }
   .box:focus-within { box-shadow: var(--box-focus-shadow); }
@@ -437,37 +437,47 @@
   .nobr { white-space: nowrap; }
   .sendertip { margin: 4px 0 0; padding: 10px 12px; border-radius: 14px; font: 400 14.5px/1.5 var(--sans); color: var(--muted);
     background: var(--sender-fill); border: 1px solid var(--sender-border); }
-  .sendertip b { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
+  .sendertip b { font: 500 14px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-right: 8px; }
   /* The investment card (2026-10-25): the one SEBI advice line the API adds when an investment-scam rule fired (lib/investment.ts), above the steps. */
   .investcard { margin: 2px 0 4px; padding: 10px 12px; border-radius: 14px; background: var(--sender-fill); border: 1px solid var(--sender-border); }
-  .investcard b { display: block; font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
-  .investcard:lang(hi) b, .investcard:lang(kn) b { font: 500 13px/1.4 var(--sans); letter-spacing: 0; text-transform: none; }   /* Hindi / Kannada: body font, not the mono uppercase label */
+  .investcard b { display: block; font: 500 14px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
+  .investcard:lang(hi) b, .investcard:lang(kn) b { font: 500 14px/1.4 var(--sans); letter-spacing: 0; text-transform: none; }   /* Hindi / Kannada: body font, not the mono uppercase label */
   .investcard p { margin: 4px 0 0; font: 400 var(--fs-body)/1.5 var(--sans); color: var(--ink); }
 
   /* result: two columns on wide screens, one column on phones. new (2026-10-18): the message panel used to span two grid rows and was
      stretched to the height of the verdict and why panels, leaving a large empty area under a short message. Now each column is its own
      stack (Result.tsx renders the DOM in the matching order) and every panel is as tall as its content; a long message still scrolls
      inside its panel (.mtext). The breakpoint is the same 901px as useMedia("(min-width: 901px)") in Result.tsx. */
-  .col.wide { max-width: 1180px; align-self: start; }   /* the prototype's body.checked .col; new: top-aligned, so a short result is not centred lower than a long one */
-  .rtop { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; animation: rise .4s cubic-bezier(.2,.7,.2,1) both; }
-  .rmeta { font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .col.wide { max-width: 1280px; align-self: start; }   /* the prototype's body.checked .col; new: top-aligned, so a short result is not centred lower than a long one */
+  .rtop { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rmeta { font: 400 14px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .bento { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
   .bento > * { min-width: 0; }
   .bcol { display: grid; gap: 14px; align-content: start; }
   .bcol > * { min-width: 0; }
+  /* the approved columns and box heights (tabs-result.html, one set per tab; min-heights: a longer content makes the box taller, nothing is clipped) */
   @media (min-width: 901px) {
-    .bento { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
-    .bcol:first-child { grid-column: 1 / span 5; }
-    .bcol:last-child { grid-column: 6 / span 7; }
+    .bento { grid-template-columns: minmax(0, 552px) minmax(0, 690px); justify-content: center; align-items: start; gap: 24px; --h-verdict: 514px; --h-why: 315px; --h-input: 196px; --h-details: 294px; --h-todo: 324px; }
+    .bento[data-tab="link"] { --h-input: 140px; --h-details: 345px; --h-todo: 329px; }
+    .bento[data-tab="payment"] { --h-input: 164px; --h-details: 316px; --h-todo: 342px; }
+    .bento[data-tab="app"] { --h-verdict: 510px; --h-why: 330px; --h-input: 193px; --h-details: 400px; }
+    .bcol { gap: 22px; }
+    .bcol > .box { box-sizing: border-box; padding: 24px 26px; border-radius: 28px; }
+    .bcol > .g-verdict { min-height: var(--h-verdict); align-content: start; gap: 18px; }
+    .bcol > .g-why { min-height: var(--h-why); }
+    .bcol > .g-msg { min-height: var(--h-input); }
+    .bcol > .g-link { min-height: var(--h-details); align-content: start; }
+    .bcol > .g-todo { min-height: var(--h-todo); align-content: start; }
   }
-  .g-msg { font-size: 17px; line-height: 1.8; padding: 22px 24px; }
-  /* new (2026-10-18): a readable measure in the wide column, about 65 characters a line (Lexend at 17px / 15px; measured on the longest demo message) */
-  .g-msg .mtext { max-width: 31em; }
-  .steplist li, .sendertip, .investcard { max-width: 35em; }
-  .g-why { padding: 14px; display: grid; gap: 4px; align-content: start; animation: rise .45s .12s cubic-bezier(.2,.7,.2,1) both; }
+  .bcol .vtop { gap: 14px; }
+  .bcol .vline { font-size: 15.5px; }
+  .bcol .g-verdict .vicon { width: 46px; height: 46px; border-radius: 13px; }
+  .g-msg { font-size: 17px; line-height: 1.75; padding: 22px 24px; }
+  .mtext.linktext { font: 500 20px/1.5 var(--mono); }   /* the Link tab: the address itself */
+  .g-why { padding: 14px; display: grid; gap: 4px; align-content: start; }
   .g-why .sect { margin: 2px 4px 6px; }
   .g-why .reasons { gap: 2px; }
-  .g-why .reason { background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
+  .g-why .reason { font-size: 16.5px; background: transparent; background-color: transparent; box-shadow: none; border: 0; border-radius: 14px; padding: 10px 10px;
     -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
   .g-why .reason::before { display: none; }
   .g-why .reason:hover { background-color: var(--soft-fill); }
@@ -485,22 +495,21 @@
 
   /* radar meter (option 8b): one labelled blip per warning sign; calm green sweep with no blips when nothing was found */
   .rwrap { display: grid; justify-items: center; gap: 6px; padding-block: 6px 2px; }
-  .radar { width: 200px; height: 200px; border-radius: 50%; position: relative; border: 1px solid var(--radar-border);
+  .radar { width: 230px; height: 230px; border-radius: 50%; position: relative; border: 1px solid var(--radar-border);
     background: radial-gradient(circle, transparent 32%, var(--radar-ring) 33%, transparent 34%, transparent 65%, var(--radar-ring) 66%, transparent 67%),
                 linear-gradient(transparent 49.7%, var(--radar-axis) 50%, transparent 50.3%), linear-gradient(90deg, transparent 49.7%, var(--radar-axis) 50%, transparent 50.3%); }
   .radar .sweep { position: absolute; inset: 0; border-radius: 50%; animation: spin 2.6s linear infinite; }
   .radar .sweep.still { animation: none; }   /* new: Can't judge, and reduced motion */
   .radar .core { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 10px var(--ink); }
-  .radar .blip { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; opacity: 0; transform: scale(.3); transition: opacity .3s, transform .45s cubic-bezier(.3,1.8,.5,1); }
+  .radar .blip { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; }
   .radar .blip::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid currentColor; opacity: 0; animation: ping 2.2s ease-out infinite; }
   @keyframes ping { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
-  .radar .lbl { position: absolute; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 24px; font: 500 11px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 7px; cursor: pointer;   /* >= 24px tall: WCAG 2.5.8 */
-    background: var(--label-fill); border: 1px solid var(--label-border); color: inherit; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s, border-color .2s; }
+  .radar .lbl { position: absolute; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 28px; font: 500 14px var(--mono); white-space: nowrap; padding: 3px 7px; border-radius: 8px; cursor: pointer;   /* >= 24px tall: WCAG 2.5.8 */
+    background: var(--label-fill); border: 1px solid var(--label-border); color: inherit; transition: border-color .2s; }
   .radar .lbl:hover, .radar .lbl:focus-visible { border-color: currentColor; outline: none; }
   /* new: a tag with nothing to point at. Not "static": Tailwind's utility of that name would set position: static */
   .radar .lbl.nopoint { cursor: default; } .radar .lbl.nopoint:hover { border-color: var(--label-border); }
-  .radar .on { opacity: 1 !important; transform: none !important; }
-  .rcap { font: 500 11px var(--mono); color: var(--muted); text-align: center; }
+  .rcap { font: 500 14px var(--mono); color: var(--muted); text-align: center; }
 
   /* data source button + popover, and the simulated event feed */
   footer .srcwrap { position: relative; pointer-events: auto; }
@@ -534,23 +543,23 @@
   .facts summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .facts[open] summary { margin-bottom: 6px; }
   .facts dl { display: grid; gap: 7px; margin: 0; }
-  .frow { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 10px; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+  .frow { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 10px; font-size: 15.5px; font-variant-numeric: tabular-nums; }
   .frow dt { color: var(--muted); }
   .frow dd { margin: 0; min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
   .fval { display: flex; gap: 8px; }
   .fval i { font-style: normal; flex: none; width: 1em; text-align: center; }
-  .frow small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 2px 0 0 calc(1em + 8px); }
+  .frow small { display: block; color: var(--muted); font-size: 14px; line-height: 1.45; margin: 2px 0 0 calc(1em + 8px); }
   .frow small.src { color: var(--faint); }
   .frow.pending .fval span { color: var(--muted); animation: blink 1.4s ease-in-out infinite; }
   .frow.failed .fval span, .frow.skipped .fval span { color: var(--muted); }
   .expand { display: grid; gap: 6px; margin: 2px 0 10px; }
   .expand .ghost { justify-self: start; }
   .expand .ghost:disabled { opacity: .7; cursor: progress; }
-  .facts .sent { margin-top: 8px; font-size: 12px; overflow-wrap: anywhere; }
+  .facts .sent { margin-top: 8px; font-size: 14px; overflow-wrap: anywhere; }
   .vraised { margin-top: 6px; font: 500 14px var(--sans); color: var(--amber); }
   @media (max-width: 560px) {
     .frow { grid-template-columns: 1fr; gap: 1px; }
-    .frow dt { font-size: 12.5px; }
+    .frow dt { font-size: 14px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .frow.pending .fval span { animation: none; }
@@ -569,22 +578,20 @@
   .sline2 .sect { margin: 0; }
   .snum { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
   .snum b { font: 700 var(--fs-score)/1 var(--display); letter-spacing: var(--display-track); font-variant-numeric: lining-nums tabular-nums; }
-  .snum span { font: 500 18px var(--mono); color: var(--muted); }
-  .meter { position: relative; height: 14px; margin-block: 10px 2px; border-radius: 999px;
+  .snum span { font: 500 15px var(--mono); color: var(--muted); }
+  .meter { position: relative; height: 10px; margin-block: 12px 2px; border-radius: 999px;
     background: linear-gradient(90deg, var(--green) 0%, var(--green) 22%, var(--amber) 36%, var(--amber) 64%, var(--red) 78%, var(--red) 100%);
     box-shadow: var(--meter-shadow); }
   .meter .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); opacity: .8; }
-  .meter .knob { position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--bg);
-    border: 3px solid var(--ink); box-shadow: var(--knob-shadow); animation: knobin .9s cubic-bezier(.2,.8,.2,1) both; }
-  @keyframes knobin { from { left: 0; } }
-  .mscale { position: relative; height: 16px; margin-top: 6px;   /* the knob hangs 4px below the bar (22px vs 14px): the numbers start below it, at any score */
-    font: 500 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .meter .knob { position: absolute; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: var(--bg);
+    border: 3px solid var(--ink); box-shadow: var(--knob-shadow); }
+  .mscale { position: relative; height: 18px; margin-top: 8px;   /* the knob hangs 7px below the bar (24px vs 10px): the numbers start below it, at any score */
+    font: 500 14px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
   .mscale span { position: absolute; top: 0; transform: translateX(-50%); }
   .mscale span:first-child { transform: none; } .mscale span:last-child { transform: translateX(-100%); }
-  .mzones { display: flex; font: 500 13px/1.25 var(--sans); color: var(--muted); }
+  .mzones { display: flex; font: 500 14px/1.25 var(--sans); color: var(--muted); }
   .mzones span { box-sizing: border-box; padding-inline: 3px; text-align: center; text-wrap: balance; }
   .mnote { margin: 4px 0 0; font: 400 var(--fs-small)/1.45 var(--sans); color: var(--muted); }
-  @media (prefers-reduced-motion: reduce) { .meter .knob { animation: none; } }
 
   /* Phones (2026-10-23, user: the result page was far too big on a phone): the result screen at 390x844, every panel tighter. Sizes only, no
      colour, no content; desktop (> 640px) is untouched. Body text stays 14-15px, panel titles 16px, and every tappable control keeps a 40-44px target. */
@@ -602,9 +609,7 @@
     .snum span { font-size: 15px; }
     .meter { height: 12px; margin-block: 6px 0; }
     .meter .knob { width: 20px; height: 20px; margin: -10px 0 0 -10px; }
-    .mscale { font-size: 11px; height: 14px; }
-    .mzones { font-size: 11.5px; }
-    .mnote { font-size: 12.5px; margin-top: 2px; }
+    .mnote { margin-top: 2px; }
     .rwrap { gap: 4px; padding-block: 2px 0; }
     .radar { width: 168px; height: 168px; }
     .g-msg { font-size: 15.5px; line-height: 1.65; padding: 14px; }
@@ -612,18 +617,17 @@
     .g-why .sect { margin: 0 2px 4px; }
     .g-why .reason { padding: 8px 6px; gap: 10px; font-size: 14.5px; line-height: 1.4; }
     .g-why .reason .dot { margin-top: 6px; }
-    .reason small { font-size: 12.5px; margin-top: 0; }
+    .reason small { margin-top: 0; }
     .todo { padding: 12px 14px; gap: 6px; }
     .steplist { gap: 8px; margin-top: 2px; }
     .steplist li { grid-template-columns: 24px minmax(0, 1fr); gap: 10px; font-size: 14.5px; line-height: 1.4; }
+    .mtext.linktext { font-size: 16px; }
     .steplist li::before { width: 24px; height: 24px; font-size: 12px; }
     .investcard { padding: 8px 10px; }
     .investcard p { font-size: 14.5px; line-height: 1.4; }
-    .helprow { padding: 10px 12px; gap: 8px; }
+    .helprow { padding: 10px 0 0; gap: 8px; }
     .helprow .helplink, .callbtn { min-height: 40px; padding: 8px 14px; font-size: 14px; }
-    .helplabel { font-size: 11px; }
-    .rtop { gap: 4px 10px; }
-    .rmeta { font-size: 11px; }
+    .radar .lbl { white-space: normal; max-width: 108px; line-height: 1.2; min-height: 24px; }   /* the tags keep 14 px: a long one wraps, inside the panel */
   }
 }
 
@@ -725,13 +729,34 @@
   }
 }
 
+/* The result page's top bar (tabs-result.html, D29.15): the way back, the four tabs showing what was checked, and the privacy line. */
+@layer components {
+  .rtop { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; }
+  .ghost.back { justify-self: start; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 12px; font: 500 15.5px var(--sans); }
+  .rmeta { justify-self: end; text-align: end; }
+  .rtabs { display: flex; gap: 6px; min-width: 0; }
+  .rtab { box-sizing: border-box; flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 13px; border-radius: 999px; color: var(--muted); font: 400 14px var(--sans); white-space: nowrap; cursor: pointer; }
+  .rtab:hover { color: var(--ink); background-color: var(--hover-fill); border-color: var(--hover-border); }
+  .rtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rtab[aria-pressed="true"] { --lifted: var(--thumb-lift); color: var(--on-ink); font-weight: 500; background: var(--ink); background-color: var(--ink); border-color: transparent; box-shadow: var(--thumb-shadow); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .rtab[aria-pressed="true"]:hover { color: var(--on-ink); }
+  .rtab[aria-pressed="true"]::before, .rtab[aria-pressed="true"] .light, .rtab[aria-pressed="true"] .rimspot { display: none; }
+  @media (max-width: 1100px) { .rtop { grid-template-columns: 1fr; } .rtabs { justify-self: start; max-width: 100%; } .rmeta { justify-self: start; text-align: start; } }
+  @media (max-width: 640px) {
+    .rtabs { overflow-x: auto; scrollbar-width: none; padding-block: 4px; margin-block: -4px; width: 100%; }
+    .rtabs .rtab { --lifted: var(--tab-shadow); box-shadow: var(--tab-shadow); }
+    .rtabs::-webkit-scrollbar { display: none; }
+    .rtab { height: 40px; }
+  }
+}
+
 /* The lift: every clickable rises 2 px on hover and on keyboard focus, with a deeper shadow, and settles in 60 ms when pressed. By `translate`, which nothing else on these controls uses. The selected
    tab's pill and a toggle's selected thumb sit behind their button and rise with it: GSAP moves them with a transform and pins `translate` inline, so they lift by `top`. Each :has() rule is written
    on its own and differs from its neighbour (the focus ones add outline: 0): the CSS minifier merges identical rules into :is(...), and Chrome ignores :has() inside :is(). Reduced motion: no lift at
    all. A touch screen has no hover (a tapped control would stay raised). Not on the theme button, whose hover belongs to the theme switch, nor on underlined text and disclosure titles. */
 @layer components {
   .tab, .segbtn, .ex button, .go, .ghost, .rtab, .callbtn, .helplangbtn, .dropbtn, .srcbtn, .reason:not(.nospan), .radar button.lbl { --lifted: var(--lift-soft); transition: translate .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, background-color .18s ease, border-color .2s ease, color .25s ease, opacity .2s ease; }
-  .tab, .ex button, .ghost, .rtab { --lifted: var(--lift-glass); }
+  .tab, .ex button, .ghost, .rtab:not([aria-pressed="true"]) { --lifted: var(--lift-glass); }
   .go, .callbtn { --lifted: var(--lift-go); }
   .tab[aria-selected="true"] { --lifted: none; }
   .dropbtn:hover, .dropbtn:focus-visible { border-color: var(--dropbtn-hover); }

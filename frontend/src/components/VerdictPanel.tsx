@@ -1,6 +1,7 @@
 import type { CSSProperties, Ref } from "react";
 import type { Evidence, Level } from "../types/report";
-import { LEVEL_SUMMARY, LEVELS } from "../lib/levels";
+import { levelSummary, LEVELS } from "../lib/levels";
+import type { Noun } from "../lib/tabs";
 import Light from "./Light";
 import Radar from "./Radar";
 import RiskMeter from "./RiskMeter";
@@ -14,6 +15,7 @@ type Props = {
   note?: string | null;   // D23: "Raised after the website checks." when the live link checks raised the verdict
   score?: number | null;  // D24: Report.risk_score; null = no meter (Can't judge)
   lowered?: string | null;   // D24: Report.lowered.text, when a brand-owned link (P1) really lowered the verdict
+  noun?: Noun;               // what was checked, for the one line under the verdict
 };
 
 // "Lowered from Likely scam: the link belongs to Jio (...)": the part up to the first colon is set as a serif lead-in; the text is the backend's, unchanged.
@@ -24,7 +26,7 @@ function LoweredText({ text }: { text: string }) {
 
 // The verdict: icon, word and colour (D4: always all three), the fixed one-line summary for the level, the "Lowered from..." line when a brand-owned
 // link lowered it, the risk score with its meter, and the radar.
-export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef, note = null, score = null, lowered = null }: Props) {
+export default function VerdictPanel({ level, blips, pointable, onPoint, headingRef, note = null, score = null, lowered = null, noun = "message" }: Props) {
   const lv = LEVELS[level];
   return (
     <div className="box verdict g-verdict" style={{ "--lvl": lv.color } as CSSProperties}>
@@ -37,7 +39,7 @@ export default function VerdictPanel({ level, blips, pointable, onPoint, heading
         </div>
         <div>
           <h2 ref={headingRef} tabIndex={-1} className="vword" style={{ color: lv.color }}>{lv.word}</h2>
-          <div className="vline">{LEVEL_SUMMARY[level]}</div>
+          <div className="vline">{levelSummary(level, noun)}</div>
           {note && <div className="vraised" role="status">{note}</div>}
         </div>
       </div>

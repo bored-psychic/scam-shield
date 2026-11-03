@@ -1,8 +1,9 @@
 import type { Failure } from "../api";
 import { SCHEMA_VERSION } from "../types/report";
+import type { Noun } from "../lib/tabs";
 import Light from "./Light";
 
-type Props = { failure: Failure; onRetry: () => void; onBack: () => void };
+type Props = { failure: Failure; onRetry: () => void; onBack: () => void; noun?: Noun };
 
 function describe(f: Failure): { text: string; retry: boolean } {
   switch (f.kind) {
@@ -14,7 +15,7 @@ function describe(f: Failure): { text: string; retry: boolean } {
 }
 
 // Shown instead of a result when the check did not come back. Back keeps the text in the box so it can be edited.
-export default function ErrorPanel({ failure, onRetry, onBack }: Props) {
+export default function ErrorPanel({ failure, onRetry, onBack, noun = "message" }: Props) {
   const { text, retry } = describe(failure);
   return (
     <section className="box verdict" role="alert">
@@ -22,7 +23,7 @@ export default function ErrorPanel({ failure, onRetry, onBack }: Props) {
       <p className="m-0 text-base leading-normal">{text}</p>
       <div className="flex flex-wrap items-center gap-2">
         {retry && <button type="button" className="go" onClick={onRetry}>Retry</button>}
-        <button type="button" className="ghost" onClick={onBack}>← Back to the message</button>
+        <button type="button" className="ghost" onClick={onBack}>← Back to the {noun}</button>
       </div>
     </section>
   );

@@ -1,19 +1,21 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { useReducedMotion } from "motion/react";
+import type { Noun } from "../lib/tabs";
 import Light from "./Light";
 
-const STEPS = ["Reading the message", "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"];
+const steps = (noun: Noun) => [`Reading the ${noun}`, "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"];
 const TICK_MS = 350;   // one step per tick (the prototype used 380 ms)
 
 export type CheckOutcome = "pending" | "answered" | "failed";
 
-type Props = { outcome: CheckOutcome; onFinished: () => void };
+type Props = { outcome: CheckOutcome; onFinished: () => void; noun?: Noun };
 
 /* The checklist on the checking screen, inside the same glass box as the paste box. No spinner: as in the prototype, step i turns on
    after i ticks and is done 0.9 ticks later. The last step is also held until the API has answered, so the result shows only when both
    the answer is in and all three steps have ticked, and the list never looks finished while the checker is still working.
    Reduced motion: no ticking, the result shows as soon as the answer is in. On a failure the list stops where it is. */
-export default function Checking({ outcome, onFinished }: Props) {
+export default function Checking({ outcome, onFinished, noun = "message" }: Props) {
+  const STEPS = steps(noun);
   const tick = useReducedMotion() ? 0 : TICK_MS;
   const [events, setEvents] = useState(0);   // clock events so far: step i is on after event 2i+1 and done after event 2i+2
   const [startedAt] = useState(() => performance.now());
