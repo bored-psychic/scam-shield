@@ -40,12 +40,18 @@
     --blue: #5AB0FF;     /* new (D22): the Promotional verdict, a calm colour that is neither the green of "no warning signs" nor the amber of "suspicious" */
     /* D24 contrast: --faint is #8590A3 (was #4A5363, 2.6:1 on the stage), --muted #9AA5B8 (was #8A94A6) and --grey #98A2B3 (was #7C8696) are lighter,
        and panels are tinted darker (--box-fill), so text passes WCAG AA over the globe (e2e/contrast.mjs measures it). */
-    --sub: #C3CBD8; --halo-hero: 0 2px 28px #04060A, 0 0 2px #04060A; --halo-sub: 0 1px 16px #04060A;
-    --paste-red: var(--red);   /* "Paste it here." in the hero subtitle (2026-10-18) */
+    --sub: #C3CBD8; --halo-hero: 0 2px 28px #04060A, 0 0 2px #04060A;
+    --halo-sub: 0 0 2px rgba(4,6,10,.95), 0 0 10px rgba(4,6,10,.95), 0 0 22px rgba(4,6,10,.9);   /* tabs-home.html: the sub-line lies over the globe's bright India */
+    --paste-red: var(--red);   /* the accent word of the home headline (D29.15) */
     --on-color: #04060A;   /* text and icons drawn on a solid verdict / tick colour */
-    --on-ink: #0B0D12; --kbd: #4A5363; --go-hover: #fff;
-    --go-fill: linear-gradient(180deg, rgba(255,255,255,.98), rgba(226,231,240,.92));
-    --go-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.35);
+    --on-ink: #0B0D12; --kbd: #4A5363; --go-hover: #FF6262;
+    --go-fill: var(--accent);   /* the Check button (D29.15, docs/design/tabs-home.html): the accent red, its text --on-color */
+    --go-shadow: 0 6px 18px rgba(255,77,77,.22);
+    /* the tabs' box (D29.15): the fields and toggles inside the glass */
+    --field-fill: rgba(4,6,10,.38); --field-line: rgba(255,255,255,.12);
+    --seg-fill: rgba(4,6,10,.30); --seg-line: rgba(255,255,255,.12); --seg-thumb: rgba(237,241,247,.92);
+    --dropbtn-fill: rgba(4,6,10,.22); --dropbtn-line: rgba(255,255,255,.22);
+    --tab-fade: var(--bg);   /* the phone tab row's edge fades */
     --page-dots: none;     /* the light theme's dot grid; none here */
     --vignette: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(4,6,10,.55) 70%, var(--bg) 100%);
     /* glass panels, chips and buttons (the "iOS-style glass finish" rule in components) */
@@ -117,12 +123,16 @@
     --bg: #F2F3F5; --ink: #15181D; --muted: #4B5361; --faint: #535A67; --line: rgba(17,20,24,.10); --glass: #FFFFFF;
     --red: #C62828; --amber: #9A5B00; --green: #18794A; --grey: #5F6978; --accent: #D93030; --orange: #C2560F; --blue: #1F66B8;
     --sub: #3A414C; --halo-hero: 0 1px 18px var(--bg), 0 0 2px var(--bg); --halo-sub: 0 1px 18px var(--bg), 0 0 2px var(--bg);
-    /* darker than --red (#C62828): that measured 4.31-4.49:1 over the light globe on desktop sizes (AA needs 4.5); this is 4.9:1 there (user's choice, 2026-10-18) */
-    --paste-red: #B91C1C;
+    /* darker than --red (#C62828): that measured 4.31-4.49:1 over the light globe on desktop sizes (AA needs 4.5). #B91C1C (user's choice, 2026-10-18) measured 4.46:1 for the
+       headline's accent word, which sits on the globe's dark dots (D29.15); this one keeps 4.5:1 there. */
+    --paste-red: #A81818;
     --on-color: #FFFFFF;
-    --on-ink: #FFFFFF; --kbd: #AEB4BF; --go-hover: #000;
-    --go-fill: linear-gradient(180deg, #2A2E36, #15181D);
-    --go-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 6px 16px rgba(17,20,24,.20);
+    --on-ink: #FFFFFF; --kbd: #AEB4BF; --go-hover: #C62828;
+    --go-fill: var(--accent);
+    --go-shadow: 0 6px 16px rgba(217,48,48,.22);
+    --field-fill: #F7F8FA; --field-line: rgba(17,20,24,.14);
+    --seg-fill: rgba(17,20,24,.045); --seg-line: rgba(17,20,24,.10); --seg-thumb: #15181D;
+    --dropbtn-fill: #F7F8FA; --dropbtn-line: rgba(17,20,24,.26);
     /* the dot grid: a 1 px ink dot every --dot-gap at 7% (texture, never noise) */
     --dot-gap: 22px;
     --page-dots: radial-gradient(rgba(22,24,29,.07) 1px, transparent 1.2px);
@@ -204,9 +214,8 @@
 
   .hero { display: grid; gap: 18px; transition: opacity .35s ease, transform .35s ease; }
   h1 { margin: 0; text-align: center; font-family: var(--display); font-size: var(--fs-hero); line-height: 1.14; letter-spacing: var(--display-track); font-weight: 700; text-wrap: balance; text-shadow: var(--halo-hero); }
-  h1 em { font-style: normal; color: var(--accent); }
-  .sub { text-shadow: var(--halo-sub); margin: -6px 0 6px; text-align: center; color: var(--sub); font-size: 16px; line-height: 1.6; text-wrap: balance; }
-  .sub em { font-style: normal; color: var(--paste-red); }   /* new (2026-10-18): "Paste it here.", red in both themes, as in docs/design/theme-switch.html */
+  h1 em { font-style: italic; color: var(--paste-red); }   /* the accent word of the home headline (D29.15), --paste-red: AA over the light globe too */
+  .sub { text-shadow: var(--halo-sub); margin: 0; text-align: center; color: var(--sub); font-size: clamp(16px, 2.2vw, 21px); line-height: 1.5; text-wrap: balance; }
 
   .box { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     box-shadow: var(--box-shadow-old); transition: border-color .25s, box-shadow .25s; }
@@ -214,18 +223,17 @@
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; outline: 0; background: transparent; color: var(--ink);
     font: 400 16px/1.55 var(--sans); padding: 18px 18px 6px; min-height: 92px; max-height: 260px; }
   textarea::placeholder { color: var(--faint); }
-  .boxfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px 10px 14px; flex-wrap: wrap; }
-  .found { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; }
-  .found .hint { font: 500 11.5px var(--mono); color: var(--faint); }
+  .boxfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .found { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; align-items: center; min-width: 0; flex: 1 1 220px; }
   /* new: the quiet length counter (shown past 18,000 of the API's 20,000 characters), right next to the Check button */
-  .count { font: 500 12px var(--mono); color: var(--faint); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .count { font: 500 14px var(--mono); color: var(--faint); margin-left: auto; font-variant-numeric: tabular-nums; }
   .count.full { color: var(--muted); }
-  .fchip { font: 500 11.5px var(--mono); color: var(--ink); border: 1px solid var(--line); background: var(--chip-fill); border-radius: 999px;
+  .fchip { font: 500 14px var(--mono); color: var(--ink); border: 1px solid var(--line); background: var(--chip-fill); border-radius: 999px;
     padding: 4px 9px; display: inline-flex; gap: 6px; align-items: center; animation: pop .25s ease both; }
   .fchip b { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
   .fchip.warn b { background: var(--red); }
   @keyframes pop { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
-  .go { font: 600 14px var(--sans); color: var(--on-ink); background: var(--ink); border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer;
+  .go { font: 600 16px var(--sans); color: var(--on-color); background: var(--ink); border: 0; border-radius: 13px; min-height: 46px; padding: 0 24px; cursor: pointer;
     display: inline-flex; gap: 10px; align-items: center; transition: transform .15s, opacity .2s, background .2s; }
   .go kbd { font: 500 11px var(--mono); color: var(--kbd); }
   .go:hover:not(:disabled) { transform: translateY(-1px); background: var(--go-hover); }
@@ -233,9 +241,9 @@
   .go:focus-visible, .ex button:focus-visible, .ghost:focus-visible, .reason:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   .ex { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  .ex span { font: 500 11.5px var(--mono); color: var(--faint); align-self: center; margin-right: 2px; }
-  .ex button { font: 500 14px var(--sans); color: var(--muted); background: var(--ex-fill); border: 1px solid var(--line); border-radius: 999px;
-    padding: 7px 12px; cursor: pointer; transition: color .2s, border-color .2s, transform .15s; }
+  .ex span { font: 400 14px var(--sans); color: var(--faint); align-self: center; margin-right: 2px; text-shadow: var(--halo-sub); }
+  .ex button { font: 400 14px var(--sans); color: var(--sub); background: var(--ex-fill); border: 1px solid var(--line); border-radius: 999px;
+    min-height: 32px; padding: 0 12px; cursor: pointer; transition: color .2s, border-color .2s, transform .15s; }
   .ex button:hover { color: var(--ink); border-color: var(--strong-border); transform: translateY(-1px); }
 
   /* checking (rendered only on the checking screen, so no display toggle) */
@@ -334,17 +342,15 @@
     .go kbd { display: none; } .local span { display: none; }
     footer { font-size: 10px; }
   }
-  /* new (2026-10-18): on phones the footer is part of the page instead of a bar floating over it. Fixed to the bottom of the screen it sat on
-     the last example chip whenever the screen was short (the browser's own bars showing, the keyboard open). In the flow it follows the content, and
+  /* new (2026-10-18, phones; every width since 2026-11-03, when the home box with its five sample chips got taller): the footer is part of the page instead of a bar floating over it. Fixed to
+     the bottom of the screen it sat on the sample chips whenever the screen was short or the tab's box tall (at 1280x800 its button and its feed both covered them). In the flow it follows the content, and
      still rests at the bottom of the screen when the content is short: the page is a full-height column and main takes the free space. `relative`
      rather than `static` keeps its z-index, so the vignette (fixed, z-index 1) does not paint over it. main's 72px of bottom padding was the room
-     reserved for the floating footer; the other screens keep a small margin instead. */
-  @media (max-width: 640px) {
-    /* body keeps its default 8px margin (the prototype's layout); the page is exactly one screen tall when the content is short, and the footer cancels the margin so it spans the screen as it did when fixed */
-    body { display: flex; flex-direction: column; height: auto; min-height: calc(100vh - 16px); min-height: calc(100dvh - 16px); }
-    main { flex: 1 0 auto; min-height: 0; padding-block: 8px 24px; }
-    footer { position: relative; margin: auto -8px -8px; }
-  }
+     reserved for the floating footer. The feed's four lines have their room from the start (its min-height), so nothing moves as they arrive, and the button keeps to the footer's bottom. */
+  /* body keeps its default 8px margin (the prototype's layout); the page is exactly one screen tall when the content is short, and the footer cancels the margin so it spans the screen as it did when fixed */
+  body { display: flex; flex-direction: column; height: auto; min-height: calc(100vh - 16px); min-height: calc(100dvh - 16px); }
+  main { flex: 1 0 auto; min-height: 0; padding-block: 8px 24px; }
+  footer { position: relative; margin: auto -8px -8px; align-items: flex-end; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   }
@@ -353,7 +359,7 @@
      a soft sheen across the top and a deep floating shadow. One recipe, applied to every panel, chip and button.
      This rule's position: relative overrides the prototype's .tip { position: fixed } (a prototype bug: its hidden tooltip sits in
      the page flow and adds 18px of scroll), so the tooltip is declared fixed again after this rule. */
-  .box, .reason, .ex button, .ghost, .local, .themebtn, .fchip, .tip, .shot.on {
+  .box, .reason, .tab, .ex button, .ghost, .local, .themebtn, .fchip, .tip, .shot.on {
     position: relative;
     background: var(--glass-sheen);
     background-color: var(--glass-fill);
@@ -361,18 +367,19 @@
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-shadow);
   }
-  .box::before, .reason::before, .ex button::before, .ghost::before, .local::before, .themebtn::before, .shot.on::before {
+  .box::before, .reason::before, .tab::before, .ex button::before, .ghost::before, .local::before, .themebtn::before, .shot.on::before {
     content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
     background: var(--glass-rim);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   }
-  .box { border-radius: 26px; background-color: var(--box-fill); }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
+  .box, .tab, .ex button { background-color: var(--box-fill); }
+  .box { border-radius: 26px; }   /* new (D24): a darker tint under the glass, so text keeps AA contrast over the globe's glow */
   .reason { border-radius: 22px; }
   .box:focus-within { box-shadow: var(--box-focus-shadow); }
-  .reason:hover, .ex button:hover, .ghost:hover { background-color: var(--hover-fill); border-color: var(--hover-border); }
+  .reason:hover, .tab:not([aria-selected="true"]):hover, .ex button:hover, .ghost:hover { background-color: var(--hover-fill); border-color: var(--hover-border); }
   .tip { background-color: var(--tip-fill); border-radius: 14px; }
-  .go { background: var(--go-fill); border-radius: 14px; box-shadow: var(--go-shadow); }
+  .go { background: var(--go-fill); box-shadow: var(--go-shadow); }
   .vicon { border-radius: 14px; box-shadow: var(--vicon-shadow); }
 
   /* the prototype's tooltip bug, fixed: fixed again after the glass rule, out of the page flow, so a hidden tooltip adds no scroll
@@ -403,9 +410,6 @@
   .shot.reading .shotmsg { font-weight: 500; }
   .sacts { display: flex; gap: 8px; margin-left: auto; }
   .acts { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-  .shotbtn { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); padding: 9px 12px; border-radius: 12px; }
-  .shotbtn:hover { color: var(--ink); }
-  .shotbtn svg { width: 16px; height: 16px; }
   .box.drop { border-color: var(--drop-border); }
   .dropzone { position: absolute; inset: 8px; z-index: 2; display: grid; place-items: center; text-align: center; padding: 12px; pointer-events: none;
     border: 1.5px dashed var(--drop-dash); border-radius: 20px; background: var(--drop-fill); font: 500 13px var(--mono); color: var(--ink); animation: pop .2s ease both; }
@@ -500,7 +504,7 @@
   .srcpop a { color: var(--ink); }
   .k { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
   .k.wci, .ev.wci i { background: var(--arc-wci); box-shadow: 0 0 6px var(--arc-wci); } .k.ddos, .ev.ddos i { background: var(--arc-ddos); box-shadow: 0 0 6px var(--arc-ddos); }
-  .feed { display: grid; gap: 4px; justify-items: end; align-content: end; font: 500 11px var(--mono); color: var(--muted); }
+  .feed { display: grid; gap: 4px; justify-items: end; align-content: end; min-height: 68px; font: 500 11px var(--mono); color: var(--muted); }
   .ev { display: flex; gap: 8px; align-items: center; animation: evin .4s ease both; }
   .ev:nth-child(2) { opacity: .7; } .ev:nth-child(3) { opacity: .45; } .ev:nth-child(4) { opacity: .25; }
   .ev i { width: 10px; height: 2px; border-radius: 2px; }
@@ -620,6 +624,87 @@
   :root[data-theme="light"] .result .g-link { background-color: var(--fill-link); border-color: var(--line-link); }
   :root[data-theme="light"] .result .g-todo { background-color: var(--fill-todo); border-color: var(--line-todo); }
   :root[data-theme="light"] .stage.dim + .vignette { background: none; }   /* the hero's wash is not needed behind the result */
+}
+
+/* The home screen's tabs and box (D29.15; docs/design/tabs-home.html: its preview sliders' scale baked into real sizes, no CSS zoom; plan 6.1 for phones). The column is top-aligned, so the
+   headline stays where it is when the box changes height. The globe is not scaled or moved: the theme switch draws it through a stencil in screen coordinates. */
+@layer components {
+  /* the headline's place in tabs-home.html (60vh - 278px), but never so low that the SMS box's chips reach the footer: 657 px = everything from the page's top to the footer's bottom without this margin */
+  .col.home { max-width: 714px; gap: 14px; align-self: start; margin-top: max(0px, min(60vh - 278px, 100vh - 657px)); grid-template-columns: minmax(0, 1fr); }
+  .col.home > .hero { grid-template-columns: minmax(0, 1fr); }
+  .col.home > [role="tabpanel"], .paste { min-width: 0; }
+  .hero h1 { line-height: 1.14; }
+  .hline { display: block; text-wrap: balance; }
+  .hw, .hwi { display: inline-block; }
+  .hw { padding: .1em .08em .22em; margin: -.1em -.08em -.22em; }   /* room for the descenders and the italic overhang when the words are masked */
+  .hero { gap: 10px; }
+  /* the five sample chips stay on one line where they fit: the row may be wider than the box, as in tabs-home.html */
+  .col.home .ex { gap: 8px; justify-self: center; width: max-content; max-width: calc(100vw - 64px); }
+
+  /* a label as wide as its bold self: choosing a tab or a toggle does not move its neighbours */
+  .wgt { display: inline-grid; }
+  .wgt::after { content: attr(data-label); height: 0; overflow: hidden; visibility: hidden; font-weight: 500; }
+
+  .tabswrap { position: relative; min-width: 0; }
+  .tabs { position: relative; display: flex; gap: 8px; justify-content: safe center; }
+  .tabthumb { position: absolute; left: 0; top: 0; height: 42px; width: 0; border-radius: 999px; background: var(--ink); box-shadow: 0 6px 20px var(--tint-quiet); }
+  .tab { z-index: 1; flex: none; box-sizing: border-box; height: 42px; padding: 0 17px; border-radius: 999px; color: var(--muted); font: 400 15.5px var(--sans); display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; transition: color .25s; }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--on-ink); font-weight: 500; background: transparent; background-color: transparent; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .tab[aria-selected="true"]::before { display: none; }
+  .tab:focus-visible, .segbtn:focus-visible, .dropbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .box.entry { box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 30px; overflow-clip-margin: 2px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; }
+  .lbl { font-size: 15px; color: var(--muted); }
+  .hintc { margin: 0; font-size: 14px; line-height: 1.45; color: var(--faint); }
+  .notbuilt { color: var(--muted); }
+  .explain { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--field-fill); border: 1px solid var(--field-line); font: 400 16px/1.5 var(--sans); color: var(--ink); }
+
+  .field { box-sizing: border-box; display: block; width: 100%; min-height: 46px; padding: 11px 14px; border-radius: 14px; background: var(--field-fill); border: 1px solid var(--field-line); color: var(--ink); font: 400 16px/1.5 var(--sans); outline: 0; transition: border-color .2s; }
+  .field:focus { border-color: var(--focus-border); }
+  .field::placeholder { color: var(--faint); }
+  .field.mono { font-family: var(--mono); }
+  textarea.field { resize: none; min-height: 96px; max-height: 260px; padding: 11px 14px; }
+  textarea#upi { min-height: 72px; }
+  textarea#em-head { min-height: 72px; }
+  select.field { cursor: pointer; }
+  .more { display: grid; gap: 8px; }
+  .more summary { cursor: pointer; font-size: 15px; color: var(--sub); padding: 2px 0; }
+  .more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .more summary span { color: var(--faint); }
+  .more .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .seg { position: relative; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--seg-fill); border: 1px solid var(--seg-line); max-width: 100%; box-sizing: border-box; }
+  .segbtn { position: relative; z-index: 1; min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 400 14.5px/1.2 var(--sans); cursor: pointer; transition: color .2s; }
+  .segbtn:hover { color: var(--ink); }
+  .segbtn[aria-pressed="true"] { color: var(--on-ink); font-weight: 500; }
+  .segthumb { position: absolute; left: 0; top: 3px; width: 0; height: 32px; border-radius: 999px; background: var(--seg-thumb); }
+
+  .dropbtn { box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 14px; border-radius: 14px; color: var(--muted); font: 400 14px/1.4 var(--sans); text-align: left; cursor: pointer; border: 1.5px dashed var(--dropbtn-line); background: var(--dropbtn-fill); }
+  .dropbtn svg { flex: none; }
+  .dropbtn b { display: block; color: var(--ink); font-weight: 500; font-size: 15px; }
+
+  @media (max-width: 640px) {
+    .col.home { margin-top: max(0px, calc(24vh - 150px)); }
+    .hero h1 { display: grid; align-items: end; min-height: 2.28em; }   /* two lines reserved: a one-line headline does not pull the tabs up */
+    /* plan 6.1: one scrolling row, 40 px pills, 14 px text, the selected tab kept in view, edge fades as the scroll hint, no sideways page scroll */
+    .tabs { overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-block: 4px; margin-block: -4px; gap: 6px; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { height: 40px; padding: 0 13px; font-size: 14px; gap: 6px; scroll-snap-align: center; }
+    .tabthumb { top: 4px; height: 40px; }
+    .tabswrap::before, .tabswrap::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px; z-index: 2; pointer-events: none; opacity: 0; }
+    .tabswrap::before { left: 0; background: linear-gradient(90deg, var(--tab-fade), transparent); }
+    .tabswrap::after { right: 0; background: linear-gradient(270deg, var(--tab-fade), transparent); }
+    .tabswrap[data-left]::before, .tabswrap[data-right]::after { opacity: 1; }
+    .bar { align-items: stretch; }
+    .seg { display: flex; width: 100%; }
+    .segbtn { flex: 1 1 auto; min-height: 40px; padding: 2px 10px; font-size: 14px; }
+    .box.entry { padding: 12px; border-radius: 24px; }
+    .more .two { grid-template-columns: 1fr; }
+    .ex button { min-height: 40px; }
+    .acts { margin-left: auto; }
+  }
 }
 
 /* The theme switch (2026-10-18, lib/themeSwitch.ts; replaces the 0.3 s colour cross-fade). While it runs, <html> has .ss-switch and .ss-comet

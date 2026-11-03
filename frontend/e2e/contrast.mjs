@@ -9,8 +9,9 @@
 // lightest-decile worst case is reported too as `worst`, for information).
 // Contrast = (L1 + .05) / (L2 + .05) with the element's computed colour (alpha blended on that background). Needs 4.5:1, or 3:1 for large text
 // (>= 24 px, or >= 18.66 px and bold). Disabled controls and placeholders are exempt (WCAG 1.4.3). /api/analyse is answered from the fixtures; no backend.
-// The red "Paste it here." (2026-10-18) is reported on its own in every home run, with whether its box lies over the globe's circle (from the
-// camera, as Globe.tsx computes it); it must be measured in every home run and lie over the globe in at least one run per theme.
+// The red accent word of the headline (D29.15: "scam", "safe", "genuine", "real"; before it, the red "Paste it here.", 2026-10-18, a phrase the approved copy dropped) is
+// reported on its own in every home run, one run per tab, with whether its box lies over the globe's circle (from the camera, as Globe.tsx computes it); it must be measured
+// in every home run, meet 4.5:1 although it is large text (the bar the old phrase had), and lie over the globe in at least one run per theme.
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,13 +70,14 @@ const phrase = { dark: [], light: [] };   // [over the globe, ratio] per home ru
 try {
   for (const theme of ["dark", "light"])
   for (const [w, h] of [[390, 844], [1440, 1150]])
-    for (const screen of ["home", "result", "invest", "invest-kn"]) {
+    for (const screen of ["home", "home-link", "home-payment", "home-app", "result", "invest", "invest-kn"]) {
       const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", colorScheme: theme });
       const page = await ctx.newPage();
       const f = screen.startsWith("invest") ? invest : jio;
       await page.route("**/api/analyse", (r) => r.fulfill({ json: f.report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
-      if (screen !== "home") {
+      if (screen.startsWith("home-")) await page.click(`#tab-${screen.slice(5)}`);
+      else if (screen !== "home") {
         await page.fill("#msg", f.text); await page.click("button.go"); await page.waitForSelector(".result .vword"); await page.evaluate(() => document.querySelectorAll("details.facts").forEach((d) => { d.open = true; }));
         if (screen === "invest-kn") await page.click('.helplangbtn:has-text("ಕನ್ನಡ")');
         if (screen.startsWith("invest") && !(await page.locator(".investcard").count())) { fails++; console.log("FAIL the investment card is missing"); }
@@ -87,14 +89,18 @@ try {
       console.log(`${bad.length ? "FAIL" : "ok  "} ${theme.padEnd(5)} ${w}px ${screen}: ${rows.length} text elements, lowest ${Math.min(...rows.map((r) => r.ratio))}:1`);
       if (process.env.CONTRAST_ALL) for (const r of [...rows].sort((a, b) => a.ratio / a.need - b.ratio / b.need).slice(0, 4)) console.log(`      lowest: ${r.ratio}:1 (needs ${r.need}) <${r.tag}> ${r.px}px "${r.text}"`);
       for (const r of bad) console.log(`      ${r.ratio}:1 (needs ${r.need}) <${r.tag}> ${r.px}px "${r.text}"`);
-      if (screen === "home") {
-        const p = rows.find((r) => r.tag === "em" && r.text === "Paste it here.");
+      if (screen.startsWith("home")) {
+        const word = { home: "scam", "home-link": "safe", "home-payment": "genuine", "home-app": "real" }[screen];
+        const p = rows.find((r) => r.tag === "em" && r.text === word);
         const z = w < 640 ? 440 : 300, lift = w < 640 ? 95 : 62, f = (h / 2) / Math.tan(21 * Math.PI / 180);   // the globe's circle (Globe.tsx globeCircle)
         const g = { cx: w / 2, cy: h / 2 + f * lift / z, r: f * 100 / Math.sqrt(z * z + lift * lift - 100 * 100) };
         const over = !!p && [[p.box[0], p.box[1]], [p.box[2], p.box[1]], [p.box[0], p.box[3]], [p.box[2], p.box[3]]].every(([x, y]) => Math.hypot(x - g.cx, y - g.cy) < g.r);
         phrase[theme].push([over, p?.ratio ?? 0]);
-        if (!p) { fails++; console.log(`FAIL       the red "Paste it here." was not measured`); }
-        else console.log(`           red "Paste it here.": ${p.ratio}:1 (needs ${p.need}), ${over ? "over the globe" : "not over the globe"}`);
+        if (!p) { fails++; console.log(`FAIL       the red "${word}" was not measured`); }
+        else {
+          if (p.ratio < 4.5 && p.ratio >= p.need) { fails++; console.log(`FAIL       the red "${word}" is ${p.ratio}:1, below the 4.5:1 this word must keep`); }
+          console.log(`           red "${word}": ${p.ratio}:1 (needs 4.5), ${over ? "over the globe" : "not over the globe"}`);
+        }
       }
       await ctx.close();
     }

@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/lexend/wght.css";
 import "@fontsource/libre-baskerville/400.css";
 import "@fontsource/libre-baskerville/700.css";
+import "@fontsource/libre-baskerville/700-italic.css";   // the accent word of the home headline (D29.15)
 import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/geist-mono/600.css";

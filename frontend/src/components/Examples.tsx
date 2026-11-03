@@ -1,20 +1,11 @@
-// The three example chips. A chip only fills the box with the prototype's example text: its verdict comes from the API like any other
-// message (the prototype's hand-written verdicts, levels and reasons are deliberately not ported). The bank alert is not the prototype's:
-// its "Call 1800-XXX-XXXX" was a placeholder no real alert contains, and the text model reads it as a scam cue (reports/text_shortcuts.md, f).
-const EXAMPLES = [
-  { id: "arrest", label: "Digital arrest call",
-    text: "This is Inspector Rakesh Sharma from Mumbai Cyber Crime. A parcel in your name with illegal items was seized by customs. You are now under digital arrest. Do not disconnect this call or tell anyone. Transfer ₹49,999 to the verification account immediately to clear your name: cbi-verify-case.xyz" },
-  { id: "kyc", label: "KYC update SMS",
-    text: "Dear Customer, your SBI account will be blocked today due to pending KYC. Update now: sbi-kyc-update.top/login Share the OTP sent to your number to complete verification." },
-  { id: "bank", label: "Genuine bank alert",
-    text: "Rs.2,500.00 debited from A/c XX4821 on 14-10-26 to VPA swiggy@ybl. If this was not you, call the number on the back of your card. Never share your OTP with anyone. -HDFC Bank" },
-];
+import { SAMPLES, type Sample } from "../lib/tabs";
 
-export default function Examples({ onPick }: { onPick: (text: string) => void }) {
+// The sample chips of docs/design/tabs-home.html. A chip only fills in its tab (lib/tabs.ts): its verdict comes from the API like any other message's, when the user presses Check.
+export default function Examples({ onPick }: { onPick: (s: Sample) => void }) {
   return (
     <section className="hero">
-      <div className="ex"><span>try</span>
-        {EXAMPLES.map((ex) => <button key={ex.id} type="button" onClick={() => onPick(ex.text)}>{ex.label}</button>)}
+      <div className="ex"><span>Try a sample:</span>
+        {SAMPLES.map((s) => <button key={s.id} type="button" onClick={() => onPick(s)}>{s.label}</button>)}
       </div>
     </section>
   );

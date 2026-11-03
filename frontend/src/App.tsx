@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import Globe, { type Hit } from "./components/Globe";
 import Header from "./components/Header";
-import PasteBox from "./components/PasteBox";
-import Examples from "./components/Examples";
+import Home from "./components/Home";
 import Footer, { type FeedItem } from "./components/Footer";
 import Checking, { type CheckOutcome } from "./components/Checking";
 import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
 import { analyse, CheckError, type Failure } from "./api";
 import { markLiveFailed, raisedByLive } from "./lib/facts";
+import { clearChecked, NO_INPUTS, textToCheck, type Inputs, type Sample, type TabKey } from "./lib/tabs";
 import { useTheme } from "./lib/theme";
 import type { Report } from "./types/report";
 
@@ -17,7 +17,8 @@ type Screen = "home" | "checking" | "result" | "error";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const [text, setText] = useState("");
+  const [tab, setTab] = useState<TabKey>("message");   // not stored (ARCHITECTURE 5.4); SMS / Email is the default
+  const [inputs, setInputs] = useState<Inputs>(NO_INPUTS);
   const [checked, setChecked] = useState("");   // the text the current result is about: its evidence spans index this string
   const [report, setReport] = useState<Report | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -27,7 +28,7 @@ export default function App() {
   const [hits, setHits] = useState<FeedItem[]>([]);
   const [focusBox, setFocusBox] = useState(false);   // focus the box when coming back to it, not on first load (as the prototype)
   const run = useRef(0), hitId = useRef(0);
-  const input = useRef<HTMLTextAreaElement>(null);
+  const messageInput = useRef<HTMLTextAreaElement>(null), linkInput = useRef<HTMLInputElement>(null);
   const reduced = useReducedMotion();
   const [theme, toggleTheme] = useTheme();
 
@@ -44,10 +45,11 @@ export default function App() {
       () => { if (run.current === id) setReport(markLiveFailed(offline)); },   // pending rows become "Couldn't verify (offline)"
     );
   }
+  const patch = useCallback((change: Partial<Inputs>) => setInputs((i) => ({ ...i, ...change })), []);
   function check() {
-    if (!text.trim()) return;
+    const sent = textToCheck(tab, inputs);
+    if (!sent.trim()) return;
     const id = ++run.current;   // only the latest check may change the screen
-    const sent = text;
     setReport(null); setFailure(null); setRaised(false); setExpanding(null); setExpandFailed(null); setScreen("checking");
     analyse(sent).then(
       (r) => { if (run.current === id) { setChecked(sent); setReport(r); if (r.pending.length) live(sent, id, r); } },
@@ -63,9 +65,13 @@ export default function App() {
     );
   }
   const finishChecking = () => setScreen(report ? "result" : "error");   // called by Checking once the answer is in and the steps have ticked
-  const again = () => { run.current++; setText(""); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
+  const again = () => { run.current++; setInputs((i) => clearChecked(tab, i)); setReport(null); setFailure(null); setFocusBox(true); setScreen("home"); };
   const back = () => { setFocusBox(true); setScreen("home"); };
-  const pick = (t: string) => { setText(t); input.current?.focus(); };
+  const pick = (s: Sample) => {   // a sample chip fills in its tab; the user still presses Check
+    setTab(s.tab);
+    patch(s.set);
+    if (s.tab === "message" && s.set.kind !== "email") messageInput.current?.focus();
+  };
 
   useEffect(() => {
     if (screen === "result") window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
@@ -78,16 +84,9 @@ export default function App() {
       <Globe dim={screen === "result"} onHit={onHit} theme={theme} />
       <Header theme={theme} onToggleTheme={toggleTheme} />
       <main>
-        <div className={screen === "result" ? "col wide" : "col"}>
+        <div className={screen === "result" ? "col wide" : screen === "home" ? "col home" : "col"}>
           {screen === "home" && (
-            <>
-              <section className="hero">
-                <h1>Got a message that feels <em>off</em>?</h1>
-                <p className="sub"><em>Paste it here.</em> We read it for the tricks scammers use and tell you why, in a few seconds.</p>
-              </section>
-              <PasteBox value={text} onChange={setText} onSubmit={check} inputRef={input} autoFocus={focusBox} />
-              <Examples onPick={pick} />
-            </>
+            <Home tab={tab} onTab={setTab} inputs={inputs} patch={patch} onCheck={check} onSample={pick} messageRef={messageInput} linkRef={linkInput} autoFocus={focusBox} />
           )}
           {screen === "checking" && <Checking outcome={outcome} onFinished={finishChecking} />}
           {screen === "result" && report && (
