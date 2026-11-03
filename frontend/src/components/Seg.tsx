@@ -17,8 +17,9 @@ export default function Seg<T extends string>({ label, options, value, onPick }:
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(place);
     ro.observe(el);
+    for (const b of el.querySelectorAll(".segbtn")) ro.observe(b);   // on a phone the row keeps its width while the buttons inside it change
     return () => ro.disconnect();
-  });
+  }, []);
   return (
     <div className="seg" ref={box} role="group" aria-label={label}>
       {value !== null && <span className="segthumb" ref={thumb} aria-hidden="true" />}

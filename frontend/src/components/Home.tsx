@@ -1,4 +1,6 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import gsap from "gsap";
+import { mayAnimate, onSwitchStart } from "../lib/motion";
 import { TABS, type Inputs, type Sample, type TabKey } from "../lib/tabs";
 import AppBox from "./AppBox";
 import Examples from "./Examples";
@@ -23,6 +25,20 @@ type Props = {
 /* The home screen (docs/design/tabs-home.html, plan 6, D29.15): headline, four tabs, the selected tab's box, sample chips. Every tab has its tabpanel in the page, so aria-controls
    always points at something; only the selected one has its content. What was typed stays in App, so nothing is lost on the way to another tab or to the result. */
 export default function Home({ tab, onTab, inputs, patch, onCheck, onSample, messageRef, linkRef, autoFocus }: Props) {
+  // the box's part of the tab switch: it eases from the height it had when the tab was chosen (mid-ease too, after a quick second click) to the new tab's height, over .45 s
+  const before = useRef<number | null>(null), ease = useRef<gsap.core.Tween | null>(null);
+  const boxOf = (k: TabKey) => document.getElementById(`panel-${k}`)?.querySelector<HTMLElement>(".box.entry") ?? null;
+  const choose = (k: TabKey) => { if (k !== tab) { before.current = boxOf(tab)?.offsetHeight ?? null; onTab(k); } };
+  useLayoutEffect(() => {
+    const from = before.current, box = boxOf(tab);
+    before.current = null;
+    if (from === null || !box || !mayAnimate()) return;
+    const to = box.offsetHeight;
+    if (to !== from) ease.current = gsap.fromTo(box, { height: from, overflow: "clip" }, { height: to, duration: .45, ease: "power4.out", clearProps: "height,overflow", onComplete: () => { ease.current = null; } });
+    return () => { ease.current?.kill(); ease.current = null; };
+  }, [tab]);
+  useEffect(() => onSwitchStart(() => { ease.current?.progress(1); }), []);   // a theme switch starting: straight to the end
+
   useEffect(() => {   // a file dropped next to a box would otherwise make the browser open it in place of this page
     const guard = (e: DragEvent) => {
       if (!e.dataTransfer?.types.includes("Files") || (e.target instanceof Element && e.target.closest("[data-drop]"))) return;
@@ -44,11 +60,11 @@ export default function Home({ tab, onTab, inputs, patch, onCheck, onSample, mes
   return (
     <>
       <Hero tab={tab} />
-      <TabRow tab={tab} onSelect={onTab} />
+      <TabRow tab={tab} onSelect={choose} />
       {TABS.map((k) => (
         <div key={k} role="tabpanel" id={`panel-${k}`} aria-labelledby={`tab-${k}`} hidden={k !== tab}>{k === tab && box(k)}</div>
       ))}
-      <Examples onPick={onSample} />
+      <Examples onPick={(s) => { if (s.tab !== tab) before.current = boxOf(tab)?.offsetHeight ?? null; onSample(s); }} />
     </>
   );
 }

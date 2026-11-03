@@ -650,6 +650,7 @@
   .hline { display: block; text-wrap: balance; }
   .hw, .hwi { display: inline-block; }
   .hw { padding: .1em .08em .22em; margin: -.1em -.08em -.22em; }   /* room for the descenders and the italic overhang when the words are masked */
+  .masking .hw { clip-path: inset(0); }   /* clip-path, not overflow: an inline-block with overflow would move its baseline */
   .hero { gap: 10px; }
   /* the five sample chips stay on one line where they fit: the row may be wider than the box, as in tabs-home.html */
   .col.home .ex { gap: 8px; justify-self: center; width: max-content; max-width: calc(100vw - 64px); }

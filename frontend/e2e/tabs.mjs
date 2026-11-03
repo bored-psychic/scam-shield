@@ -36,7 +36,14 @@ const INSTRUMENT = () => {
   const rect = Element.prototype.getBoundingClientRect;
   Element.prototype.getBoundingClientRect = function () { rec.rects++; return rect.call(this); };
   const raf = window.requestAnimationFrame;
-  const tick = () => { rec.frames++; raf(tick); };
+  rec.stage = [];   // the globe's stage, every frame of the first 3 s
+  const t0 = performance.now();
+  const tick = () => {
+    rec.frames++;
+    const st = document.querySelector(".stage"), t = performance.now() - t0;
+    if (st && t < 3200) { const cs = getComputedStyle(st), m = new DOMMatrix(cs.transform); rec.stage.push({ t, inline: st.getAttribute("style") ?? "", y: m.m42 / innerHeight * 100, op: +cs.opacity, tr: cs.transitionDuration }); }
+    raf(tick);
+  };
   raf(tick);
 };
 
@@ -140,6 +147,181 @@ async function lightChecks(browser) {
   }
 }
 
+// ---- M the two motions ----
+const HEAD = { message: "Is this message a scam?", link: "Is this link safe?", payment: "Is this payment genuine?", app: "Is this app real?" };
+const SUB = { message: "Paste it or add a screenshot.", link: "Checked without opening it.", payment: "Check a UPI ID or a screenshot.", app: "Check it before you install." };
+const clean = (x) => x.replace(/\s+/g, " ").trim();
+// in the page, every 50 ms: the headlines, each word's opacity and how much of it shows through its mask, the sub-line, the pill and the box; and each word's opacity when React removes it
+const startSampling = (page) => page.evaluate(() => {
+  const rec = (window.__sw = { samples: [], removed: [], t0: performance.now() });
+  const h = document.querySelector(".hero h1");
+  rec.mo = new MutationObserver((list) => {
+    for (const m of list) for (const n of m.removedNodes) if (n.nodeType === 1)
+      for (const w of n.matches(".hwi") ? [n] : n.querySelectorAll(".hwi")) rec.removed.push({ t: performance.now() - rec.t0, word: w.textContent, op: w.style.opacity });
+  });
+  rec.mo.observe(h, { childList: true, subtree: true });
+  rec.timer = setInterval(() => {
+    const heads = [...document.querySelectorAll(".hero h1")], el = heads[0];
+    const words = [...el.querySelectorAll(".hwi")].map((w) => {
+      const r = w.getBoundingClientRect(), box = w.parentElement.getBoundingClientRect();
+      const seen = el.classList.contains("masking") ? Math.max(0, Math.min(r.bottom, box.bottom) - Math.max(r.top, box.top)) / Math.max(1, r.height) : 1;
+      return { op: +getComputedStyle(w).opacity, seen };
+    });
+    const sub = document.querySelector(".hero .sub"), thumb = document.querySelector(".tabthumb"), box = document.querySelector('[role="tabpanel"]:not([hidden]) .box.entry');
+    rec.samples.push({ t: performance.now() - rec.t0, heads: heads.length, text: el.textContent.replace(/\s+/g, " ").trim(),
+      showing: words.filter((w) => w.op > .05 && w.seen > .02).length, subOp: +getComputedStyle(sub).opacity, subText: sub.textContent,
+      thumb: thumb.getBoundingClientRect().left, boxH: box?.getBoundingClientRect().height ?? 0 });
+  }, 50);
+});
+const stopSampling = (page) => page.evaluate(() => { const r = window.__sw; clearInterval(r.timer); r.mo.disconnect(); return { samples: r.samples, removed: r.removed }; });
+const leftovers = (page) => page.evaluate(() => {
+  const out = [], h = document.querySelector(".hero h1");
+  if (h.classList.contains("masking")) out.push("still masking");
+  for (const w of h.querySelectorAll(".hwi")) if (w.getAttribute("style")) out.push(`word style ${w.getAttribute("style")}`);
+  const sub = document.querySelector(".hero .sub"); if (sub.getAttribute("style")) out.push(`sub style ${sub.getAttribute("style")}`);
+  const box = document.querySelector('[role="tabpanel"]:not([hidden]) .box.entry'); if (box.style.height || box.style.overflow) out.push(`box style ${box.getAttribute("style")}`);
+  const on = document.querySelector('.tab[aria-selected="true"]').getBoundingClientRect(), th = document.querySelector(".tabthumb").getBoundingClientRect();
+  if (Math.abs(on.left - th.left) > .6 || Math.abs(on.width - th.width) > .6) out.push(`pill at ${th.left.toFixed(1)}+${th.width.toFixed(1)}, tab at ${on.left.toFixed(1)}+${on.width.toFixed(1)}`);
+  return out;
+});
+const finalIs = (page, k) => page.evaluate(() => ({ text: document.querySelector(".hero h1").textContent.replace(/\s+/g, " ").trim(), sub: document.querySelector(".hero .sub").textContent, sel: document.querySelector('.tab[aria-selected="true"]').id, count: document.querySelectorAll(".hero h1").length }))
+  .then((g) => g.text === HEAD[k] && g.sub === SUB[k] && g.sel === `tab-${k}` && g.count === 1);
+const lastChange = (samples, key) => { let t = 0; for (let i = 1; i < samples.length; i++) if (Math.abs(samples[i][key] - samples[i - 1][key]) > .3) t = samples[i].t; return t; };
+
+async function motionChecks(browser) {
+  for (const [theme, w, h] of [["dark", 1440, 900], ["light", 1440, 900], ["dark", 390, 844], ["light", 390, 844]]) {
+    const { ctx, page, problems } = await open(browser, { theme, w, h });
+    const tag = `${theme} ${w}`;
+    for (const [from, to] of [["message", "link"], ["link", "payment"], ["payment", "app"], ["app", "message"]]) {
+      await startSampling(page);
+      await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), to);
+      await page.waitForTimeout(1900);
+      const { samples, removed } = await stopSampling(page);
+      const both = samples.filter((x) => x.heads !== 1 || ![HEAD[from], HEAD[to]].includes(x.text));
+      const firstNew = samples.findIndex((x) => x.text === HEAD[to]), oldAfter = samples.slice(firstNew).some((x) => x.text === HEAD[from]);
+      const lastOldShowing = samples.filter((x) => x.text === HEAD[from] && x.showing > 0).at(-1)?.t ?? 0, firstNewShowing = samples.find((x) => x.text === HEAD[to] && x.showing > 0)?.t ?? -1;
+      const removedOp = removed.length ? Math.max(...removed.map((x) => +x.op)) : -1, swapAt = removed.length ? removed[0].t : -1;
+      check(`M1 ${tag} ${from} -> ${to}: ${samples.length} samples, one heading at a time, old headline gone before the new one shows`,
+        !both.length && firstNew > 0 && !oldAfter && lastOldShowing < firstNewShowing, `old last seen at ${lastOldShowing.toFixed(0)} ms, new first seen at ${firstNewShowing.toFixed(0)} ms`);
+      // about 312 ms, measured headed @2x and headless; a fresh browser's first click can take a cold-start frame on top (one 217 ms frame in 6 runs), hence the upper bound
+      check(`M2 ${tag} ${from} -> ${to}: the old words' opacity was 0 when they were removed, after the .3 s`, removedOp === 0 && swapAt >= 270 && swapAt < 700, `${removed.length} words, max opacity ${removedOp}, at ${swapAt.toFixed(0)} ms`);
+      const noSubGap = samples.filter((x) => x.subText === SUB[to] && x.subOp > .05).at(0)?.t ?? -1;
+      const headIn = samples.filter((x) => x.text === HEAD[to] && x.showing > 0).at(0)?.t ?? 0;
+      check(`M3 ${tag} ${from} -> ${to}: the sub-line fades out with the old headline and comes back after the new one`,
+        samples.some((x) => x.subOp <= .05) && noSubGap > headIn && !samples.some((x) => x.subText === SUB[from] && x.text === HEAD[to]), `new sub-line first seen at ${noSubGap.toFixed(0)} ms, headline at ${headIn.toFixed(0)} ms`);
+      const pillEnd = lastChange(samples, "thumb"), boxEnd = lastChange(samples, "boxH");
+      const pillMoved = samples[0].thumb !== samples.at(-1).thumb, boxMoved = Math.abs(samples[0].boxH - samples.at(-1).boxH) > 1;
+      check(`M4 ${tag} ${from} -> ${to}: the pill moves over about .55 s, the box eases over about .45 s, while the headline changes`,
+        pillMoved && pillEnd > 200 && pillEnd < 760 && (!boxMoved || (boxEnd > 150 && boxEnd < 650)), `pill's last move at ${pillEnd.toFixed(0)} ms, box's at ${boxEnd.toFixed(0)} ms${boxMoved ? "" : " (same height)"}`);
+      check(`M5 ${tag} ${from} -> ${to}: ends right and clean`, (await finalIs(page, to)) && !(await leftovers(page)).length, (await leftovers(page)).join("; "));
+    }
+    // a click during a switch: at 150 ms (old leaving), and at 550 ms (new entering): cleanly to the newest tab
+    for (const delay of [150, 550]) {
+      await startSampling(page);
+      await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "link");
+      await page.waitForTimeout(delay);
+      await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "payment");
+      await page.waitForTimeout(120);
+      await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "app");
+      await page.waitForTimeout(1900);
+      const { samples } = await stopSampling(page);
+      const stray = samples.filter((x) => x.heads !== 1);
+      const lastOther = samples.filter((x) => x.text !== HEAD.app && x.showing > 0).at(-1)?.t ?? 0, firstApp = samples.find((x) => x.text === HEAD.app && x.showing > 0)?.t ?? -1;
+      check(`M6 ${tag} two more clicks ${delay} ms into a switch: the newest tab, clean, never two headlines`, !stray.length && lastOther < firstApp && (await finalIs(page, "app")) && !(await leftovers(page)).length, (await leftovers(page)).join("; "));
+      await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "message");
+      await page.waitForTimeout(1900);
+    }
+    // a theme switch starting during a tab switch: everything at its end at once, before the switch measures the page
+    await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "payment");
+    await page.waitForTimeout(150);
+    const at = await page.evaluate(() => { document.querySelector(".themebtn").click(); return document.documentElement.classList.contains("ss-switch"); });
+    const during = await leftovers(page);
+    check(`M7 ${tag} a theme switch during a tab switch: the tab switch jumps to its end`, at && !during.length && (await finalIs(page, "payment")), during.join("; "));
+    // a click on a tab during the theme switch: instant, nothing starts
+    await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "app");
+    await page.waitForTimeout(60);
+    const started = await leftovers(page);
+    check(`M8 ${tag} a tab chosen during a theme switch: nothing starts, it is simply there`, (await finalIs(page, "app")) && !started.length, started.join("; "));
+    await page.waitForFunction(() => !document.documentElement.classList.contains("ss-switch"), null, { timeout: 8000 });
+    await page.evaluate((k) => document.getElementById(`tab-${k}`).click(), "message");
+    await page.waitForTimeout(1900);
+    check(`M9 ${tag} no console problem, no request outside the page`, !problems.length, problems.join("; "));
+    await ctx.close();
+  }
+  // the globe's rise
+  for (const theme of THEMES) {
+    const { ctx, page, problems } = await open(browser, { theme, wait: false });
+    await page.waitForTimeout(3300);
+    const st = await page.evaluate(() => window.__tabs.stage);
+    const moving = st.filter((x) => x.inline.includes("transform") || x.inline.includes("opacity"));
+    const first = moving[0], last = moving.at(-1), end = st.find((x, i) => i > 0 && st[i - 1].inline && !x.inline);
+    const dur = last && first ? last.t - first.t : 0;
+    const mono = moving.every((x, i) => !i || (x.y <= moving[i - 1].y + .01 && x.op >= moving[i - 1].op - .01));
+    check(`M10 ${theme} the rise: from 45 % and opacity 0, down to rest over 2.2 s, expo.out`, first && first.y > 30 && first.y <= 45.01 && first.op < .35 && mono && dur > 1900 && dur < 2500, `first frame y ${first?.y.toFixed(1)} %, opacity ${first?.op.toFixed(2)}, ${moving.length} frames over ${dur.toFixed(0)} ms`);
+    const quarter = moving.find((x) => x.t - first.t >= 220), want = 45 * 2 ** (-10 * (quarter.t - first.t) / 2200);
+    check(`M11 ${theme} the rise follows expo.out (at ${(quarter.t - first.t).toFixed(0)} ms)`, Math.abs(quarter.y - want) < 6, `y ${quarter.y.toFixed(1)} %, expected about ${want.toFixed(1)} %`);
+    check(`M12 ${theme} the stage's transition is off during it; every inline style goes after it`, moving.every((x) => x.tr === "0s") && !!end && !(await page.evaluate(() => document.querySelector(".stage").getAttribute("style"))), `after: "${await page.evaluate(() => document.querySelector(".stage").getAttribute("style"))}"`);
+    check(`M13 ${theme} no console problem`, !problems.length, problems.join("; "));
+    await ctx.close();
+    // a theme switch during the rise jumps it to its end
+    const b = await open(browser, { theme, wait: false });
+    await b.page.waitForFunction(() => document.querySelector(".stage")?.getAttribute("style")?.includes("opacity"));
+    await b.page.waitForTimeout(200);
+    const mid = await b.page.evaluate(() => { const was = document.querySelector(".stage").getAttribute("style"); document.querySelector(".themebtn").click(); return { was, now: document.querySelector(".stage").getAttribute("style"), on: document.documentElement.classList.contains("ss-switch") }; });
+    check(`M14 ${theme} a theme switch during the rise: the stage is at rest at once`, mid.was && !mid.now && mid.on, `was "${mid.was?.slice(0, 40)}", now "${mid.now}"`);
+    await b.page.waitForFunction(() => !document.documentElement.classList.contains("ss-switch"), null, { timeout: 8000 });
+    check(`M15 ${theme} no console problem after it`, !b.problems.length, b.problems.join("; "));
+    await b.ctx.close();
+    // reduced motion: no rise, no switch motion
+    const r = await open(browser, { theme, motion: "reduce", wait: false });
+    await r.page.waitForTimeout(500);
+    const inlines = await r.page.evaluate(() => window.__tabs.stage.filter((x) => x.inline).length);
+    check(`M16 ${theme} reduced motion: no rise`, inlines === 0, `${inlines} frames with an inline style`);
+    await startSampling(r.page);
+    const instant = await r.page.evaluate(() => new Promise((res) => {
+      document.getElementById("tab-payment").click();
+      requestAnimationFrame(() => res({ text: document.querySelector(".hero h1").textContent.replace(/\s+/g, " ").trim(), sub: document.querySelector(".hero .sub").textContent, masking: document.querySelector(".hero h1").classList.contains("masking") }));
+    }));
+    await r.page.waitForTimeout(400);
+    const rec = await stopSampling(r.page);
+    check(`M17 ${theme} reduced motion: the tab change is instant`, instant.text === HEAD.payment && instant.sub === SUB.payment && !instant.masking && rec.samples.every((x) => x.subOp === 1) && rec.samples.every((x) => x.text === HEAD.payment) && !(await leftovers(r.page)).length,
+      `${rec.samples.length} samples, all the new headline at full opacity`);
+    await r.ctx.close();
+  }
+}
+
+// ---- K keyboard, ARIA, phone row ----
+async function keyboardChecks(browser) {
+  const { ctx, page, problems } = await open(browser, { motion: "reduce" });
+  const state = () => page.evaluate(() => ({ sel: document.querySelector('.tab[aria-selected="true"]').id, focus: document.activeElement?.id, tabs: [...document.querySelectorAll(".tab")].map((t) => t.tabIndex), panel: document.querySelector('[role="tabpanel"]:not([hidden])').id }));
+  await page.focus("#tab-message");
+  const walk = [["ArrowRight", "link"], ["ArrowRight", "payment"], ["ArrowLeft", "link"], ["End", "app"], ["ArrowRight", "message"], ["ArrowLeft", "app"], ["Home", "message"]];
+  for (const [key, k] of walk) {
+    await page.keyboard.press(key);
+    const s = await state();
+    check(`K1 ${key} -> ${k}: selected, focused, the only tab in the Tab order, its panel shown`, s.sel === `tab-${k}` && s.focus === `tab-${k}` && s.tabs.filter((x) => x === 0).length === 1 && s.panel === `panel-${k}`, JSON.stringify(s));
+  }
+  check("K2 no console problem", !problems.length, problems.join("; "));
+  await ctx.close();
+  for (const w of [360, 390, 430]) {
+    const p = await open(browser, { w, h: 800, motion: "reduce" });
+    for (const k of ["message", "link", "payment", "app"]) {
+      await p.page.click(`#tab-${k}`);
+      await p.page.waitForTimeout(120);
+      const m = await p.page.evaluate((k) => {
+        const row = document.querySelector(".tabs").getBoundingClientRect(), on = document.getElementById(`tab-${k}`).getBoundingClientRect(), th = document.querySelector(".tabthumb").getBoundingClientRect(), cs = getComputedStyle(document.getElementById(`tab-${k}`));
+        return { over: document.documentElement.scrollWidth - innerWidth, inView: on.left >= row.left - 1 && on.right <= row.right + 1, height: on.height, font: parseFloat(cs.fontSize), rowScrolls: getComputedStyle(document.querySelector(".tabs")).overflowX, pillOn: Math.abs(th.left - on.left) < 1 };
+      }, k);
+      check(`K3 ${w} px ${k}: no sideways page scroll, the tab in view, 40 px, 14 px text, one scrolling row, the pill on it`, m.over <= 0 && m.inView && m.height === 40 && m.font === 14 && m.rowScrolls === "auto" && m.pillOn, JSON.stringify(m));
+    }
+    await p.ctx.close();
+  }
+  const d = await open(browser, { motion: "reduce" });
+  const all = await d.page.evaluate(() => { const row = document.querySelector(".tabs").getBoundingClientRect(); return [...document.querySelectorAll(".tab")].every((t) => { const r = t.getBoundingClientRect(); return r.left >= row.left && r.right <= row.right; }); });
+  check("K4 desktop: all four tabs fit in one row", all);
+  await d.ctx.close();
+}
+
 // ---- H the lift ----
 // every CSS transition on the page has ended (a fixed wait is too short when headless frames are slow: the software-drawn globe takes most of them)
 const settle = (page) => page.evaluate(async () => {
@@ -223,6 +405,8 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 try {
   if (!ONLY || ONLY === "L") await lightChecks(browser);
   if (!ONLY || ONLY === "H") await liftChecks(browser);
+  if (!ONLY || ONLY === "M") await motionChecks(browser);
+  if (!ONLY || ONLY === "K") await keyboardChecks(browser);
 } finally {
   await browser.close();
   await new Promise((res) => server.httpServer.close(res));

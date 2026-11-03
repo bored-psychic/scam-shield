@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
+import gsap from "gsap";
 import Globe, { type Hit } from "./components/Globe";
 import Header from "./components/Header";
 import Home from "./components/Home";
@@ -9,6 +10,7 @@ import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
 import { analyse, CheckError, type Failure } from "./api";
 import { markLiveFailed, raisedByLive } from "./lib/facts";
+import { mayAnimate, onSwitchStart } from "./lib/motion";
 import { clearChecked, NO_INPUTS, textToCheck, type Inputs, type Sample, type TabKey } from "./lib/tabs";
 import { useTheme } from "./lib/theme";
 import type { Report } from "./types/report";
@@ -31,6 +33,17 @@ export default function App() {
   const messageInput = useRef<HTMLTextAreaElement>(null), linkInput = useRef<HTMLInputElement>(null);
   const reduced = useReducedMotion();
   const [theme, toggleTheme] = useTheme();
+
+  // The globe rises on load (D30): its .stage wrapper, from outside (Globe.tsx is not touched). The stage's own transition is off during it; every inline style goes at the end, also when a
+  // theme switch starts mid-way and it jumps there. Reduced motion: no rise.
+  useEffect(() => {
+    const stage = document.querySelector<HTMLElement>(".stage");
+    if (!stage || !mayAnimate()) return;
+    stage.style.transition = "none";
+    const rise = gsap.fromTo(stage, { yPercent: 45, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 2.2, ease: "expo.out", clearProps: "transform,opacity,transition" });
+    const off = onSwitchStart(() => { rise.progress(1); });
+    return () => { off(); rise.kill(); gsap.set(stage, { clearProps: "transform,opacity,transition" }); };
+  }, []);
 
   const onHit = useCallback((h: Hit) => {
     const id = ++hitId.current;
