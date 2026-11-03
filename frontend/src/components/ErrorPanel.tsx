@@ -1,5 +1,6 @@
 import type { Failure } from "../api";
 import { SCHEMA_VERSION } from "../types/report";
+import Light from "./Light";
 
 type Props = { failure: Failure; onRetry: () => void; onBack: () => void };
 
@@ -17,6 +18,7 @@ export default function ErrorPanel({ failure, onRetry, onBack }: Props) {
   const { text, retry } = describe(failure);
   return (
     <section className="box verdict" role="alert">
+      <Light />
       <p className="m-0 text-base leading-normal">{text}</p>
       <div className="flex flex-wrap items-center gap-2">
         {retry && <button type="button" className="go" onClick={onRetry}>Retry</button>}

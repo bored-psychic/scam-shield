@@ -1,5 +1,6 @@
 import { Fragment, useId } from "react";
 import { tipLines, type Cluster, type Segment } from "../lib/evidence";
+import Light from "./Light";
 
 export type Pulse = { id: string; n: number; on: boolean };   // n counts the taps, so a second tap restarts the animation
 
@@ -19,6 +20,7 @@ export default function MessagePanel({ segs, truncated, pulse, onShow, onHide }:
   const marked = segs.flatMap((s) => (s.cluster ? [s.cluster] : []));
   return (
     <div className="box msg g-msg">
+      <Light />
       <span className="lab">Your message{marked.length > 0 && <small> · hover or tap the underlined parts</small>}</span>
       <div className="mtext" data-scroll>
         {segs.map((s, i) => {

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import gsap from "gsap";
 import { TAB_NAME, TABS, type TabKey } from "../lib/tabs";
+import Light from "./Light";
 import TabIcon from "./TabIcon";
 
 type Props = { tab: TabKey; onSelect: (k: TabKey) => void };
@@ -52,6 +53,7 @@ export default function TabRow({ tab, onSelect }: Props) {
         {TABS.map((k, i) => (
           <button key={k} type="button" role="tab" id={`tab-${k}`} aria-controls={`panel-${k}`} aria-selected={k === tab} tabIndex={k === tab ? 0 : -1}
             className="tab" onClick={() => onSelect(k)} onKeyDown={(e) => onKeyDown(e, i)}>
+            <Light />
             <TabIcon tab={k} />
             <span className="wgt" data-label={TAB_NAME[k]}>{TAB_NAME[k]}</span>
           </button>

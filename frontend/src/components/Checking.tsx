@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { useReducedMotion } from "motion/react";
+import Light from "./Light";
 
 const STEPS = ["Reading the message", "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"];
 const TICK_MS = 350;   // one step per tick (the prototype used 380 ms)
@@ -39,6 +40,7 @@ export default function Checking({ outcome, onFinished }: Props) {
 
   return (
     <div className="box">
+      <Light />
       <div className="steps" aria-live="polite">
         {STEPS.map((s, i) => {
           const done = isDone(i), on = !done && events >= 2 * i + 1;

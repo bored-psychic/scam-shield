@@ -1,6 +1,7 @@
 import type { CSSProperties, Ref } from "react";
 import type { Evidence, Level } from "../types/report";
 import { LEVEL_SUMMARY, LEVELS } from "../lib/levels";
+import Light from "./Light";
 import Radar from "./Radar";
 import RiskMeter from "./RiskMeter";
 
@@ -27,6 +28,7 @@ export default function VerdictPanel({ level, blips, pointable, onPoint, heading
   const lv = LEVELS[level];
   return (
     <div className="box verdict g-verdict" style={{ "--lvl": lv.color } as CSSProperties}>
+      <Light />
       <div className="vtop">
         <div className="vicon" style={{ background: lv.color }}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">

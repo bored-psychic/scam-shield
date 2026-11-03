@@ -3,6 +3,7 @@ import { canGetHelp } from "../lib/helpline";
 import { HELP_LANGS, type HelpLang } from "../lib/helpline";
 import { INVEST_ADVICE, INVEST_HEADING, isInvestAdvice } from "../lib/investment";
 import Helpline from "./Helpline";
+import Light from "./Light";
 
 type Props = { advice: string[]; level: Level; tip: string | null; lang?: HelpLang; onLang?: (l: HelpLang) => void };
 
@@ -23,6 +24,7 @@ export default function WhatToDo({ advice, level, tip, lang = "en", onLang }: Pr
   const tag = HELP_LANGS.find((l) => l.id === lang)!.tag;
   return (
     <div className="box todo g-todo">
+      <Light />
       <span className="sect" style={{ margin: 0 }}>What to do now</span>
       {card && (
         <aside className="investcard" lang={tag} aria-label={INVEST_HEADING.en}>

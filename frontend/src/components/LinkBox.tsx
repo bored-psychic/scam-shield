@@ -2,6 +2,7 @@ import { useRef, type RefObject } from "react";
 import { IMAGE_TYPES } from "../lib/screenshot";
 import { firstLink, type AddMode, type Inputs } from "../lib/tabs";
 import { useScreenshot } from "../lib/useScreenshot";
+import Light from "./Light";
 import Seg from "./Seg";
 import { DropArea, ShotCard } from "./ShotParts";
 
@@ -23,6 +24,7 @@ export default function LinkBox({ inputs, patch, onSubmit, inputRef, autoFocus }
     <div className="paste">
       <ShotCard s={s} />
       <div className={s.dragging ? "box entry drop" : "box entry"} role="group" aria-label="Link box: paste a link, or drop a screenshot here" {...s.boxProps}>
+        <Light />
         <div className="bar">
           {mode === "type" ? <label className="lbl" htmlFor="url">The link</label> : <span className="lbl">The link</span>}
           <Seg<AddMode> label="How do you want to add it?" options={MODES} value={mode} onPick={(m) => patch({ linkMode: m })} />

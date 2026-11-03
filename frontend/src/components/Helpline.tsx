@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { CALL_URL, CYBERCRIME_URL, HELP_LANGS, HELP_STRINGS, type HelpLang } from "../lib/helpline";
+import Light from "./Light";
 
 /* The helpline row (shown on Suspicious and Likely scam only, inside What to do now, under the steps): a label, [Call 1930] and
    [cybercrime.gov.in ↗], with a compact EN / हिंदी / ಕನ್ನಡ switch on the right of the row. The "if money was lost, call within one hour" hint is
@@ -22,7 +23,7 @@ export default function Helpline({ lang: given, onLang }: { lang?: HelpLang; onL
       </div>
       <div className="helpbtns" lang={tag}>
         <a className="callbtn" href={CALL_URL} aria-label={`${s.call}. ${s.hint}`} title={s.hint}>{s.call}</a>
-        <a className="ghost helplink" href={CYBERCRIME_URL} target="_blank" rel="noopener noreferrer"><span>{s.portal}<span className="arrow" aria-hidden="true">↗</span></span></a>
+        <a className="ghost helplink" href={CYBERCRIME_URL} target="_blank" rel="noopener noreferrer"><Light /><span>{s.portal}<span className="arrow" aria-hidden="true">↗</span></span></a>
       </div>
     </div>
   );

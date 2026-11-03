@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import type { Evidence, Report } from "../types/report";
 import { allEvidence, blips as blipsOf, clusterOf, reasonTargets, segments, type Cluster } from "../lib/evidence";
+import Light from "./Light";
 import VerdictPanel from "./VerdictPanel";
 import MessagePanel, { type Pulse } from "./MessagePanel";
 import WhyPanel from "./WhyPanel";
@@ -90,7 +91,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
   return (
     <section className="result" ref={root}>
       <div className="rtop">
-        <button className="ghost" type="button" onClick={onAgain}>← Check another message</button>
+        <button className="ghost" type="button" onClick={onAgain}><Light />← Check another message</button>
         <span className="rmeta">Checked on this device · nothing was stored</span>
       </div>
       <div className="bento">

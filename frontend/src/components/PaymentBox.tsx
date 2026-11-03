@@ -1,4 +1,5 @@
 import { NOT_BUILT, PAYMENT_CARD, PROOF_EXPLANATION, type AddMode, type Inputs, type Started } from "../lib/tabs";
+import Light from "./Light";
 import Seg from "./Seg";
 
 const MODES = [["type", "UPI ID or payment request"], ["shot", "Screenshot"]] as const;
@@ -12,6 +13,7 @@ export default function PaymentBox({ inputs, patch }: Props) {
   return (
     <div className="paste">
       <div className="box entry" role="group" aria-label="Payment box">
+        <Light />
         <div className="bar">
           <span className="lbl">Payment</span>
           <Seg<AddMode> label="How do you want to check it?" options={MODES} value={mode} onPick={(m) => patch({ payMode: m })} />

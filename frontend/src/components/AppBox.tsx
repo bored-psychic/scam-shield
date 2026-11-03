@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { HOW_CHAT, HOW_OTHER, NOT_BUILT, validateApk, type AppMode, type Inputs } from "../lib/tabs";
 import { firstFile } from "../lib/screenshot";
+import Light from "./Light";
 import Seg from "./Seg";
 import { DropArea } from "./ShotParts";
 
@@ -23,6 +24,7 @@ export default function AppBox({ inputs, patch }: Props) {
       <div className="box entry" role="group" aria-label="App box" data-drop={mode === "file" || undefined}
         onDragOver={(e) => { if (e.dataTransfer.types.includes("Files") && mode === "file") { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
         onDrop={(e) => { if (mode !== "file" || !e.dataTransfer.types.includes("Files")) return; e.preventDefault(); const f = firstFile(e.dataTransfer); if (f) take(f); }}>
+        <Light />
         <div className="bar">
           <span className="lbl">The app</span>
           <Seg<AppMode> label="How do you want to check it?" options={MODES} value={mode} onPick={(m) => patch({ appMode: m })} />

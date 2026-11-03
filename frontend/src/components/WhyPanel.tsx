@@ -2,6 +2,7 @@ import type { Evidence } from "../types/report";
 import { EFFECT_COLOR } from "../lib/levels";
 import { HELP_LANGS, type HelpLang } from "../lib/helpline";
 import { reasonText } from "../lib/investment";
+import Light from "./Light";
 
 type Props = {
   reasons: string[];                // Report.reasons (at most 3), shown as sent
@@ -16,6 +17,7 @@ type Props = {
 export default function WhyPanel({ reasons, targets, pointable, onPoint, lang = "en" }: Props) {
   return (
     <div className="box g-why">
+      <Light />
       <span className="sect">Why</span>
       {reasons.length === 0 ? <div className="note">No warning signs were found in this message.</div> : (
         <div className="reasons">

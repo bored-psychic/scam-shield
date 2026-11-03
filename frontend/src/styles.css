@@ -52,6 +52,8 @@
     --seg-fill: rgba(4,6,10,.30); --seg-line: rgba(255,255,255,.12); --seg-thumb: rgba(237,241,247,.92);
     --dropbtn-fill: rgba(4,6,10,.22); --dropbtn-line: rgba(255,255,255,.22);
     --tab-fade: var(--bg);   /* the phone tab row's edge fades */
+    /* the pointer light on the glass (lib/pointerLight.ts): the highlight's centre and middle, and the spot on the edge, at most +.15 over the static rim */
+    --light-core: rgba(255,255,255,.08); --light-mid: rgba(255,255,255,.02); --rim-spot: rgba(255,255,255,.15);
     --page-dots: none;     /* the light theme's dot grid; none here */
     --vignette: radial-gradient(ellipse at 50% 45%, transparent 30%, rgba(4,6,10,.55) 70%, var(--bg) 100%);
     /* glass panels, chips and buttons (the "iOS-style glass finish" rule in components) */
@@ -122,7 +124,7 @@
     color-scheme: light;
     --bg: #F2F3F5; --ink: #15181D; --muted: #4B5361; --faint: #535A67; --line: rgba(17,20,24,.10); --glass: #FFFFFF;
     --red: #C62828; --amber: #9A5B00; --green: #18794A; --grey: #5F6978; --accent: #D93030; --orange: #C2560F; --blue: #1F66B8;
-    --sub: #3A414C; --halo-hero: 0 1px 18px var(--bg), 0 0 2px var(--bg); --halo-sub: 0 1px 18px var(--bg), 0 0 2px var(--bg);
+    --sub: #3A414C; --halo-hero: 0 1px 18px var(--bg), 0 0 2px var(--bg); --halo-sub: 0 0 2px var(--bg), 0 0 10px var(--bg), 0 0 22px var(--bg);
     /* darker than --red (#C62828): that measured 4.31-4.49:1 over the light globe on desktop sizes (AA needs 4.5). #B91C1C (user's choice, 2026-10-18) measured 4.46:1 for the
        headline's accent word, which sits on the globe's dark dots (D29.15); this one keeps 4.5:1 there. */
     --paste-red: #A81818;
@@ -133,6 +135,7 @@
     --field-fill: #F7F8FA; --field-line: rgba(17,20,24,.14);
     --seg-fill: rgba(17,20,24,.045); --seg-line: rgba(17,20,24,.10); --seg-thumb: #15181D;
     --dropbtn-fill: #F7F8FA; --dropbtn-line: rgba(17,20,24,.26);
+    --light-core: rgba(17,20,24,.055); --light-mid: rgba(17,20,24,.016); --rim-spot: rgba(17,20,24,.15);   /* white panels cannot get brighter: a soft darker tint */
     /* the dot grid: a 1 px ink dot every --dot-gap at 7% (texture, never noise) */
     --dot-gap: 22px;
     --page-dots: radial-gradient(rgba(22,24,29,.07) 1px, transparent 1.2px);
@@ -705,6 +708,24 @@
     .ex button { min-height: 40px; }
     .acts { margin-left: auto; }
   }
+}
+
+/* The pointer light (lib/pointerLight.ts). Its own layers under the widget's content, moved only with a transform: nothing about the glass changes when the pointer moves. .light is the widget's shape,
+   .lightspot the gradient (the demo's 380 px circle with its stops, cut where it reaches nothing: 247 px); .rimspot a 1 px ring (the same mask as the glass's static rim) with a 40 degree wedge inside.
+   Hidden until the pointer comes near; off on phones (no pointer) and during the theme switch (the switch's GPU budget does not change). */
+@layer components {
+  .box, .tab, .ex button, .ghost, .rtab { isolation: isolate; }
+  .light, .rimspot { position: absolute; inset: -1px; border-radius: inherit; overflow: hidden; pointer-events: none; }
+  .light { z-index: -1; }
+  .lightspot { position: absolute; left: -247px; top: -247px; width: 494px; height: 494px; visibility: hidden;
+    background: radial-gradient(circle closest-side, var(--light-core), var(--light-mid) 61.5%, transparent 100%); }
+  .rimspot { box-sizing: border-box; padding: 1px; visibility: hidden;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  .rimspot i { position: absolute; left: 50%; top: 50%; background: conic-gradient(var(--rim-spot), transparent 20deg, transparent 340deg, var(--rim-spot)); }
+  .tab[aria-selected="true"] .light, .tab[aria-selected="true"] .rimspot { display: none; }
+  :root.ss-switch .light, :root.ss-switch .rimspot { display: none; }
+  @media (hover: none), (max-width: 640px) { .light, .rimspot { display: none; } }
 }
 
 /* The theme switch (2026-10-18, lib/themeSwitch.ts; replaces the 0.3 s colour cross-fade). While it runs, <html> has .ss-switch and .ss-comet

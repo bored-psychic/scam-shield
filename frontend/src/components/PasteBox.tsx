@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import { IMAGE_TYPES } from "../lib/screenshot";
 import type { AddMode, Inputs, MessageKind } from "../lib/tabs";
 import { useScreenshot } from "../lib/useScreenshot";
+import Light from "./Light";
 import Seg from "./Seg";
 import { DropArea, ShotCard } from "./ShotParts";
 
@@ -75,6 +76,7 @@ export default function PasteBox({ inputs, patch, onSubmit, inputRef, autoFocus 
     <div className="paste">
       <ShotCard s={s} />
       <div className={s.dragging ? "box entry drop" : "box entry"} role="group" aria-label="Message box: paste a message, or drop a screenshot here" {...s.boxProps}>
+        <Light />
         <div className="bar">
           <Seg<MessageKind> label="What is it?" options={KINDS} value={kind} onPick={(k) => patch({ kind: k })} />
           <Seg<AddMode> label="How do you want to add it?" options={MODES} value={mode} onPick={(m) => patch({ messageMode: m })} />

@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import type { Report } from "../types/report";
 import { linkBlocks, type LinkBlock } from "../lib/links";
 import { EFFECT_COLOR, EFFECT_ICON } from "../lib/levels";
+import Light from "./Light";
 import WebsiteDetails from "./WebsiteDetails";
 
 const TINT: Record<LinkBlock["effect"], string> = { danger: "", caution: "caution", unknown: "quiet", neutral: "quiet", reassuring: "quiet" };
@@ -34,6 +35,7 @@ export default function LinkPanel({ report, onExpand, expanding, expandFailed }:
   const looked = blocks.some((b) => b.info && b.info.sent.length > 0);
   return (
     <div className="box link g-link">
+      <Light />
       <span className="sect" style={{ margin: 0 }}>{blocks.length > 1 ? "Links" : "Link"}</span>
       {blocks.map((b, i) => (
         <div key={i} className="lblock">
