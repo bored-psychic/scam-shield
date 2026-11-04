@@ -8,6 +8,7 @@ export type Failure =
   | { kind: "unreachable" }                  // no answer from the API: network error, timeout, or the dev proxy's error page
   | { kind: "rejected"; detail: string }     // 422: the API refused the text and said why
   | { kind: "failed"; detail: string }       // the API answered with an error of its own (e.g. 500 "The analysis failed.")
+  | { kind: "unavailable"; detail: string }  // 501: that kind of check does not exist yet (payments W3, apps W6); the API's own fixed line, never a verdict
   | { kind: "schema"; got: string };         // an answer this page cannot read (schema_version is not SCHEMA_VERSION)
 
 export class CheckError extends Error {
@@ -27,15 +28,16 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "obj
  *  Safe Browsing); expand = short links of this text the user asked to reveal (the shortener is asked; the destination is never opened). */
 export type LiveOptions = { live?: boolean; expand?: string[] };
 
-/** The first call's body is only the text: the offline analysis, which makes no network call. The page then asks again with live: true. The
- *  API's optional sender field (D22) is dormant: the page has no sender input since 2026-10-18 and never sends one, so Report.sender is
- *  always null; the field stays for reading the sender from a screenshot later. */
-export async function analyse(text: string, opts: LiveOptions = {}): Promise<Report> {
+/** What the tabs send to POST /api/check (src/shield/api/main.py CheckRequest; the API refuses any other field). Only the fields a kind uses are set. */
+export type CheckKind = "auto" | "message" | "link" | "email" | "upi_id" | "payment_request" | "qr" | "payment_proof" | "app" | "apk";
+export type CheckRequest = { kind: CheckKind; text?: string; subject?: string; body?: string };
+
+// One POST and the one reading of the answer, for /api/analyse and /api/check alike: the same errors in the same words, and a Report only if it is schema SCHEMA_VERSION.
+async function post(path: string, body: object, unreadable: string): Promise<Report> {
   const signal = AbortSignal.timeout(TIMEOUT_MS);
-  const body = opts.live ? { text, live: true, ...(opts.expand?.length ? { expand: opts.expand } : {}) } : { text };
   let res: Response;
   try {
-    res = await fetch("/api/analyse", {
+    res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -49,7 +51,8 @@ export async function analyse(text: string, opts: LiveOptions = {}): Promise<Rep
 
   if (!res.ok) {
     const detail = isObject(answer) && typeof answer.detail === "string" ? answer.detail : null;
-    if (res.status === 422) throw new CheckError({ kind: "rejected", detail: detail ?? "The checker couldn't read this message." });
+    if (res.status === 422) throw new CheckError({ kind: "rejected", detail: detail ?? unreadable });
+    if (res.status === 501 && detail !== null) throw new CheckError({ kind: "unavailable", detail });
     // No JSON detail: not the API speaking (the Vite proxy answers 500 with an empty body when the API is down).
     throw new CheckError(detail !== null ? { kind: "failed", detail } : { kind: "unreachable" });
   }
@@ -60,6 +63,19 @@ export async function analyse(text: string, opts: LiveOptions = {}): Promise<Rep
     throw new CheckError({ kind: "schema", got: version === undefined ? "none" : String(version) });
   }
   return answer as unknown as Report;
+}
+
+const liveBody = (opts: LiveOptions) => (opts.live ? { live: true, ...(opts.expand?.length ? { expand: opts.expand } : {}) } : {});
+
+/** Every tab's call (W2): the request goes to /api/check. The first call is the offline analysis, which makes no network call; the page then asks again with
+ *  live: true when links are pending (App.tsx). The API's optional sender field (D22) is dormant: the page never sends one. */
+export function check(request: CheckRequest, opts: LiveOptions = {}): Promise<Report> {
+  return post("/api/check", { ...request, ...liveBody(opts) }, "The checker couldn't read this input.");
+}
+
+/** The first call's body is only the text: the offline analysis, which makes no network call. Kept for the older /api/analyse route (the page itself uses check()). */
+export function analyse(text: string, opts: LiveOptions = {}): Promise<Report> {
+  return post("/api/analyse", { text, ...liveBody(opts) }, "The checker couldn't read this message.");
 }
 
 // Screenshot input (D19). The image goes into the request body of POST /api/ocr (local Tesseract, in memory) and nowhere else; the

@@ -110,7 +110,7 @@ describe("T6 the tabs and panels", () => {
     expect(html).toMatch(/<input id="url"[^>]*inputMode="url"[^>]*autoCapitalize="off"[^>]*spellCheck="false"/i);
     expect(textOf(html)).toContain("Check link");
   });
-  test("Payment: 'UPI ID or payment request' + Screenshot; Check disabled with the not-built line; the Screenshot mode has no file input at all", () => {
+  test("Payment: 'UPI ID or payment request' + Screenshot; Check disabled while empty, with the not-built line; the Screenshot mode has no file input at all", () => {
     const html = home("payment");
     expect(textOf(html)).toContain("UPI ID or payment request");
     expect(textOf(html)).toContain("Did you start this payment?");
@@ -120,9 +120,9 @@ describe("T6 the tabs and panels", () => {
     expect(textOf(shot)).toContain(PROOF_EXPLANATION);
     expect(textOf(shot)).toContain("Show me what to do");
     expect(shot).not.toContain('type="file"');
-    expect(shot).toMatch(/<button class="go" type="button" disabled=""/);
+    expect(shot).not.toMatch(/<button class="go" type="button" disabled=""/);   // W2: it sends {kind: "payment_proof"} (no image); X2 in check.test.tsx
   });
-  test("App: 'Name or link' + 'App file', no Screenshot mode; Check disabled with the not-built line", () => {
+  test("App: 'Name or link' + 'App file', no Screenshot mode; Check disabled while empty, with the not-built line", () => {
     for (const appMode of ["name", "file"] as const) {
       const html = home("app", { appMode });
       expect(textOf(html)).toContain("Name or link");

@@ -1,7 +1,7 @@
 // Phone screenshots (390x844) of the full result page for Likely scam (demo-d01), light and dark, helpline row in English and in Kannada.
 //   cd frontend && npm run build && node e2e/phoneshots.mjs OUT_DIR PREFIX [FIXTURE_LABEL]      e.g. before / after
 //   FIXTURE_LABEL (default demo-d01; 2026-10-25) picks another Report from the fixtures, e.g. invest-vip-group-tips (an investment rule fired: reasons + card)
-// Serves dist/ with Vite preview, answers /api/analyse from src/lib/__fixtures__/reports.json, makes no other request, opens no link.
+// Serves dist/ with Vite preview, answers /api/analyse and /api/check from src/lib/__fixtures__/reports.json, makes no other request, opens no link.
 import { readFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,7 +22,7 @@ try {
     if (!f) throw new Error(`fixture ${LABEL} missing: rerun frontend/scripts/dump_fixture.py`);
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: "reduce", colorScheme: theme });
     const page = await ctx.newPage();
-    await page.route("**/api/analyse", (route) => route.fulfill({ json: f.report }));
+    await page.route(/\/api\/(?:analyse|check)$/, (route) => route.fulfill({ json: f.report }));
     await page.route((url) => !url.href.startsWith(`http://127.0.0.1:${PORT}/`), (route) => route.abort());
     await page.goto(`http://127.0.0.1:${PORT}/`);
     await page.fill("#msg", f.text);

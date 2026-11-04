@@ -3,13 +3,14 @@ import { SCHEMA_VERSION } from "../types/report";
 import type { Noun } from "../lib/tabs";
 import Light from "./Light";
 
-type Props = { failure: Failure; onRetry: () => void; onBack: () => void; noun?: Noun };
+type Props = { failure: Failure; onRetry: () => void; onBack: () => void; noun?: Noun | null };
 
 function describe(f: Failure): { text: string; retry: boolean } {
   switch (f.kind) {
     case "unreachable": return { text: "Couldn't reach the checker. Is the API running?", retry: true };
     case "rejected": return { text: f.detail, retry: false };   // the API's own words, e.g. "Paste a message to check."
     case "failed": return { text: f.detail, retry: true };
+    case "unavailable": return { text: f.detail, retry: false };   // 501: "This check is not available yet." said plainly; asking again changes nothing
     case "schema": return { text: `The checker answered in a format this page can't read (schema version ${f.got}, expected ${SCHEMA_VERSION}).`, retry: false };
   }
 }
@@ -23,7 +24,7 @@ export default function ErrorPanel({ failure, onRetry, onBack, noun = "message" 
       <p className="m-0 text-base leading-normal">{text}</p>
       <div className="flex flex-wrap items-center gap-2">
         {retry && <button type="button" className="go" onClick={onRetry}>Retry</button>}
-        <button type="button" className="ghost" onClick={onBack}>← Back to the {noun}</button>
+        <button type="button" className="ghost" onClick={onBack}>← Back{noun ? ` to the ${noun}` : ""}</button>
       </div>
     </section>
   );

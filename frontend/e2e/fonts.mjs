@@ -5,7 +5,7 @@
 //
 // 1. Static: dist/index.html and every dist CSS / JS file contain no http(s):// or protocol-relative URL (XML namespaces aside), nothing from
 //    fonts.googleapis.com / fonts.gstatic.com, and every @font-face src is a relative file.
-// 2. Browser: the INSTALLED Google Chrome (playwright-core) loads the built site from Vite's preview server on 127.0.0.1; /api/analyse is answered
+// 2. Browser: the INSTALLED Google Chrome (playwright-core) loads the built site from Vite's preview server on 127.0.0.1; /api/analyse and /api/check are answered
 //    from the real Reports in src/lib/__fixtures__/reports.json, so no backend and no network are needed. EVERY request the page makes is logged
 //    and must be to 127.0.0.1:PORT. Home, the Jio result, Hindi text and Kannada text are loaded at 390x844 and 1440x1150.
 // 3. It prints the font files each flow downloaded (KB), and the woff2 total in dist. --shots DIR + --label NAME also saves screenshots
@@ -61,7 +61,7 @@ try {
       const seen = [], fontBytes = [];
       page.on("request", (r) => seen.push(r.url()));
       page.on("response", async (r) => { if (/\.woff2?(\?|$)/.test(r.url())) fontBytes.push([r.url().split("/").pop(), (await r.body().catch(() => Buffer.alloc(0))).length]); });
-      await page.route("**/api/analyse", (route) => route.fulfill({ json: report }));
+      await page.route(/\/api\/(?:analyse|check)$/, (route) => route.fulfill({ json: report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
       await page.waitForSelector("#msg");
       if (flow === "hindi") await page.fill("#msg", HINDI);

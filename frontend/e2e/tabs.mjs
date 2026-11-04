@@ -2,7 +2,7 @@
 //
 //   cd frontend && npm run build && node e2e/tabs.mjs [--shots DIR] [--only L|K|M|H|R]
 //
-// The INSTALLED Google Chrome (playwright-core) loads dist/ from Vite's preview server on 127.0.0.1; /api/analyse is answered from the real Reports in src/lib/__fixtures__/reports.json;
+// The INSTALLED Google Chrome (playwright-core) loads dist/ from Vite's preview server on 127.0.0.1; /api/analyse and /api/check are answered from the real Reports in src/lib/__fixtures__/reports.json;
 // nothing else is requested and no link is opened.
 //   L pointer light: the highlight layer's transform on the next frame equals the pointer within 1 px, on the box, a tab, a chip and a result panel, both themes; one pointermove listener
 //     for the light; rects read at most once a frame per on-screen widget; the glass's own background and backdrop-filter do not change while the pointer moves; hidden during a theme switch.
@@ -58,7 +58,7 @@ async function open(browser, { w = 1440, h = 900, theme = "dark", motion = "no-p
   const page = await ctx.newPage();
   page.on("pageerror", (e) => problems.push(e.message));
   page.on("console", (m) => { if (["error", "warning"].includes(m.type())) problems.push(m.text()); });
-  if (report) await page.route("**/api/analyse", (r) => r.fulfill({ json: report }));
+  if (report) await page.route(/\/api\/(?:analyse|check)$/, (r) => r.fulfill({ json: report }));
   await page.goto(URL);
   await page.waitForSelector(".tab");
   await page.evaluate(() => document.fonts.ready);
@@ -546,11 +546,11 @@ async function resultChecks(browser) {
     for (const [how, title, noun] of [["link", "The link · not opened", "link"], ["email", "The email", "email"]]) {
       const o = await open(browser, { theme, report: jio.report, motion: "reduce" });
       const sent = [];
-      await o.page.route("**/api/analyse", (r) => { sent.push(JSON.parse(r.request().postData()).text); r.fulfill({ json: jio.report }); });
+      await o.page.route(/\/api\/(?:analyse|check)$/, (r) => { const b = JSON.parse(r.request().postData()); sent.push({ kind: b.kind, url: r.request().url().split("/api/")[1], text: b.text ?? `${b.subject}\n\n${b.body}` }); r.fulfill({ json: jio.report }); });
       await toResult(o.page, { text: "https://sbi-kyc-update.top/login" }, how);
       const lab = await o.page.locator(".g-msg .lab").textContent();
       const pressed = await o.page.locator('.rtab[aria-pressed="true"]').textContent();
-      check(`R11 ${theme} ${how}: the right text was sent, the page names it`, sent[0] === (how === "email" ? "Action required\n\nhttps://sbi-kyc-update.top/login" : "https://sbi-kyc-update.top/login") && lab.startsWith(title) && pressed === (how === "link" ? "Link" : "SMS / Email"), JSON.stringify(sent[0]));
+      check(`R11 ${theme} ${how}: the right request went to /api/check (W2), the page names it`, sent[0]?.url === "check" && sent[0].kind === (how === "email" ? "email" : "auto") && sent[0].text === (how === "email" ? "Action required\n\nhttps://sbi-kyc-update.top/login" : "https://sbi-kyc-update.top/login") && lab.startsWith(title) && pressed === (how === "link" ? "Link" : "SMS / Email"), JSON.stringify(sent[0]));
       check(`R12 ${theme} ${how}: the line under the verdict says ${noun}`, (await o.page.locator(".vline").textContent()).includes(noun));
       await o.ctx.close();
     }
@@ -588,7 +588,15 @@ async function fileChecks(browser) {
     const posts = { ocr: 0, analyse: 0 };
     let ocrAnswer = { status: 200, json: { text: OCR_TEXT, lines: [OCR_TEXT], dropped: 2 } };
     await page.route("**/api/ocr", (r) => { posts.ocr++; r.fulfill(ocrAnswer); });
-    await page.route("**/api/analyse", (r) => { posts.analyse++; r.fulfill({ json: FIXTURES[0].report }); });
+    const NOT_YET = new Set(["upi_id", "payment_request", "qr", "payment_proof", "app", "apk"]);   // the API's 501 kinds until W3 / W6
+    posts.bodies = [];
+    await page.route(/\/api\/(?:analyse|check)$/, (r) => {
+      posts.analyse++;
+      const b = JSON.parse(r.request().postData() || "{}");
+      posts.bodies.push(b);
+      if (r.request().url().endsWith("/api/check") && NOT_YET.has(b.kind)) return r.fulfill({ status: 501, json: { detail: "This check is not available yet." } });
+      r.fulfill({ json: FIXTURES[0].report });
+    });
     // SMS: the Screenshot mode's picker -> the text in the box, Paste text again, the notice, nothing checked by itself
     await page.click('.segbtn:has-text("Screenshot")');
     check(`F1 ${theme} Screenshot mode: a drop area, no text box, Check disabled`, (await page.locator(".dropbtn").count()) === 1 && !(await page.locator("#msg").count()) && await page.locator("button.go").isDisabled());
@@ -597,7 +605,7 @@ async function fileChecks(browser) {
     check(`F2 ${theme} the picked screenshot's text goes into the box, the mode back to Paste text`, (await page.inputValue("#msg")) === OCR_TEXT && await page.locator('.segbtn:has-text("Paste text")').getAttribute("aria-pressed") === "true");
     const notice = await page.locator(".shotmsg").textContent();
     check(`F3 ${theme} the notice asks to check the text, and says how many lines were removed; a thumbnail shows`, /especially amounts/.test(notice) && /Removed 2 lines/.test(notice) && (await page.locator(".thumb img").count()) === 1, notice);
-    check(`F4 ${theme} nothing was checked by itself: Check is enabled, /api/analyse not called`, posts.analyse === 0 && !(await page.locator("button.go").isDisabled()) && posts.ocr === 1);
+    check(`F4 ${theme} nothing was checked by itself: Check is enabled, /api/check not called`, posts.analyse === 0 && !(await page.locator("button.go").isDisabled()) && posts.ocr === 1);
     // typed text is not replaced without asking
     await page.fill("#msg", "my own words");
     await page.setInputFiles('.box.entry input[type="file"]', fileOf());
@@ -672,9 +680,9 @@ async function fileChecks(browser) {
     await page.waitForTimeout(120);
     check(`F17 ${theme} Payment: no file input at all, a dropped file is refused and not read, the plan's explanation`, !(await page.locator('[role="tabpanel"]:not([hidden]) input[type="file"]').count()) && payDrop.dropPrevented && payDrop2.dropPrevented && posts.ocr === sent.ocr
       && /A screenshot cannot prove a payment, so there is nothing to upload\./.test(await page.locator(".box.entry").textContent()));
-    check(`F18 ${theme} Payment: Check disabled in both modes, one plain line`, await page.locator("button.go").isDisabled() && (await page.locator("button.go").textContent()) === "Show me what to do" && /not built yet/.test(await page.locator(".notbuilt").textContent()));
+    check(`F18 ${theme} Payment: Screenshot mode, "Show me what to do" is enabled (it sends only {kind: payment_proof}); one plain line`, !(await page.locator("button.go").isDisabled()) && (await page.locator("button.go").textContent()) === "Show me what to do" && /not built yet/.test(await page.locator(".notbuilt").textContent()));
     await page.click('.segbtn:has-text("UPI ID or payment request")');
-    check(`F19 ${theme} Payment: what was typed stays; the question is optional, nothing chosen first`, (await page.inputValue("#upi")) === "refund.desk@ybl" && !(await page.locator('.seg[aria-label="Did you start this payment?"] [aria-pressed="true"]').count()) && await page.locator("button.go").isDisabled());
+    check(`F19 ${theme} Payment: what was typed stays; the question is optional, nothing chosen first`, (await page.inputValue("#upi")) === "refund.desk@ybl" && !(await page.locator('.seg[aria-label="Did you start this payment?"] [aria-pressed="true"]').count()) && !(await page.locator("button.go").isDisabled()));
     // App: no Screenshot mode; the APK picker refuses; only its name is kept; nothing is sent
     await page.click("#tab-app");
     check(`F20 ${theme} App: no Screenshot mode`, !(await page.locator('[role="tabpanel"]:not([hidden]) .segbtn:has-text("Screenshot")').count()) && (await page.locator(".segbtn").count()) === 2);
@@ -692,7 +700,7 @@ async function fileChecks(browser) {
     check(`F22 ${theme} App file: over 50 MB or not an .apk is refused`, !(await page.inputValue("#app-file")));
     await page.setInputFiles('[role="tabpanel"]:not([hidden]) input[type="file"]', fileOf("SBI KYC Update.apk", "application/vnd.android.package-archive"));
     await page.waitForFunction(() => document.querySelector("#app-file").value === "SBI KYC Update.apk");
-    check(`F23 ${theme} App file: an .apk's name is kept; Check disabled; nothing was sent from Payment or App`, await page.locator("button.go").isDisabled() && posts.ocr === sent.ocr && posts.analyse === sent.analyse);
+    check(`F23 ${theme} App file: an .apk's name is kept; Check enabled; nothing was sent yet from Payment or App`, !(await page.locator("button.go").isDisabled()) && posts.ocr === sent.ocr && posts.analyse === sent.analyse);
     // a file dropped beside the boxes
     const beside = await dropOn(page, ".hero h1", "s.png", "image/png");
     check(`F24 ${theme} a file dropped beside the box does not open in place of the page`, beside.overPrevented && beside.dropPrevented);
@@ -706,8 +714,28 @@ async function fileChecks(browser) {
     await page.click('.ex button:has-text("KYC link SMS")');
     await page.click("button.go");
     await page.waitForSelector(".result .vword");
-    check(`F28 ${theme} the SMS sample checks through /api/analyse once`, posts.analyse === sent.analyse + 1);
+    check(`F28 ${theme} the SMS sample checks through /api/check once, as kind message`, posts.analyse === sent.analyse + 1 && posts.bodies.at(-1)?.kind === "message");
     check(`F29 ${theme} no console problem, no request outside the page`, !problems.length, problems.join("; "));
+    // W2 (after F29: the browser logs a 501 as a console error, which is the API's answer here, not a page problem): Payment and App send their input to /api/check; the API's 501 is shown plainly, never a verdict, and nothing but kind and text is sent
+    const asked = async (tab, steps) => {
+      await page.click("#tab-" + tab);
+      await steps();
+      const n = posts.bodies.length;
+      await page.click("button.go");
+      await page.waitForSelector("section[role=alert]");
+      return { body: posts.bodies[n], n: posts.bodies.length - n, text: await page.locator("section[role=alert]").textContent(), verdict: await page.locator(".vword").count(), retry: await page.locator('section[role=alert] button.go').count() };
+    };
+    const back = () => page.click('section[role=alert] button.ghost');
+    let q = await asked("payment", async () => { await page.click('.segbtn:has-text("UPI ID or payment request")'); await page.fill("#upi", "refund.desk@ybl"); });
+    check(`F30 ${theme} Payment UPI ID: one request {kind: upi_id, text}, the API's "not available yet" shown, no verdict, no Retry`, q.n === 1 && JSON.stringify(q.body) === JSON.stringify({ kind: "upi_id", text: "refund.desk@ybl" }) && /This check is not available yet\./.test(q.text) && !q.verdict && !q.retry, JSON.stringify(q.body));
+    await back();
+    q = await asked("payment", async () => { await page.click('.segbtn:has-text("Screenshot")'); });
+    check(`F31 ${theme} Payment screenshot: the request is exactly {kind: payment_proof}: no image, no text`, q.n === 1 && JSON.stringify(q.body) === JSON.stringify({ kind: "payment_proof" }) && /not available yet/.test(q.text) && !q.verdict, JSON.stringify(q.body));
+    await back();
+    q = await asked("app", async () => { await page.click('.segbtn:has-text("Name or link")'); await page.fill("#app-name", "SBI YONO"); });
+    check(`F32 ${theme} App name: one request {kind: app, text}, "not available yet" shown, no verdict`, q.n === 1 && JSON.stringify(q.body) === JSON.stringify({ kind: "app", text: "SBI YONO" }) && /not available yet/.test(q.text) && !q.verdict, JSON.stringify(q.body));
+    await back();
+    check(`F33 ${theme} back from the plain line: the tab and what was typed are still there`, (await page.locator('.tab[aria-selected="true"]').textContent()).includes("App") && (await page.inputValue("#app-name")) === "SBI YONO");
     await ctx.close();
   }
 }

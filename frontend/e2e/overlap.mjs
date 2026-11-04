@@ -5,7 +5,7 @@
 // Every viewport x case runs in BOTH themes (2026-10-18; picked through prefers-color-scheme): the serif headings and the theme button change widths.
 //
 // Serves the built dist/ with Vite's preview server on 127.0.0.1:4173 and drives the INSTALLED Google Chrome through playwright-core (no
-// browser download). /api/analyse is answered inside the page from the real Reports in src/lib/__fixtures__/reports.json (offline: the network
+// browser download). /api/analyse and /api/check are answered inside the page from the real Reports in src/lib/__fixtures__/reports.json (offline: the network
 // rows pending), then a live answer made from the same Report with long values filled in, and an expanded answer for the short-link button.
 // So it needs no backend, makes no network request, and opens no link. Viewports: 360 / 390 / 430 px phones (several heights) and 1280 / 1440
 // desktop. States checked per case: pending, after the live answer with every "Website details" sheet open, and after the short-link button.
@@ -179,7 +179,7 @@ async function runCase(browser, [w, h], label, theme) {
   const problems = [];
   let release;
   const liveGate = new Promise((res) => { release = res; });
-  await page.route("**/api/analyse", async (route) => {
+  await page.route(/\/api\/(?:analyse|check)$/, async (route) => {
     const body = JSON.parse(route.request().postData() || "{}");
     if (body.expand) return route.fulfill({ json: expandedOf(f.report) });
     if (body.live) { await liveGate; return route.fulfill({ json: liveOf(f.report, raised) }); }

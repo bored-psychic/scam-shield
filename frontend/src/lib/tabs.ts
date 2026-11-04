@@ -2,6 +2,8 @@
 // sends to the checker today, and the samples. Pure: no DOM, unit-tested (src/lib/tabs.test.ts). The Report contract is not touched: until W1 / W7
 // everything that can be checked goes to today's /api/analyse as one text.
 
+import type { CheckRequest } from "../api";
+
 export type TabKey = "message" | "link" | "payment" | "app";
 export const TABS: readonly TabKey[] = ["message", "link", "payment", "app"];
 export const TAB_NAME: Record<TabKey, string> = { message: "SMS / Email", link: "Link", payment: "Payment / UPI", app: "App / APK" };
@@ -42,11 +44,35 @@ export type Noun = "message" | "email" | "link";
 /** An email as today's /api/analyse reads it (until W7): subject, a blank line, body. The optional sender, attachment and header fields are not sent. */
 export const emailText = (subject: string, body: string) => (subject.trim() ? `${subject.trim()}\n\n${body}` : body);
 
-/** The text the Check button sends from a tab. Payment and App have no check yet (W3 / W4, W6): nothing is sent from them. */
+/** The text a result is about, which its evidence spans index: SMS, email (subject + blank line + body, as the API joins them) and link. Payment and App have no text. */
 export function textToCheck(tab: TabKey, i: Inputs): string {
   if (tab === "message") return i.kind === "email" ? emailText(i.subject, i.body) : i.sms;
   if (tab === "link") return i.link.trim();
   return "";
+}
+
+// What /api/check gets from a tab (D29.15, plan 6.2). null = nothing to send yet (the Check button is disabled). Only fields the API's CheckRequest has.
+//  SMS / Email: kind "message" (the API itself routes a bare link); an email with a subject is kind "email" with the subject and the body; an email whose subject is empty
+//   (its text came from a screenshot) goes as a message, as before. Link: kind "auto", so a pasted message is checked as one and the page says so (plan 6.3).
+//  Payment: "UPI ID or request" sends a single token as upi_id and any other text as payment_request; Screenshot mode sends only {kind: "payment_proof"}: no image, ever (plan 6.2).
+//  App: a name / package / link as "app"; the file mode as "apk" with the file name if one was typed (the file itself is never read or sent).
+export function requestOf(tab: TabKey, i: Inputs): CheckRequest | null {
+  if (tab === "message") {
+    if (i.kind === "email") {
+      if (!i.body.trim()) return null;
+      return i.subject.trim() ? { kind: "email", subject: i.subject.trim(), body: i.body } : { kind: "message", text: i.body };
+    }
+    return i.sms.trim() ? { kind: "message", text: i.sms } : null;
+  }
+  if (tab === "link") return i.link.trim() ? { kind: "auto", text: i.link.trim() } : null;
+  if (tab === "payment") {
+    if (i.payMode === "shot") return { kind: "payment_proof" };
+    const text = i.upi.trim();
+    return text ? { kind: /^\S+$/.test(text) ? "upi_id" : "payment_request", text } : null;
+  }
+  if (i.appMode === "name") return i.appName.trim() ? { kind: "app", text: i.appName.trim() } : null;
+  const file = i.fileName.trim();
+  return file || i.how ? { kind: "apk", ...(file ? { text: file } : {}) } : null;
 }
 
 /** The same inputs with what was just checked cleared, for "Check something else". The modes stay as they were. */

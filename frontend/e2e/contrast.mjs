@@ -8,7 +8,7 @@
 // transparent, and for each element with text of its own the pixels behind its box are averaged (the globe's dots are tiny and the text has a dark halo, so the mean colour is the fair backdrop; the
 // lightest-decile worst case is reported too as `worst`, for information).
 // Contrast = (L1 + .05) / (L2 + .05) with the element's computed colour (alpha blended on that background). Needs 4.5:1, or 3:1 for large text
-// (>= 24 px, or >= 18.66 px and bold). Disabled controls and placeholders are exempt (WCAG 1.4.3). /api/analyse is answered from the fixtures; no backend.
+// (>= 24 px, or >= 18.66 px and bold). Disabled controls and placeholders are exempt (WCAG 1.4.3). /api/analyse and /api/check are answered from the fixtures; no backend.
 // The red accent word of the headline (D29.15: "scam", "safe", "genuine", "real"; before it, the red "Paste it here.", 2026-10-18, a phrase the approved copy dropped) is
 // reported on its own in every home run, one run per tab, with whether its box lies over the globe's circle (from the camera, as Globe.tsx computes it); it must be measured
 // in every home run, meet 4.5:1 although it is large text (the bar the old phrase had), and lie over the globe in at least one run per theme.
@@ -74,7 +74,7 @@ try {
       const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", colorScheme: theme });
       const page = await ctx.newPage();
       const f = screen.startsWith("invest") ? invest : jio;
-      await page.route("**/api/analyse", (r) => r.fulfill({ json: f.report }));
+      await page.route(/\/api\/(?:analyse|check)$/, (r) => r.fulfill({ json: f.report }));
       await page.goto(`http://127.0.0.1:${PORT}/`);
       if (screen.startsWith("home-")) await page.click(`#tab-${screen.slice(5)}`);
       else if (screen !== "home") {

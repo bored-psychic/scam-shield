@@ -53,8 +53,8 @@ export default function Home({ tab, onTab, inputs, patch, onCheck, onSample, mes
   const box = (k: TabKey) => {
     if (k === "message") return <PasteBox inputs={inputs} patch={patch} onSubmit={onCheck} inputRef={messageRef} autoFocus={autoFocus} />;
     if (k === "link") return <LinkBox inputs={inputs} patch={patch} onSubmit={onCheck} inputRef={linkRef} autoFocus={autoFocus} />;
-    if (k === "payment") return <PaymentBox inputs={inputs} patch={patch} />;
-    return <AppBox inputs={inputs} patch={patch} />;
+    if (k === "payment") return <PaymentBox inputs={inputs} patch={patch} onSubmit={onCheck} />;
+    return <AppBox inputs={inputs} patch={patch} onSubmit={onCheck} />;
   };
 
   return (

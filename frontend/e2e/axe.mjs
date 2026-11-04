@@ -3,7 +3,7 @@
 //   cd frontend && npm run build && node e2e/axe.mjs
 //
 // axe-core (devDependency, injected from node_modules: no network) runs its color-contrast rule in the INSTALLED Google Chrome on the built site.
-// /api/analyse is answered from src/lib/__fixtures__/reports.json; every "Website details" sheet is opened. A violation fails the run.
+// /api/analyse and /api/check are answered from src/lib/__fixtures__/reports.json; every "Website details" sheet is opened. A violation fails the run.
 // axe reports text it cannot judge (text over the WebGL globe, a gradient or a translucent panel) as "incomplete"; those are listed, not failed:
 // e2e/contrast.mjs measures them on the rendered pixels instead. Exit code 1 on any violation.
 import { readFileSync } from "node:fs";
@@ -30,7 +30,7 @@ try {
         const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce", colorScheme: theme });
         const page = await ctx.newPage();
         const f = screen.startsWith("invest") ? invest : jio;
-        await page.route("**/api/analyse", (r) => r.fulfill({ json: f.report }));
+        await page.route(/\/api\/(?:analyse|check)$/, (r) => r.fulfill({ json: f.report }));
         await page.goto(`http://127.0.0.1:${PORT}/`);
         if (screen !== "home") {
           await page.fill("#msg", f.text); await page.click("button.go"); await page.waitForSelector(".result .vword");

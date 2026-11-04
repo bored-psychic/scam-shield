@@ -8,10 +8,10 @@ import Footer, { type FeedItem } from "./components/Footer";
 import Checking, { type CheckOutcome } from "./components/Checking";
 import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
-import { analyse, CheckError, type Failure } from "./api";
+import { check as checkInput, CheckError, type CheckRequest, type Failure } from "./api";
 import { markLiveFailed, raisedByLive } from "./lib/facts";
 import { mayAnimate, onSwitchStart } from "./lib/motion";
-import { clearChecked, NO_INPUTS, nounOf, textToCheck, type Inputs, type Noun, type Sample, type TabKey } from "./lib/tabs";
+import { clearChecked, NO_INPUTS, nounOf, requestOf, textToCheck, type Inputs, type Noun, type Sample, type TabKey } from "./lib/tabs";
 import { useTheme } from "./lib/theme";
 import type { Report } from "./types/report";
 
@@ -31,6 +31,7 @@ export default function App() {
   const [hits, setHits] = useState<FeedItem[]>([]);
   const [focusBox, setFocusBox] = useState(false);   // focus the box when coming back to it, not on first load (as the prototype)
   const run = useRef(0), hitId = useRef(0);
+  const sent = useRef<CheckRequest | null>(null);   // the request the current result answers: the live re-check and "Where does this short link go?" post it again
   const messageInput = useRef<HTMLTextAreaElement>(null), linkInput = useRef<HTMLInputElement>(null);
   const reduced = useReducedMotion();
   const [theme, toggleTheme] = useTheme();
@@ -51,30 +52,32 @@ export default function App() {
     setHits((prev) => [{ ...h, id }, ...prev].slice(0, 4));
   }, []);
 
-  // D23: the offline verdict comes first; if it has link checks pending, the same text is checked again with live: true (only domain names
-  // leave the device) and the answer replaces it. Live checks can only raise a verdict, and then the verdict panel says so.
-  function live(sent: string, id: number, offline: Report) {
-    analyse(sent, { live: true }).then(
+  // D23: the offline verdict comes first; if it has link checks pending, the same request is sent again with live: true (only domain names
+  // leave the device) and the answer replaces it. Live checks can only raise a verdict, and then the verdict panel says so. Any input that has links does this.
+  function live(req: CheckRequest, id: number, offline: Report) {
+    checkInput(req, { live: true }).then(
       (r) => { if (run.current === id) { setRaised(raisedByLive(offline, r)); setReport(r); } },
       () => { if (run.current === id) setReport(markLiveFailed(offline)); },   // pending rows become "Couldn't verify (offline)"
     );
   }
   const patch = useCallback((change: Partial<Inputs>) => setInputs((i) => ({ ...i, ...change })), []);
   function check() {
-    const sent = textToCheck(tab, inputs);
-    if (!sent.trim()) return;
+    const req = requestOf(tab, inputs);
+    if (!req) return;
     const id = ++run.current;   // only the latest check may change the screen
+    sent.current = req;
     setCheckedAs({ tab, noun: nounOf(tab, inputs) });
     setReport(null); setFailure(null); setRaised(false); setExpanding(null); setExpandFailed(null); setScreen("checking");
-    analyse(sent).then(
-      (r) => { if (run.current === id) { setChecked(sent); setReport(r); if (r.pending.length) live(sent, id, r); } },
+    checkInput(req).then(
+      (r) => { if (run.current === id) { setChecked(textToCheck(tab, inputs)); setReport(r); if (r.pending.length) live(req, id, r); } },
       (e) => { if (run.current === id) setFailure(e instanceof CheckError ? e.failure : { kind: "unreachable" }); },
     );
   }
   function expand(url: string) {   // "Where does this short link go?": the shortener is asked, the destination never opened
-    const id = run.current, before = report;
+    const id = run.current, before = report, req = sent.current;
+    if (!req) return;
     setExpanding(url); setExpandFailed(null);
-    analyse(checked, { live: true, expand: [url] }).then(
+    checkInput(req, { live: true, expand: [url] }).then(
       (r) => { if (run.current === id) { if (before) setRaised((was) => was || raisedByLive(before, r)); setReport(r); setExpanding(null); } },
       () => { if (run.current === id) { setExpanding(null); setExpandFailed(url); } },
     );

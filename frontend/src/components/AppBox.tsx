@@ -6,12 +6,13 @@ import Seg from "./Seg";
 import { DropArea } from "./ShotParts";
 
 const MODES = [["name", "Name or link"], ["file", "App file"]] as const;
-type Props = { inputs: Inputs; patch: (change: Partial<Inputs>) => void };
+type Props = { inputs: Inputs; patch: (change: Partial<Inputs>) => void; onSubmit: () => void };
 
-/* The App tab (plan 6.2). No Screenshot mode. The check is not built yet (W6, the file W11): the button stays disabled and one plain line says so. A chosen file is only
-   looked at for its name and size, refused above 50 MB or if it is not an .apk; its bytes are never read and it goes nowhere. */
-export default function AppBox({ inputs, patch }: Props) {
-  const mode = inputs.appMode;
+/* The App tab (plan 6.2). No Screenshot mode. The button sends the input to /api/check; while the apps engine is not built (W6, the file W11) the API answers "This check is not
+   available yet." and the page says exactly that, never a verdict. A chosen file is only looked at for its name and size, refused above 50 MB or if it is not an .apk; its bytes are
+   never read and it goes nowhere. */
+export default function AppBox({ inputs, patch, onSubmit }: Props) {
+  const mode = inputs.appMode, blank = mode === "name" ? !inputs.appName.trim() : !inputs.fileName.trim() && !inputs.how;
   const picker = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const take = (file: File) => {
@@ -52,7 +53,7 @@ export default function AppBox({ inputs, patch }: Props) {
         )}
         <div className="boxfoot">
           <p className="hintc notbuilt" id="app-notbuilt">{NOT_BUILT.app}</p>
-          <div className="acts"><button className="go" type="button" disabled aria-describedby="app-notbuilt">Check app</button></div>
+          <div className="acts"><button className="go" type="button" disabled={blank} onClick={onSubmit} aria-describedby="app-notbuilt">Check app</button></div>
         </div>
       </div>
     </div>
