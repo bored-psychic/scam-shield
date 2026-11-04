@@ -21,6 +21,11 @@ from shield.messages.sender import parse_sender
 MAX_TEXT_CHARS, MAX_URLS = 20000, 10
 MIN_PROSE_WORDS = 3   # fewer words than this once links are removed -> a bare link, the text head has nothing to read
 
+def prose_word_count(text):
+    """The words of `text` once its links are removed: what analyse() compares with MIN_PROSE_WORDS (fewer = nothing for the text head to read).
+    shield.core.intake.classify uses it too, so the two never disagree about what a bare link is."""
+    return len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
+
 def safety_advice_cap(text, r):
     """(phrases, blockers): the 'never share your OTP' phrases found in the text, and the names of the conditions that stop the cap from applying
     (empty = the cap applies). r is analyse()'s result before the cap. The cap only ever lowers Suspicious to No warning signs, and only when the
@@ -99,6 +104,59 @@ def apply_language_cap(r):
         r["level"], r["lang_cap"] = 1, True
 
 
+def assess_links(urls, url_model, live=False, expand=(), offline_only=False):
+    """The link block of analyse(), moved here unchanged so that other inputs (an e-mail body, later a QR or an APK's strings) use the same ladder (W1,
+    docs/plans/multi_input.md 2.3). urls: the links as extract_urls() gives them. Returns the keys analyse() puts into r: "links" (one dict per link, in
+    input order), "url_level" (the phishing side's highest level, None without a rated link) and "top_score", "breakdown", "notes" (+ "top_url" when
+    the URL model rated a link). live / expand: as analyse(). offline_only: never make a network call, whatever `live` says, and mark nothing pending
+    (state "off": the checks that need the network are shown as not checked), for links found inside a file; the offline checks, the URL model and the
+    gambling lookup still run."""
+    out = {"links": [], "url_level": None, "top_score": None, "breakdown": None, "notes": []}
+    # one entry per link, in input order: shorteners and free hosting are assessed by rule, the rest go to the URL model
+    links = out["links"] = [{"url": u, "host": parse_url(u)[0], "score": None, "level": None, "verdict": "", "note": "", "kind": "model",
+                   **(assess_link(u) or {})} for u in urls]
+    by_url = {l["url"]: l for l in links if l["kind"] == "model"}
+    if by_url:
+        scored, X = url_model.score_many(list(by_url))
+        for row in scored.itertuples():
+            l = by_url[row.url]
+            l["score"], l["level"] = float(row.score), int(row.level)
+            l["verdict"] = LEVELS[l["level"]] if l["level"] else "not flagged"
+        if len(scored):
+            top = int(scored["score"].idxmax())
+            out["top_score"], out["top_url"] = float(scored.loc[top, "score"]), scored.loc[top, "url"]
+            out["breakdown"] = url_model.breakdown(X.iloc[top])
+            out["notes"] = url_notes(out["top_url"])
+    # gambling / betting (G1): every link but a shortener (its destination is hidden) is looked up locally. A hit keeps the link's normal
+    # assessment (URL model or free-hosting rule, saved as base_level) and floors its level at Suspicious.
+    lookup = load_gambling()
+    for l in links:
+        l["base_level"] = l["model_level"] = l["level"]   # model_level: the URL model's own level; the C2 cap below lowers base_level, the sender rule still reads this
+        l["gambling"] = None if l["kind"] == "shortener" else lookup.match(l["url"])
+        if l["gambling"] and (l["level"] or 0) < 1:
+            l["level"], l["verdict"] = 1, GAMBLING_VERDICT
+    # background checks (D23): lists, names, and (live=True) registry / DNS / certificate / Safe Browsing / the expand button. A red flag floors
+    # the link's phishing-side level (risk_level), which, unlike a gambling hit, counts as the URL side of the fusion.
+    lists = load_lists()
+    live = live and not offline_only
+    state = "off" if not config.LIVE_CHECKS or offline_only else "done" if live else "pending"
+    results = live_checks.run([l["url"] for l in links], lists, expand_urls=set(expand)) if state == "done" and links else {}
+    for l in links:
+        c = l["checks"] = assess_background(l, lists, results.get(l["url"]), state)
+        l["flags"] = [f["code"] for f in c["flags"]] if c else []
+        l["positive"] = c["positive"]["kind"] if c and c["positive"] else None
+        if l["kind"] == "model" and not l["flags"] and (l["base_level"] or 0) > config.URL_ALONE_MAX_LEVEL:   # C2 (b): the URL model alone stops at Suspicious
+            l["base_level"] = l["level"] = config.URL_ALONE_MAX_LEVEL
+            l["verdict"], l["url_capped"] = LEVELS[l["level"]], True
+        floor = c["floor"] if c else None
+        l["risk_level"] = l["base_level"] if floor is None else max(l["base_level"] or 0, floor)
+        if floor is not None and (l["level"] or 0) < floor:
+            l["level"], l["verdict"] = floor, f"{LEVELS[floor]} - {c['flags'][0]['tag'].lower()}"
+    levels = [l["risk_level"] for l in links if l["risk_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
+    out["url_level"] = max(levels) if levels else None
+    return out
+
+
 def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=False, expand=(), explain=False, invest_rules=None, lang_cap=None, fold=None):
     """safety_cap: apply the safety-advice cap (None = config.SAFETY_ADVICE_CAP). When it fires, level is 0 and r["safety_advice"] holds the phrases.
     sender: what the user's phone showed as the sender (D22), or None. It is read by the sender rule layer, last; None, "" and spaces change nothing
@@ -114,7 +172,7 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
     carry them, and for MuRIL they cost one extra batch of forward passes, so the API leaves this off)."""
     text = (text or "")[:MAX_TEXT_CHARS]
     urls = extract_urls(text, MAX_URLS)
-    prose_words = len(re.findall(r"\w+", replace_urls(text).replace(URL_TOKEN, " ")))
+    prose_words = prose_word_count(text)
     folded, fmap = fold_text(text) if (config.FOLD_RULES if fold is None else fold) else (text, None)   # D11: every rule below reads `folded`
     cred, pin_recv = cred_requests(folded), pin_to_receive(folded)
     r = {"urls": urls, "cred_request": cred, "pin_to_receive": pin_recv, "invest_rules": [], "escalated": False, "tags": tactic_tags(mask_text(folded), cred),   # masked, so a phone / UPI id / account number shows up as a payment cue
@@ -129,47 +187,7 @@ def analyse(text, text_model, url_model, safety_cap=None, sender=None, live=Fals
         r["text_level"] = level_of(r["text_score"], *r["text_thresholds"])
         r["grams"] = text_model.explain(prepared, k=14) if explain else []
         r["truncated"] = len(prepared) >= MAX_CHARS
-    # one entry per link, in input order: shorteners and free hosting are assessed by rule, the rest go to the URL model
-    r["links"] = [{"url": u, "host": parse_url(u)[0], "score": None, "level": None, "verdict": "", "note": "", "kind": "model",
-                   **(assess_link(u) or {})} for u in urls]
-    by_url = {l["url"]: l for l in r["links"] if l["kind"] == "model"}
-    if by_url:
-        scored, X = url_model.score_many(list(by_url))
-        for row in scored.itertuples():
-            l = by_url[row.url]
-            l["score"], l["level"] = float(row.score), int(row.level)
-            l["verdict"] = LEVELS[l["level"]] if l["level"] else "not flagged"
-        if len(scored):
-            top = int(scored["score"].idxmax())
-            r["top_score"], r["top_url"] = float(scored.loc[top, "score"]), scored.loc[top, "url"]
-            r["breakdown"] = url_model.breakdown(X.iloc[top])
-            r["notes"] = url_notes(r["top_url"])
-    # gambling / betting (G1): every link but a shortener (its destination is hidden) is looked up locally. A hit keeps the link's normal
-    # assessment (URL model or free-hosting rule, saved as base_level) and floors its level at Suspicious.
-    lookup = load_gambling()
-    for l in r["links"]:
-        l["base_level"] = l["model_level"] = l["level"]   # model_level: the URL model's own level; the C2 cap below lowers base_level, the sender rule still reads this
-        l["gambling"] = None if l["kind"] == "shortener" else lookup.match(l["url"])
-        if l["gambling"] and (l["level"] or 0) < 1:
-            l["level"], l["verdict"] = 1, GAMBLING_VERDICT
-    # background checks (D23): lists, names, and (live=True) registry / DNS / certificate / Safe Browsing / the expand button. A red flag floors
-    # the link's phishing-side level (risk_level), which, unlike a gambling hit, counts as the URL side of the fusion.
-    lists = load_lists()
-    state = "off" if not config.LIVE_CHECKS else "done" if live else "pending"
-    results = live_checks.run([l["url"] for l in r["links"]], lists, expand_urls=set(expand)) if state == "done" and r["links"] else {}
-    for l in r["links"]:
-        c = l["checks"] = assess_background(l, lists, results.get(l["url"]), state)
-        l["flags"] = [f["code"] for f in c["flags"]] if c else []
-        l["positive"] = c["positive"]["kind"] if c and c["positive"] else None
-        if l["kind"] == "model" and not l["flags"] and (l["base_level"] or 0) > config.URL_ALONE_MAX_LEVEL:   # C2 (b): the URL model alone stops at Suspicious
-            l["base_level"] = l["level"] = config.URL_ALONE_MAX_LEVEL
-            l["verdict"], l["url_capped"] = LEVELS[l["level"]], True
-        floor = c["floor"] if c else None
-        l["risk_level"] = l["base_level"] if floor is None else max(l["base_level"] or 0, floor)
-        if floor is not None and (l["level"] or 0) < floor:
-            l["level"], l["verdict"] = floor, f"{LEVELS[floor]} - {c['flags'][0]['tag'].lower()}"
-    levels = [l["risk_level"] for l in r["links"] if l["risk_level"] is not None]   # the phishing side only: a gambling hit is not a second head agreeing
-    r["url_level"] = max(levels) if levels else None
+    r.update(assess_links(urls, url_model, live, expand))
     r["level"] = fuse(r["text_level"], r["url_level"])
     if (cred or pin_recv) and (r["level"] is None or r["level"] < 1):   # hard rules (OTP / PIN / CVV request, UPI PIN to receive money): at least Suspicious, whatever the scores say
         r["level"], r["escalated"] = 1, True

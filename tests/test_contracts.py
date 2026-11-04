@@ -1,13 +1,16 @@
 import os, re, sys
 HERE = os.path.dirname(os.path.abspath(globals().get("__file__", "tests/test_contracts.py")))   # exec()-ed from the project root there is no __file__: tests/ relative to the cwd
 sys.path[:0] = [os.path.join(HERE, "..", "src"), HERE]
-import copy, hashlib, json
+import copy, hashlib, json, socket
 import pandas as pd
+from pydantic import ValidationError
 from shield import config
-from shield.contracts import Effect, Level, LEVEL_RANK, Report
-from shield.core.advice import ADVICE, GAMBLING_ADVICE, INVESTMENT_ADVICE
+from shield.contracts import (DETAILS_OF_MODULE, MODULE_OF_INPUT, SCHEMA_VERSION, Details, Effect, InputKind, Level, LEVEL_RANK, Report)
+from shield.core.advice import (ADVICE, APP_ADVICE, APP_WARNING_ADVICE, EMAIL_ADVICE, GAMBLING_ADVICE, INVESTMENT_ADVICE, MAX_ADVICE, PAYMENT_ADVICE,
+                               PAYMENT_PROOF_ADVICE, advice_for)
+from shield.core.risk import BANDS, risk_score
 from shield.core.report import to_report
-from shield.core.router import analyse
+from shield.core.router import analyse, assess_links
 from shield.core.sender_rule import apply_sender, hard_risks
 from shield.examples import EXAMPLES
 from shield.links.lexical import load_url_model
@@ -38,6 +41,19 @@ from tricky_inputs import INPUTS
 #       reason only in a free place (first on promotional), so no warning is ever pushed out.
 #       The variants apply sender_rule.apply_sender() to a copy of the no-sender result (the router does exactly that, last); for the tricky inputs the full
 #       analyse(..., sender=...) path is run too and must give the same Report.
+# Schema "6" (2026-11-04, D29 / W1, docs/plans/multi_input.md 7.5), `python tests/test_contracts.py` prints them after A1-A17:
+#   CT01 v6 fields: SCHEMA_VERSION "6", Report.input / details exist and default to None, a "5" payload and an unknown field are rejected, JSON round-trips
+#   CT02 the InputKind literal is the nine kinds of the plan; each validates with its module; anything else is rejected
+#   CT03 module follows input and details.kind follows module (every wrong pair is rejected)
+#   CT04 child (link) Reports have input and details null; a parent with a child that has an input is rejected
+#   CT05 inputs without a text score get the band floor (70 / 30 / 0) and the contract rejects any other number outside the band
+#   CT06 Can't judge has no score, for every input kind
+#   CT07 extra="forbid" on the new request bodies (CheckRequest, AnalyseRequest), on Details and on Report
+#   CT08 the refactor (reasons_from, assess_links, advice_for(input=)) changes nothing: for every contract input (tricky + examples + 300 val + extras + probes) the
+#        SHA-256 of (level, reasons, advice, risk_score) equals the one the schema-5 code gave (tests/fixtures/ct08_v5_digests.json, made by golden_w1.py run before on
+#        master; hashes only, one entry per text hash, per text head)
+#   CT09 (W1 extra) assess_links(..., offline_only=True) makes no network call, marks nothing pending, and agrees with analyse() on the offline parts
+#   CT10 (W1 extra) advice_for(input=None / "message" / "link") is the old list for every level x category x investment; the per-input lines go where 2.4 says
 # Everything runs twice, with the cap forced OFF and ON (analyse(..., safety_cap=...)), so the contract holds whichever way config.SAFETY_ADVICE_CAP is set;
 # the level table is printed for each. With the cap OFF A15 is only the "no evidence without the cap" half.
 # Three "extra" inputs are appended: an emoji before the quote (A9 with astral characters), a genuine bank alert (A11) and a message where
@@ -251,6 +267,232 @@ def run(cap):
     fails["A14"] += [f"{m}" for m in check_models(reps)]
     return items, fails, dist
 
+# ---------------------------------------------------------------- schema "6" (W1)
+CT_KINDS = ["message", "link", "email", "upi_id", "payment_request", "qr", "payment_proof", "app", "apk"]   # the plan's order (2.2)
+CT08_PATH = os.path.join(HERE, "fixtures", "ct08_v5_digests.json")
+
+def rejects(fn):
+    try:
+        fn()
+    except (ValidationError, ValueError):
+        return True
+    return False
+
+def mini(module="messages", **kw):
+    return Report(module=module, level=kw.pop("level", Level.CANT_JUDGE), **kw)
+
+def ct01():
+    bad = []
+    if SCHEMA_VERSION != "6" or Report(module="messages", level=Level.CANT_JUDGE).schema_version != "6":
+        bad.append(f"SCHEMA_VERSION {SCHEMA_VERSION}")
+    rep = mini()
+    j = rep.model_dump(mode="json")
+    if "input" not in j or "details" not in j or j["input"] is not None or j["details"] is not None:
+        bad.append(f"input / details missing from the JSON or not null by default: {[j.get('input', 'MISSING'), j.get('details', 'MISSING')]}")
+    if not rejects(lambda: Report.model_validate({**j, "schema_version": "5"})):
+        bad.append("a schema_version 5 payload is accepted")
+    if not rejects(lambda: Report.model_validate({**j, "extra_field": 1})):
+        bad.append("an unknown field is accepted")
+    if Report.model_validate_json(mini(input="email").model_dump_json()).input != "email":
+        bad.append("input does not round-trip")
+    return bad
+
+def ct02():
+    bad = []
+    import typing
+    if list(typing.get_args(InputKind)) != CT_KINDS:
+        bad.append(f"InputKind is {list(typing.get_args(InputKind))}")
+    for k in CT_KINDS:
+        if rejects(lambda: mini(MODULE_OF_INPUT[k], input=k)):
+            bad.append(f"{k} with module {MODULE_OF_INPUT[k]} is rejected")
+    for k in ("bogus", "Message", "payment", "", "text"):
+        if not rejects(lambda: mini(input=k)):
+            bad.append(f"input {k!r} is accepted")
+    return bad
+
+def ct03():
+    bad = []
+    modules = ["messages", "links", "transactions", "apps"]
+    for k in CT_KINDS:
+        for m in modules:
+            if (m != MODULE_OF_INPUT[k]) != rejects(lambda: mini(m, input=k)):
+                bad.append(f"input {k} + module {m}: {'accepted' if m != MODULE_OF_INPUT[k] else 'rejected'}")
+    for m in modules:
+        for kind in ("payment", "app", "email"):
+            ok = DETAILS_OF_MODULE.get(m) == kind
+            if ok == rejects(lambda: mini(m, details=Details(kind=kind, title="Details"))):
+                bad.append(f"details kind {kind} + module {m}: {'rejected' if ok else 'accepted'}")
+    if rejects(lambda: mini("transactions", input="upi_id", details=Details(kind="payment", title="Payment details", note="n"))):
+        bad.append("a consistent payment Report is rejected")
+    if not rejects(lambda: Details(kind="payment", title="")) or not rejects(lambda: Details(kind="payment", title="x" * 41)) or not rejects(lambda: Details(kind="other", title="x")):
+        bad.append("Details accepts an empty / over-long title or an unknown kind")
+    return bad
+
+def ct04(tm, um):
+    bad = []
+    for text in ("Dear customer, share your OTP now: http://sbi-kyc-verify.xyz/login and https://bit.ly/3xYz", "Click https://example.com/login to continue please now"):
+        rep = to_report(text, analyse(text, tm, um), input="message")
+        if not rep.children or rep.input != "message":
+            bad.append(f"{text[:30]!r}: {len(rep.children)} children, input {rep.input}")
+        if any(c.input is not None or c.details is not None or c.module != "links" for c in rep.children):
+            bad.append(f"{text[:30]!r}: a child has input / details, or is not a links Report")
+    child = mini("links", level=Level.NO_WARNING_SIGNS)
+    if rejects(lambda: mini(children=[child])):
+        bad.append("a parent with a plain link child is rejected")
+    if not rejects(lambda: mini(children=[mini("messages", input="message")])):
+        bad.append("a parent with a child that has an input is accepted")
+    if not rejects(lambda: mini("links", input="link")):
+        bad.append("a links-module Report with an input is accepted")
+    return bad
+
+def ct05(tm, um):
+    bad = []
+    for level, (lo, hi) in ((Level.LIKELY_SCAM, (70, 100)), (Level.SUSPICIOUS, (30, 69)), (Level.NO_WARNING_SIGNS, (0, 29))):
+        if risk_score(level, None, None) != lo:
+            bad.append(f"risk_score({level.value}, no text score) = {risk_score(level, None, None)}, wanted the floor {lo}")
+        for k in CT_KINDS:
+            m = MODULE_OF_INPUT[k]
+            if rejects(lambda: mini(m, input=k, level=level, risk_score=lo)) or rejects(lambda: mini(m, input=k, level=level, risk_score=hi)):
+                bad.append(f"{k} at {level.value}: the band floor / ceiling {lo} / {hi} is rejected")
+            if not rejects(lambda: mini(m, input=k, level=level, risk_score=lo - 1 if lo else hi + 1)):
+                bad.append(f"{k} at {level.value}: a score outside the band is accepted")
+    seen = set()
+    for text in ("https://sbi-kyc-update.top/login", "http://bit.ly/3xYz", "https://www.google.com/search", "www.example.com/a", "http://192.168.0.1/login.php"):
+        r = analyse(text, tm, um)
+        rep = to_report(text, r, input="link")
+        if r["text_score"] is not None:
+            bad.append(f"{text}: expected a bare link with no text score")
+        want = None if rep.level == Level.CANT_JUDGE else BANDS[rep.level][0]
+        if rep.risk_score != want:
+            bad.append(f"bare link {text}: level {rep.level.value}, risk_score {rep.risk_score}, wanted {want}")
+        seen.add(rep.level)
+    if not seen - {Level.CANT_JUDGE}:
+        bad.append("no bare link reached a scored level, so the floor was never exercised")
+    return bad
+
+def ct06(tm, um):
+    bad = []
+    if risk_score(Level.CANT_JUDGE, None, None) is not None or risk_score(Level.CANT_JUDGE, 0.9, (0.1, 0.4)) is not None:
+        bad.append("risk_score(CANT_JUDGE) is not None")
+    for k in CT_KINDS:
+        if not rejects(lambda: mini(MODULE_OF_INPUT[k], input=k, level=Level.CANT_JUDGE, risk_score=0)):
+            bad.append(f"{k}: a Can't judge Report with a score is accepted")
+    rep = to_report("ok", analyse("ok", tm, um), input="message")
+    if rep.level != Level.CANT_JUDGE or rep.risk_score is not None:
+        bad.append(f"'ok': level {rep.level.value}, risk_score {rep.risk_score}")
+    return bad
+
+def ct07():
+    from shield.api.main import AnalyseRequest, CheckRequest
+    bad = []
+    for cls, ok in ((CheckRequest, {"kind": "auto", "text": "hi"}), (AnalyseRequest, {"text": "hi"})):
+        cls(**ok)
+        if not rejects(lambda: cls(**ok, unknown=1)):
+            bad.append(f"{cls.__name__} accepts an unknown field")
+    if not rejects(lambda: CheckRequest(text="hi")):
+        bad.append("CheckRequest accepts a missing kind")
+    if not rejects(lambda: CheckRequest(kind="bogus")):
+        bad.append("CheckRequest accepts an unknown kind")
+    if not rejects(lambda: Details(kind="app", title="t", extra=1)):
+        bad.append("Details accepts an unknown field")
+    for k in ("auto", "message", "link", "email", "upi_id", "payment_request", "qr", "payment_proof", "app", "apk"):
+        CheckRequest(kind=k)
+    return bad
+
+def ct08(tm, um):
+    kind = config.text_head_choice()[0]
+    digests = json.load(open(CT08_PATH)).get(kind)
+    if digests is None:
+        return [f"no schema-5 digests for the {kind} head in {os.path.relpath(CT08_PATH, ROOT)}"]
+    bad, n = [], 0
+    for _, name, text in inputs() + [("probe", n_, t) for n_, t in PROBES]:
+        rep = to_report(text, analyse(text, tm, um)).model_dump(mode="json")
+        got = hashlib.sha256(json.dumps([rep["level"], rep["reasons"], rep["advice"], rep["risk_score"]], ensure_ascii=False).encode("utf-8")).hexdigest()
+        want = digests.get(hashlib.sha256(text.encode("utf-8")).hexdigest())
+        n += 1
+        if want is None:
+            bad.append(f"{name}: no schema-5 digest for this text (the input set changed? regenerate with golden_w1.py run before on master)")
+        elif got != want:
+            bad.append(f"{name}: level / reasons / advice / risk_score differ from the schema-5 code")
+    if n < 300:
+        bad.append(f"only {n} contract inputs were compared")
+    return bad[:20]
+
+def ct09(tm, um):
+    bad, attempts = [], []
+    urls = ["https://sbi-kyc-update.top/login", "https://bit.ly/3xYz", "https://www.google.com/search", "http://192.168.0.1/login.php"]
+    names = ("connect", "connect_ex")
+    saved_methods = {n: socket.socket.__dict__.get(n) for n in names}
+    saved_funcs = {n: getattr(socket, n) for n in ("create_connection", "getaddrinfo", "gethostbyname")}
+    def refuse(name):
+        def f(*a, **k):
+            attempts.append(name)
+            raise OSError(f"CT09: outbound network call blocked ({name})")
+        return f
+    try:
+        for n in names:
+            setattr(socket.socket, n, refuse(n))
+        for n in saved_funcs:
+            setattr(socket, n, refuse(n))
+        off = assess_links(urls, um, live=True, expand=(urls[1],), offline_only=True)   # live=True is asked for and must be ignored
+        base = assess_links(urls, um, live=False)
+    finally:
+        for n, f in saved_methods.items():
+            delattr(socket.socket, n) if f is None else setattr(socket.socket, n, f)
+        for n, f in saved_funcs.items():
+            setattr(socket, n, f)
+    if attempts:
+        bad.append(f"network attempts: {attempts}")
+    if set(off) < {"links", "url_level", "top_score", "breakdown", "notes"} or len(off["links"]) != len(urls):
+        bad.append(f"result keys {sorted(off)}, {len(off['links'])} links")
+    for l in off["links"]:
+        c = l["checks"]
+        if c and (c["pending"] or c["sent"]):
+            bad.append(f"{l['url']}: pending {c['pending']}, sent {c['sent']}")
+    for a, b in zip(off["links"], base["links"]):   # the same link, the same URL-model and gambling answers; only the network-dependent parts differ
+        if (a["url"], a["kind"], a["score"], a["model_level"], a["gambling"]) != (b["url"], b["kind"], b["score"], b["model_level"], b["gambling"]):
+            bad.append(f"{a['url']}: offline_only changes the URL model / gambling answer")
+    text = " ".join(urls)
+    r = analyse(text, tm, um)
+    if [l["url"] for l in r["links"]] != [l["url"] for l in base["links"]] or r["url_level"] != base["url_level"]:
+        bad.append("analyse() and assess_links() disagree on the links")
+    return bad
+
+def ct10():
+    bad = []
+    for level in Level:
+        for cat in (None, "gambling"):
+            for inv in (False, True):
+                want = ([GAMBLING_ADVICE] if cat == "gambling" else []) + ([INVESTMENT_ADVICE] if inv else []) + ADVICE[level]
+                for inp in (None, "message", "link"):
+                    if advice_for(level, cat, investment=inv, input=inp) != want:
+                        bad.append(f"{level.value}/{cat}/{inv}/{inp}: not the old list")
+                if advice_for(level, cat, investment=inv) != want:
+                    bad.append(f"{level.value}/{cat}/{inv}: default input changed the list")
+                flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
+                front = ([GAMBLING_ADVICE] if cat == "gambling" else []) + ([INVESTMENT_ADVICE] if inv else [])
+                for inp, own in (("email", [EMAIL_ADVICE] if flagged else []), ("upi_id", [PAYMENT_ADVICE]), ("payment_request", [PAYMENT_ADVICE]), ("qr", [PAYMENT_ADVICE]),
+                                 ("app", [APP_ADVICE] + ([APP_WARNING_ADVICE] if flagged else [])), ("apk", [APP_ADVICE] + ([APP_WARNING_ADVICE] if flagged else []))):
+                    got = advice_for(level, cat, investment=inv, input=inp)
+                    if got != (front + own + ADVICE[level])[:MAX_ADVICE] or not 1 <= len(got) <= MAX_ADVICE or got[len(front)] != (own or ADVICE[level])[0]:
+                        bad.append(f"{level.value}/{cat}/{inv}/{inp}: {got}")
+                if advice_for(level, cat, investment=inv, input="payment_proof") != PAYMENT_PROOF_ADVICE:
+                    bad.append(f"{level.value}: payment_proof advice")
+    return bad
+
+def run_v6():
+    tm, um = load_text_model(), load_url_model()
+    out = [("CT01", "v6 fields, version, round-trip", ct01()), ("CT02", "InputKind literal", ct02()), ("CT03", "module <-> input, details.kind <-> module", ct03()),
+           ("CT04", "child Reports have no input", ct04(tm, um)), ("CT05", "band floors without a text score", ct05(tm, um)), ("CT06", "Can't judge has no score", ct06(tm, um)),
+           ("CT07", "extra=forbid on the new request bodies", ct07()), ("CT08", "refactor changes nothing: digests of the schema-5 results", ct08(tm, um)),
+           ("CT09", "assess_links offline_only: no network, nothing pending", ct09(tm, um)), ("CT10", "advice_for(input=): old list unchanged, per-input lines", ct10())]
+    return out
+
+def test_contract_v6():
+    bad = [f"{cid}: {b}" for cid, _, bs in run_v6() for b in bs]
+    assert not bad, "\n".join(bad)
+
+
 def test_contracts():
     for cap in (False, True):
         items, fails, _ = run(cap)
@@ -258,6 +500,13 @@ def test_contracts():
 
 if __name__ == "__main__":
     bad_run = False
+    print("==== schema 6 (W1)")
+    for cid, what, bs in run_v6():
+        print(f"{'FAIL' if bs else 'PASS'} {cid} {what}")
+        for b in bs[:10]:
+            print("    " + b.encode("ascii", "backslashreplace").decode()[:300])
+        bad_run |= bool(bs)
+    print()
     for cap in (False, True):
         items, fails, dist = run(cap)
         print(f"==== safety-advice cap {'ON' if cap else 'OFF'}   inputs: {len(items)}")
