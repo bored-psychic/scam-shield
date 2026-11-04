@@ -291,6 +291,31 @@ async function motionChecks(browser) {
       `${rec.samples.length} samples, all the new headline at full opacity`);
     await r.ctx.close();
   }
+  // review answer (W2): a toggle's thumb slides over .42 s with the tab pill's ease (power4.out); with reduced motion it is on the new button at the next frame
+  for (const theme of THEMES) for (const motion of ["no-preference", "reduce"]) {
+    const o = await open(browser, { theme, motion });
+    const rec = await o.page.evaluate(() => new Promise((res) => {
+      const thumb = document.querySelector(".segthumb"), left = () => thumb.getBoundingClientRect().left;
+      const email = () => [...document.querySelectorAll(".segbtn")].find((b) => b.textContent.trim() === "Email");
+      const from = left(), t0 = performance.now(), out = [];
+      email().click();
+      const tick = () => {
+        const t = performance.now() - t0;
+        out.push([t, left()]);
+        if (t < 800) requestAnimationFrame(tick); else res({ from, out, to: email().getBoundingClientRect().left, on: email().getAttribute("aria-pressed") });
+      };
+      requestAnimationFrame(tick);
+    }));
+    const dist = Math.abs(rec.to - rec.from), mid = rec.out.filter(([, x]) => Math.abs(x - rec.from) > 1 && Math.abs(x - rec.to) > 1);
+    const settled = rec.out.findLast(([, x]) => Math.abs(x - rec.to) > 1)?.[0] ?? 0;
+    const mono = rec.out.every(([, x], i) => i === 0 || (rec.to > rec.from ? x >= rec.out[i - 1][1] - .01 : x <= rec.out[i - 1][1] + .01));
+    if (motion === "reduce") check(`M18 ${theme} reduced motion: the toggle thumb is on the new button at the next frame (moved ${dist.toFixed(0)} px)`, dist > 20 && rec.on === "true" && !mid.length && Math.abs(rec.out[0][1] - rec.to) <= 1, `first sample ${rec.out[0][1].toFixed(1)}, target ${rec.to.toFixed(1)}`);
+    else {
+      check(`M19 ${theme} the toggle thumb slides (${mid.length} frames between, moved ${dist.toFixed(0)} px), one way, and ends on the new button`, dist > 20 && mid.length >= 3 && mono && Math.abs(rec.out.at(-1)[1] - rec.to) <= .6, `from ${rec.from.toFixed(1)} to ${rec.to.toFixed(1)}`);
+      check(`M20 ${theme} power4.out over .42 s: within 1 px by ${settled.toFixed(0)} ms (expected 150-450), no sample jumps more than 60 % of the way at once`, settled >= 150 && settled <= 450 && Math.abs(rec.out[0][1] - rec.from) <= .6 * dist + 1, `first frame at ${rec.out[0][0].toFixed(0)} ms: ${(Math.abs(rec.out[0][1] - rec.from) / dist * 100).toFixed(0)} %`);
+    }
+    await o.ctx.close();
+  }
 }
 
 // ---- K keyboard, ARIA, phone row ----
