@@ -21,8 +21,29 @@ export const LEVEL_SUMMARY: Record<Level, string> = {
   promotional: "Marketing from a registered business ID. Likely genuine, but not proof.",
 };
 
-/** The line for a level when what was checked is a link or an email (plan 6.4); a message's is LEVEL_SUMMARY's own. */
-export const levelSummary = (level: Level, noun: "message" | "email" | "link" = "message") => LEVEL_SUMMARY[level].replace(/message/g, noun);
+// Plan 6.4: the line under the verdict per input, fixed and frontend-owned. A message's is LEVEL_SUMMARY; a link's and an email's are the same words with "link" / "email". A payment's
+// and an app's are their own sentences: for them "No warning signs" never says "safe", and Can't judge says what only the payment app, or only an install, can show. Promotional is a
+// message-only level (a registered business ID), so those two inputs never reach it; the Can't judge line stands in for it if one ever did.
+const PAYMENT_SUMMARY: Record<Level, string> = {
+  likely_scam: "This payment has strong signs of a scam.",
+  suspicious: "Something about this payment is risky. Check before you pay.",
+  no_warning_signs: "Nothing in it looks wrong. Only your payment app can show who you would pay.",
+  cant_judge: "Only your payment app can show who owns this ID.",
+  promotional: "Only your payment app can show who owns this ID.",
+};
+const APP_SUMMARY: Record<Level, string> = {
+  likely_scam: "This app has strong signs of a fraud app.",
+  suspicious: "Parts of this app are risky. Do not install it yet.",
+  no_warning_signs: "It carries the official app's signature. Install apps from the Play Store all the same.",
+  cant_judge: "A file check cannot tell what this app does once installed.",
+  promotional: "A file check cannot tell what this app does once installed.",
+};
+const worded = (noun: string) => Object.fromEntries(Object.entries(LEVEL_SUMMARY).map(([k, v]) => [k, v.replace(/message/g, noun)])) as Record<Level, string>;
+/** LEVEL_SUMMARY per input: `INPUT_SUMMARY[input][level]`. */
+export const INPUT_SUMMARY: Record<"message" | "email" | "link" | "payment" | "app", Record<Level, string>> = {
+  message: LEVEL_SUMMARY, email: worded("email"), link: worded("link"), payment: PAYMENT_SUMMARY, app: APP_SUMMARY,
+};
+export const levelSummary = (level: Level, noun: keyof typeof INPUT_SUMMARY = "message") => INPUT_SUMMARY[noun][level];
 
 // Evidence colour by effect (the prototype's COL for danger / caution / neutral; reassuring and unknown are new).
 export const EFFECT_COLOR: Record<Effect, string> = {

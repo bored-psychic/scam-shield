@@ -13,7 +13,8 @@ import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
 import { SENDER_TIP, showSenderTip } from "../lib/sender";
 import type { HelpLang } from "../lib/helpline";
-import { TAB_NAME, TABS, type Noun, type TabKey } from "../lib/tabs";
+import { nounOfInput, TAB_NAME, TABS, type Noun, type TabKey } from "../lib/tabs";
+import { routingNotice } from "../lib/routing";
 import TabIcon from "./TabIcon";
 
 type Props = {
@@ -25,7 +26,7 @@ type Props = {
   expanding?: string | null;
   expandFailed?: string | null;
   tab?: TabKey;            // the tab this was checked from
-  noun?: Noun;             // what was checked: a message, an email or a link
+  noun?: Noun;             // what the tab was for; the Report's own input decides the wording when it has one (plan 6.4)
   onTab?: (k: TabKey) => void;   // back to home, on that tab
 };
 
@@ -43,7 +44,8 @@ function inView(el: HTMLElement) {
    CSS reordering, so the tab order always follows what is on screen. Everything shown comes from the Report; the one line under the
    verdict is fixed per level (lib/levels.ts). The 0-100 risk score (D24) is shown as a warning-sign meter, never as a percentage; the model's own
    score, its thresholds and timings are not shown (D4). */
-export default function Result({ report, text, onAgain, raised = false, onExpand, expanding = null, expandFailed = null, tab = "message", noun = "message", onTab }: Props) {
+export default function Result({ report, text, onAgain, raised = false, onExpand, expanding = null, expandFailed = null, tab = "message", noun: tabNoun = "message", onTab }: Props) {
+  const noun = nounOfInput(report.input, tabNoun), notice = routingNotice(tab, report.input);
   const reduced = useReducedMotion();
   const twoColumns = useMedia("(min-width: 901px)");   // the same breakpoint as the stylesheet's
   const root = useRef<HTMLElement>(null), heading = useRef<HTMLHeadingElement>(null), tabsRow = useRef<HTMLDivElement>(null);
@@ -94,7 +96,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
   const verdict = <VerdictPanel level={report.level} blips={blips} pointable={pointable(blips)} onPoint={point} headingRef={heading}
                                 note={raised ? "Raised after the website checks." : null}
                                 score={report.risk_score} lowered={report.lowered?.text ?? null} noun={noun} />;
-  const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} noun={noun} />;
+  const message = text !== "" && <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} noun={noun} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} lang={lang} noun={noun} />;
   const details = report.details && <DetailsPanel details={report.details} />;   // v6: a payment / app / email fact sheet
   const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;
@@ -110,6 +112,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
         </div>
         <span className="rmeta">Checked on this device · nothing was stored</span>
       </div>
+      {notice && <p className="routed" role="status">{notice}</p>}
       <div className="bento" data-tab={tab}>
         {twoColumns ? (
           <>

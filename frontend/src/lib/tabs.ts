@@ -3,6 +3,7 @@
 // everything that can be checked goes to today's /api/analyse as one text.
 
 import type { CheckRequest } from "../api";
+import type { InputKind } from "../types/report";
 
 export type TabKey = "message" | "link" | "payment" | "app";
 export const TABS: readonly TabKey[] = ["message", "link", "payment", "app"];
@@ -37,18 +38,33 @@ export const NO_INPUTS: Inputs = {
   appMode: "name", appName: "", how: "", fileName: "",
 };
 
-/** What the result page calls what was checked (plan 6.4: links and emails follow the message wording). */
-export const nounOf = (tab: TabKey, i: Pick<Inputs, "kind">): Noun => (tab === "link" ? "link" : tab === "message" && i.kind === "email" ? "email" : "message");
-export type Noun = "message" | "email" | "link";
+/** What the page calls what is being checked: the tab's own noun while it waits for the answer (the Checking steps), the Report's input once it has one. */
+export const nounOf = (tab: TabKey, i: Pick<Inputs, "kind">): Noun =>
+  (tab === "link" ? "link" : tab === "payment" ? "payment" : tab === "app" ? "app" : i.kind === "email" ? "email" : "message");
+export type Noun = "message" | "email" | "link" | "payment" | "app";
+
+/** The noun for a Report's input (plan 6.4): what was actually checked, which is not always what the tab was for. `fallback` when the Report has no input. */
+export function nounOfInput(input: InputKind | null, fallback: Noun): Noun {
+  switch (input) {
+    case "message": return fallback === "email" ? "email" : "message";   // an email sent without a subject (its text came from a screenshot) is checked as a message but is still an email to the user
+    case "email": return "email";
+    case "link": return "link";
+    case "upi_id": case "payment_request": case "qr": case "payment_proof": return "payment";
+    case "app": case "apk": return "app";
+    default: return fallback;
+  }
+}
 
 /** An email as today's /api/analyse reads it (until W7): subject, a blank line, body. The optional sender, attachment and header fields are not sent. */
 export const emailText = (subject: string, body: string) => (subject.trim() ? `${subject.trim()}\n\n${body}` : body);
 
-/** The text a result is about, which its evidence spans index: SMS, email (subject + blank line + body, as the API joins them) and link. Payment and App have no text. */
+/** The text a result is about, which its evidence spans index: SMS, email (subject + blank line + body, as the API joins them), the link, the UPI ID or request, the app's name
+ *  (or the file's). Nothing for the payment screenshot mode: no text is sent. */
 export function textToCheck(tab: TabKey, i: Inputs): string {
   if (tab === "message") return i.kind === "email" ? emailText(i.subject, i.body) : i.sms;
   if (tab === "link") return i.link.trim();
-  return "";
+  if (tab === "payment") return i.payMode === "shot" ? "" : i.upi.trim();
+  return i.appMode === "name" ? i.appName.trim() : i.fileName.trim();
 }
 
 // What /api/check gets from a tab (D29.15, plan 6.2). null = nothing to send yet (the Check button is disabled). Only fields the API's CheckRequest has.

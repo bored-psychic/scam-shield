@@ -3,7 +3,11 @@ import { useReducedMotion } from "motion/react";
 import type { Noun } from "../lib/tabs";
 import Light from "./Light";
 
-const steps = (noun: Noun) => [`Reading the ${noun}`, "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"];
+// The checklist per input (plan 6.4). Message, email and link keep the approved three lines; a payment and an app have their own.
+const steps = (noun: Noun) =>
+  noun === "payment" ? ["Reading the payment details", "Checking the UPI ID and its name", "Looking for refund and prize tricks"]
+  : noun === "app" ? ["Reading the app details", "Checking the name and the package", "Looking for fake-app tricks"]
+  : [`Reading the ${noun}`, "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"];
 const TICK_MS = 350;   // one step per tick (the prototype used 380 ms)
 
 export type CheckOutcome = "pending" | "answered" | "failed";

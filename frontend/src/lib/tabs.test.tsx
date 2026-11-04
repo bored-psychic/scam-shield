@@ -44,10 +44,12 @@ describe("T2 what the Check button sends", () => {
     expect(emailText("  ", "only body")).toBe("only body");
   });
   test("Link: one line, trimmed", () => expect(textToCheck("link", { ...NO_INPUTS, link: "  https://x.example/a  " })).toBe("https://x.example/a"));
-  test("Payment and App send nothing: their checks are not built yet", () => {
-    const all = { ...NO_INPUTS, upi: "refund.desk@ybl", appName: "SBI", fileName: "a.apk" };
-    expect(textToCheck("payment", all)).toBe("");
-    expect(textToCheck("app", all)).toBe("");
+  test("Payment and App: the ID / request, the app's name or the file's name; nothing for the payment screenshot mode (no text is sent)", () => {
+    const all = { ...NO_INPUTS, upi: " refund.desk@ybl ", appName: " SBI ", fileName: "a.apk" };
+    expect(textToCheck("payment", all)).toBe("refund.desk@ybl");
+    expect(textToCheck("payment", { ...all, payMode: "shot" })).toBe("");
+    expect(textToCheck("app", all)).toBe("SBI");
+    expect(textToCheck("app", { ...all, appMode: "file" })).toBe("a.apk");
   });
 });
 

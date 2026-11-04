@@ -14,7 +14,7 @@ type Props = {
   noun?: Noun;
 };
 
-const TITLE: Record<Noun, string> = { message: "Your message", email: "The email", link: "The link · not opened" };
+const TITLE: Record<Noun, string> = { message: "Your message", email: "The email", link: "The link · not opened", payment: "The payment", app: "The app" };
 
 /* The message as pasted, with each underlined part (a cluster of overlapping evidence, lib/evidence.ts) in its most severe colour.
    Every part is focusable and shows the tooltip on hover, focus or tap; its accessible description is the same list of titles.
