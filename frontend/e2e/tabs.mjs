@@ -544,9 +544,10 @@ async function resultChecks(browser) {
     }
     // the Link and Email tabs: what is sent, and how the result names it
     for (const [how, title, noun] of [["link", "The link · not opened", "link"], ["email", "The email", "email"]]) {
-      const o = await open(browser, { theme, report: jio.report, motion: "reduce" });
+      const rep = how === "link" ? FIXTURES.find((x) => x.report.input === "link" && ["likely_scam", "suspicious"].includes(x.report.level)).report : jio.report;   // what the API answers a link in the Link tab: a Report whose input is link (W2: the page words the result by it)
+      const o = await open(browser, { theme, report: rep, motion: "reduce" });
       const sent = [];
-      await o.page.route(/\/api\/(?:analyse|check)$/, (r) => { const b = JSON.parse(r.request().postData()); sent.push({ kind: b.kind, url: r.request().url().split("/api/")[1], text: b.text ?? `${b.subject}\n\n${b.body}` }); r.fulfill({ json: jio.report }); });
+      await o.page.route(/\/api\/(?:analyse|check)$/, (r) => { const b = JSON.parse(r.request().postData()); sent.push({ kind: b.kind, url: r.request().url().split("/api/")[1], text: b.text ?? `${b.subject}\n\n${b.body}` }); r.fulfill({ json: rep }); });
       await toResult(o.page, { text: "https://sbi-kyc-update.top/login" }, how);
       const lab = await o.page.locator(".g-msg .lab").textContent();
       const pressed = await o.page.locator('.rtab[aria-pressed="true"]').textContent();
