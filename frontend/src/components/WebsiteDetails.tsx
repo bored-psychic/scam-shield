@@ -1,6 +1,6 @@
 import type { LinkInfo } from "../types/report";
-import { EFFECT_COLOR, EFFECT_ICON } from "../lib/levels";
-import { factText, openByDefault, showWhy } from "../lib/facts";
+import { openByDefault } from "../lib/facts";
+import FactRows from "./FactRows";
 
 type Props = {
   info: LinkInfo;
@@ -27,21 +27,7 @@ export default function WebsiteDetails({ info, onExpand, expanding, expandFailed
           </div>
         </div>
       )}
-      <dl>
-        {info.facts.map((f) => (
-          <div key={f.key} className={`frow ${f.status}`}>
-            <dt>{f.label}</dt>
-            <dd>
-              <span className="fval">
-                <i aria-hidden="true" style={{ color: EFFECT_COLOR[f.effect] }}>{f.status === "pending" ? "·" : EFFECT_ICON[f.effect]}</i>
-                <span>{factText(f)}</span>
-              </span>
-              {showWhy(f) && f.status !== "pending" && <small>{f.why}</small>}
-              {f.source && f.status === "ok" && <small className="src">{f.source}</small>}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <FactRows facts={info.facts} />
       {info.sent.length > 0 && (
         <div className="note sent">Sent off this device: {info.sent.join("; ")}</div>
       )}

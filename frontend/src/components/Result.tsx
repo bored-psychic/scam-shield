@@ -7,6 +7,7 @@ import VerdictPanel from "./VerdictPanel";
 import MessagePanel, { type Pulse } from "./MessagePanel";
 import WhyPanel from "./WhyPanel";
 import LinkPanel from "./LinkPanel";
+import DetailsPanel from "./DetailsPanel";
 import WhatToDo from "./WhatToDo";
 import Tip, { type TipAt } from "./Tip";
 import { useMedia } from "../lib/useMedia";
@@ -95,6 +96,7 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
                                 score={report.risk_score} lowered={report.lowered?.text ?? null} noun={noun} />;
   const message = <MessagePanel segs={segs} truncated={report.meta.truncated} pulse={pulse} onShow={showTip} onHide={hideTip} noun={noun} />;
   const why = <WhyPanel reasons={report.reasons} targets={targets} pointable={pointable(targets)} onPoint={point} lang={lang} noun={noun} />;
+  const details = report.details && <DetailsPanel details={report.details} />;   // v6: a payment / app / email fact sheet
   const links = hasLinks && <LinkPanel report={report} onExpand={onExpand} expanding={expanding} expandFailed={expandFailed} />;
   const todo = <WhatToDo advice={report.advice} level={report.level} tip={showSenderTip(report) ? SENDER_TIP : null} lang={lang} onLang={setLang} />;
   return (
@@ -112,10 +114,10 @@ export default function Result({ report, text, onAgain, raised = false, onExpand
         {twoColumns ? (
           <>
             <div className="bcol">{verdict}{why}</div>
-            <div className="bcol">{message}{links}{todo}</div>
+            <div className="bcol">{message}{details}{links}{todo}</div>
           </>
         ) : (
-          <>{verdict}{message}{why}{links}{todo}</>
+          <>{verdict}{message}{why}{details}{links}{todo}</>
         )}
       </div>
       <Tip at={tip} onHide={hideTip} />

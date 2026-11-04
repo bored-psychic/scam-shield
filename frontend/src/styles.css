@@ -556,6 +556,7 @@
   .expand .ghost { justify-self: start; }
   .expand .ghost:disabled { opacity: .7; cursor: progress; }
   .facts .sent { margin-top: 8px; font-size: 14px; overflow-wrap: anywhere; }
+  .facts.sheet { border-top: 0; padding-top: 0; }   /* Report.details: the sheet is the panel's content, so no dashed rule above it */
   .vraised { margin-top: 6px; font: 500 14px var(--sans); color: var(--amber); }
   @media (max-width: 560px) {
     .frow { grid-template-columns: 1fr; gap: 1px; }
