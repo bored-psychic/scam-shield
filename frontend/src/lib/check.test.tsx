@@ -3,10 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { analyse, check, CheckError, type LiveOptions } from "../api";
 import ErrorPanel from "../components/ErrorPanel";
 import { NO_INPUTS, requestOf, textToCheck, type Inputs } from "./tabs";
+import { markLiveFailed, needsLive, OFFLINE_TEXT } from "./facts";
+import type { Report } from "../types/report";
 import raw from "./__fixtures__/reports.json";
 
 // npm test. W2: every tab sends its input to POST /api/check (X1 the request each tab builds, X2 the payment and app requests, X3 the client's bodies and errors,
-// X4 a 501 is said plainly). The wording and routing tests are in wording.test.tsx.
+// X4 a 501 is said plainly, X5 the live re-check for any input with links). The wording and routing tests are in wording.test.tsx.
 const FIXTURES = raw as unknown as { label: string; text: string; report: unknown }[];
 const I = (set: Partial<Inputs>): Inputs => ({ ...NO_INPUTS, ...set });
 afterEach(() => vi.unstubAllGlobals());
@@ -98,5 +100,26 @@ describe("X4 'This check is not available yet.' is said plainly", () => {
     expect(html).not.toContain("Retry");
     expect(html).toContain("← Back");
     expect(html).not.toMatch(/Likely scam|Suspicious|No warning signs|Can't judge/);   // never a verdict
+  });
+});
+
+describe("X5 the live re-check is for any input that has links", () => {
+  const reports = FIXTURES.map((f) => f.report as Report);
+  test("on the 96 message / link Reports needsLive is exactly today's rule (pending is not empty), so their flow is unchanged", () => {
+    expect(reports.filter(needsLive).length).toBe(reports.filter((r) => r.pending.length > 0).length);
+    for (const r of reports) expect(needsLive(r)).toBe(r.pending.length > 0);
+    expect(reports.filter(needsLive).length).toBeGreaterThan(0);
+  });
+  const withDetails = (r: Report, pending: string[]): Report => ({ ...r, input: "upi_id", module: "transactions", pending, children: r.children,
+    details: { kind: "payment", title: "Payment details", note: null, facts: [{ key: "handle", label: "Bank handle", value: null, effect: "unknown", why: null, status: "pending", source: null, sent: null }] } });
+  test("a payment-style Report with a pending link check asks again; a finished one does not", () => {
+    const linked = reports.find((r) => r.children.some((c) => c.pending.length > 0))!;
+    expect(needsLive(withDetails(linked, []))).toBe(true);   // only the child link is pending
+    expect(needsLive(withDetails(reports.find((r) => r.children.length === 0)!, []))).toBe(false);
+  });
+  test("when the live call fails, pending rows of a fact sheet become 'Couldn't verify', never 'safe'", () => {
+    const r = markLiveFailed(withDetails(reports.find((x) => x.children.length === 0)!, ["links"]));
+    expect(r.pending).toEqual([]);
+    expect(r.details!.facts[0]).toMatchObject({ status: "failed", value: OFFLINE_TEXT, effect: "unknown" });
   });
 });

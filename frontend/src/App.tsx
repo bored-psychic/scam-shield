@@ -9,7 +9,7 @@ import Checking, { type CheckOutcome } from "./components/Checking";
 import Result from "./components/Result";
 import ErrorPanel from "./components/ErrorPanel";
 import { check as checkInput, CheckError, type CheckRequest, type Failure } from "./api";
-import { markLiveFailed, raisedByLive } from "./lib/facts";
+import { markLiveFailed, needsLive, raisedByLive } from "./lib/facts";
 import { mayAnimate, onSwitchStart } from "./lib/motion";
 import { clearChecked, NO_INPUTS, nounOf, requestOf, textToCheck, type Inputs, type Noun, type Sample, type TabKey } from "./lib/tabs";
 import { useTheme } from "./lib/theme";
@@ -69,7 +69,7 @@ export default function App() {
     setCheckedAs({ tab, noun: nounOf(tab, inputs) });
     setReport(null); setFailure(null); setRaised(false); setExpanding(null); setExpandFailed(null); setScreen("checking");
     checkInput(req).then(
-      (r) => { if (run.current === id) { setChecked(textToCheck(tab, inputs)); setReport(r); if (r.pending.length) live(req, id, r); } },
+      (r) => { if (run.current === id) { setChecked(textToCheck(tab, inputs)); setReport(r); if (needsLive(r)) live(req, id, r); } },
       (e) => { if (run.current === id) setFailure(e instanceof CheckError ? e.failure : { kind: "unreachable" }); },
     );
   }

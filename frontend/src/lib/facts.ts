@@ -19,17 +19,24 @@ export const showWhy = (f: Fact) => f.why !== null && f.effect !== "neutral";
 /** The sheet starts open when a fact is a red flag (danger / caution), so the reason is on screen without a tap. */
 export const openByDefault = (info: LinkInfo) => info.facts.some((f) => f.effect === "danger" || f.effect === "caution");
 
+/** Does this answer still need the live link checks? Any input that has links: the Report lists live checks still to run (message: "links"), or a link's own facts are "pending" (D23).
+ *  The page then sends the same request again with live: true. Message, link, email and, later, payment and app Reports all take this one path. */
+export const needsLive = (report: Report): boolean => report.pending.length > 0 || report.children.some((c) => c.pending.length > 0 || (c.link?.facts.some((f) => f.status === "pending") ?? false));
+
+const failedRow = (f: Fact): Fact => (f.status === "pending" ? { ...f, status: "failed" as const, value: OFFLINE_TEXT, effect: "unknown" as const } : f);
+
 /** The live call failed (the API stopped answering): every pending row becomes "Couldn't verify (offline)", never "safe". A copy. */
 export function markLiveFailed(report: Report): Report {
   return {
     ...report,
     pending: [],
+    details: report.details && { ...report.details, facts: report.details.facts.map(failedRow) },
     children: report.children.map((c) => ({
       ...c,
       pending: [],
       link: c.link && {
         ...c.link,
-        facts: c.link.facts.map((f) => (f.status === "pending" ? { ...f, status: "failed" as const, value: OFFLINE_TEXT, effect: "unknown" as const } : f)),
+        facts: c.link.facts.map(failedRow),
       },
     })),
   };
