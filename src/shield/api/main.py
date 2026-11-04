@@ -1,5 +1,6 @@
-"""JSON API for the web frontend (D9): POST /api/analyse {text, sender?, live?, expand?} -> Report v4, POST /api/ocr -> the text of a screenshot,
-GET /api/health.
+"""JSON API for the web frontend (D9): POST /api/analyse {text, sender?, live?, expand?} -> Report v6 (message text; a bare link is labelled input "link"),
+POST /api/check {kind, text?, subject?, body?, sender?, live?, expand?} -> Report v6 for the tabs (W1: auto / message / link / email; every other kind is 501
+until its engine exists), POST /api/ocr -> the text of a screenshot, GET /api/health.
 
 Run (from anywhere; models are found relative to the project root):
     uvicorn shield.api.main:app --host 127.0.0.1 --port 8000
@@ -14,6 +15,7 @@ shield/api/upload.py); the text goes back to the page, which lets the user check
 """
 import time
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +26,7 @@ from shield.api.upload import BadUpload, UploadTooLarge, read_part
 from shield.config import model_versions
 from shield.contracts import SCHEMA_VERSION
 from shield.core import net
+from shield.core.intake import classify
 from shield.core.report import to_report
 from shield.core.router import analyse
 from shield.links.gambling import load_gambling
@@ -52,6 +55,26 @@ class AnalyseRequest(BaseModel):
     expand: list[str] = []
 
 
+CheckKind = Literal["auto", "message", "link", "email", "upi_id", "payment_request", "qr", "payment_proof", "app", "apk"]
+BUILT_KINDS = ("auto", "message", "link", "email")   # W1; the payments (W3) and apps (W6) engines fill the rest
+NOT_AVAILABLE = "This check is not available yet."
+NOT_A_LINK = "Paste a single link to check."
+EMAIL_INCOMPLETE = "Add the subject and the body of the email to check."
+EMAIL_TOO_LONG = "Paste the part with the request and the links (at most 20,000 characters)."
+
+
+class CheckRequest(BaseModel):
+    """POST /api/check (plan 6.2 / 8.1). Every field except kind is optional because the tabs send different ones; the rules per kind are in check()."""
+    model_config = ConfigDict(extra="forbid")
+    kind: CheckKind
+    text: str | None = None        # auto, message, link
+    subject: str | None = None     # email
+    body: str | None = None        # email
+    sender: str | None = None      # D22, exactly as on /api/analyse (ignored for email: a mail's From belongs to the email engine, W7)
+    live: bool = False
+    expand: list[str] = []
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.text_model = load_text_model()   # once per process, not per request
@@ -73,27 +96,74 @@ def health():
     return {"status": "ok", "schema_version": SCHEMA_VERSION}
 
 
-@app.post("/api/analyse")
-def analyse_message(body: AnalyseRequest, request: Request):
-    text = body.text
+def _validate_text(text, live, expand):
+    """The checks /api/analyse has always made on a message text (fixed messages, nothing from the text in them)."""
     if not text.strip():
         raise HTTPException(status_code=422, detail="Paste a message to check.")
     if len(text) > MAX_TEXT_CHARS:
         raise HTTPException(status_code=422, detail="Message is too long (max 20,000 characters).")
-    if body.expand:
+    _validate_expand(text, live, expand)
+
+
+def _validate_expand(text, live, expand):
+    if expand:
         links = extract_urls(text, MAX_URLS)
-        if not body.live or len(body.expand) > 3 or any(u not in links or not suffix_match(parse_url(u)[0], SHORTENERS) for u in body.expand):
+        if not live or len(expand) > 3 or any(u not in links or not suffix_match(parse_url(u)[0], SHORTENERS) for u in expand):
             raise HTTPException(status_code=422, detail="Only a short link from this message can be revealed.")
+
+
+def _run(request, text, input_of, sender, live, expand):
+    """Analyse `text` and build the Report. input_of(text) names the Report's input (called inside the try, so a failure there is as silent as one in the
+    analysis). Nothing the user sent may reach a log: the exception is dropped with `from None`."""
     t0 = time.perf_counter()
     try:
-        rep = to_report(text, analyse(text, request.app.state.text_model, request.app.state.url_model, sender=body.sender, live=body.live,
-                                      expand=tuple(body.expand)))
+        rep = to_report(text, analyse(text, request.app.state.text_model, request.app.state.url_model, sender=sender, live=live, expand=tuple(expand)),
+                        input=input_of(text))
     except Exception:
         # `from None`: an exception raised while reading the text can carry that text in its message (a pydantic error prints its input),
         # and uvicorn would write the chained traceback to the log. Nothing the user pasted may reach a log.
         raise HTTPException(status_code=500, detail="The analysis failed.") from None
     rep.meta.ms = round((time.perf_counter() - t0) * 1000, 1)
     return rep.model_dump(mode="json")
+
+
+def _message_or_link(text):
+    """A bare link is a link; everything else, including a UPI ID or a upi:// string (no payments engine until W3), is checked as a message."""
+    return "link" if classify(text) == "link" else "message"
+
+
+@app.post("/api/analyse")
+def analyse_message(body: AnalyseRequest, request: Request):
+    _validate_text(body.text, body.live, body.expand)
+    return _run(request, body.text, _message_or_link, body.sender, body.live, body.expand)
+
+
+@app.post("/api/check")
+def check(body: CheckRequest, request: Request):
+    """One endpoint for the tabs. auto / message: as /api/analyse. link: the same engine, but the text must be one link (422 otherwise). email: subject and
+    body through the message engine as "email". Every other kind answers 501 with a fixed message until its engine exists. Same logging rules as
+    /api/analyse: no text, subject, body, sender or link is ever logged or put into an error message."""
+    if body.kind not in BUILT_KINDS:
+        raise HTTPException(status_code=501, detail=NOT_AVAILABLE)
+    if body.kind == "email":
+        if not (body.subject or "").strip() or not (body.body or "").strip():
+            raise HTTPException(status_code=422, detail=EMAIL_INCOMPLETE)
+        text = body.subject + "\n\n" + body.body
+        if len(text) > MAX_TEXT_CHARS:
+            raise HTTPException(status_code=422, detail=EMAIL_TOO_LONG)
+        _validate_expand(text, body.live, body.expand)
+        return _run(request, text, lambda _: "email", None, body.live, body.expand)
+    text = body.text or ""
+    _validate_text(text, body.live, body.expand)
+    if body.kind == "link":
+        try:
+            is_link = classify(text) == "link"
+        except Exception:
+            raise HTTPException(status_code=500, detail="The analysis failed.") from None
+        if not is_link:
+            raise HTTPException(status_code=422, detail=NOT_A_LINK)
+        return _run(request, text, lambda _: "link", body.sender, body.live, body.expand)
+    return _run(request, text, _message_or_link, body.sender, body.live, body.expand)
 
 
 @app.post("/api/ocr")

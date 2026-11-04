@@ -1,6 +1,6 @@
 import re
 from shield.config import model_versions
-from shield.contracts import Evidence, Effect, Fact, Level, LinkInfo, Lowered, Meta, Report, Sender
+from shield.contracts import Evidence, Effect, Fact, InputKind, Level, LinkInfo, Lowered, Meta, Report, Sender
 from shield.core.advice import advice_for
 from shield.core.fold import FOLD_LINE, FOLD_TAG
 from shield.core.lang import LANG_CAP_LINE
@@ -152,7 +152,20 @@ def _sender_evidence(s, flagged):
                         detail="A hint, not proof: on its own it does not change the verdict.")
     return None
 
-def to_report(text: str, r: dict) -> Report:
+def reasons_from(evidence, children, level):
+    """The (at most 3) reasons a Report shows before the sender, brand, disguise and language lines are added: only warnings, in this order: rule hits
+    (ids "rule.*" among `evidence`, the Report's own), then the evidence of the child Reports (links), then the tactic tags, then the text model's
+    own line; duplicates by title dropped. A Can't-judge Report with no warning lists its children's "unknown" evidence (a shortened link), or says the
+    text was too short. Moved out of to_report() unchanged (W1) so that the other inputs (payments, apps, e-mail) order their reasons the same way."""
+    child_ev = [e for c in children for e in c.evidence]
+    ordered = ([e for e in evidence if e.id.startswith("rule.")] + child_ev + [e for e in evidence if e.id.startswith("tactic.")]
+               + [e for e in evidence if e.id == "model.text"])
+    reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
+    if level == Level.CANT_JUDGE and not reasons:
+        reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
+    return reasons
+
+def to_report(text: str, r: dict, input: InputKind | None = None) -> Report:
     level = _level(r["level"])
     flagged = level in (Level.SUSPICIOUS, Level.LIKELY_SCAM)
     promo = level == Level.PROMOTIONAL
@@ -199,12 +212,7 @@ def to_report(text: str, r: dict) -> Report:
     children = [_link_report(l, text, flagged, not r.get("hard_risks")) for l in r["links"]]
 
     # reasons: only warnings, rule hits first, then the links, then the tactic tags, then the text model
-    child_ev = [e for c in children for e in c.evidence]
-    ordered = ([e for e in ev if e.id.startswith("rule.")] + child_ev + [e for e in ev if e.id.startswith("tactic.")]
-               + [e for e in ev if e.id == "model.text"])
-    reasons = list(dict.fromkeys(e.title for e in ordered if e.effect in (Effect.DANGER, Effect.CAUTION)))[:3]
-    if level == Level.CANT_JUDGE and not reasons:
-        reasons = list(dict.fromkeys(e.title for e in child_ev if e.effect == Effect.UNKNOWN))[:3] if children else ["Too little text to judge"]
+    reasons = reasons_from(ev, children, level)
     # The sender reason (D22) never pushes a warning out: it is first when it IS the verdict (Promotional, where the message itself carries no warning),
     # otherwise it takes a free place after the warnings. With three warnings already there it is not a reason; the frontend shows it under the sender
     # chip, right below the verdict word, so it is always on screen. This keeps the wording model's "very similar to known scam messages" (always the
@@ -227,7 +235,7 @@ def to_report(text: str, r: dict) -> Report:
     category = "gambling" if any(l["gambling"] for l in r["links"]) else None
     low = r.get("lowered")   # D24: only if the level shown is still the one the P1 lowering produced (a later step, e.g. the sender rule, may have moved it)
     lowered = Lowered(from_level=_LEVEL[low["from"]], text=low["text"]) if low and r["level"] == 1 else None
-    return Report(module="messages", level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
-                  evidence=ev, reasons=reasons, advice=advice_for(level, category, investment=bool(r.get("invest_rules"))), children=children,
+    return Report(module="messages", input=input, level=level, score=r["text_score"], category=category, sender=_sender_block(s["id"]) if s else None,
+                  evidence=ev, reasons=reasons, advice=advice_for(level, category, investment=bool(r.get("invest_rules")), input=input), children=children,
                   pending=["links"] if any(c.pending for c in children) else [], risk_score=risk_score(level, r["text_score"], r.get("text_thresholds"), r.get("text_meter_ends")),
                   lowered=lowered, meta=meta)

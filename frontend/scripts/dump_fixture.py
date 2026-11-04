@@ -7,7 +7,7 @@ Inputs: every entry of tests/tricky_inputs.py, plus four extras the lib tests na
 "PIN", the bank example chip, a betting promo), plus sender variants (D22: the real Jio promo with a P header, its bare header, a mobile
 number; the KYC scam with a P header; the bank example with a T header), plus (D24) the 14 demo messages ("demo-d01" ...) and the Jio promo with a
 mobile number / with an OTP request, the two cases where the P1 "Lowered from..." note must NOT show. Each Report is made exactly as the API makes it (analyse() then
-to_report()), so the tests run on real output. meta.ms stays null: the API sets it, not to_report(). Rerun after any change to the adapter
+to_report(..., input=)), so the tests run on real output. meta.ms stays null: the API sets it, not to_report(). Rerun after any change to the adapter
 or the models. The fixture keeps no sender string: a variant's label says which sender it was given, and the Report only echoes a header.
 """
 import json
@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 sys.path[:0] = [os.path.join(ROOT, "src"), os.path.join(ROOT, "tests")]
 
+from shield.core.intake import classify   # noqa: E402
 from shield.core.report import to_report   # noqa: E402
 from shield.core.router import analyse   # noqa: E402
 from shield.links.lexical import load_url_model   # noqa: E402
@@ -48,7 +49,9 @@ def main():
     tm, um = load_text_model(), load_url_model()
     items = ([(x["id"], x["text"], None) for x in INPUTS] + [(label, text, None) for label, text in EXTRAS + JIO_CASES] + SENDER_EXTRAS
              + [("demo-" + d["id"], d["text"], None) for d in load_demo()])
-    out = [{"label": label, "text": text, "report": to_report(text, analyse(text, tm, um, sender=sender)).model_dump(mode="json")}
+    # exactly as /api/analyse builds it (schema 6): a bare link is input "link", everything else "message"
+    out = [{"label": label, "text": text,
+            "report": to_report(text, analyse(text, tm, um, sender=sender), input="link" if classify(text) == "link" else "message").model_dump(mode="json")}
            for label, text, sender in items]
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:

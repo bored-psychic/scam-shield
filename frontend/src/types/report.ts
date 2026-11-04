@@ -1,8 +1,9 @@
-// The Report contract, schema v5: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
+// The Report contract, schema v6: a mirror of src/shield/contracts.py, which is the source of truth. Field names and unions match it
 // exactly; the API sends every field (pydantic model_dump), so none are optional here. Change both files together and bump the version.
 // v3 (D22): Report.sender and the level "promotional". v4 (D23): Report.link, a link's "Website details" (LinkInfo + Fact rows).
 // v5 (D24): Report.risk_score (the 0-100 warning-sign meter) and Report.lowered (a P1 link signal lowered the verdict).
-export const SCHEMA_VERSION = "5";
+// v6 (D29 / W1): Report.input (what kind of input was checked) and Report.details (a fact sheet for payment / app / email inputs).
+export const SCHEMA_VERSION = "6";
 
 export type Level = "likely_scam" | "suspicious" | "no_warning_signs" | "cant_judge" | "promotional";
 export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_warning_signs", "cant_judge", "promotional"];
@@ -10,6 +11,10 @@ export const LEVEL_VALUES: readonly Level[] = ["likely_scam", "suspicious", "no_
 export type Effect = "danger" | "caution" | "neutral" | "reassuring" | "unknown";
 
 export type Module = "messages" | "links" | "transactions" | "apps";
+
+/** What was checked (Report.input). Each kind belongs to one module (messages: message, link, email; transactions: upi_id, payment_request, qr,
+ *  payment_proof; apps: app, apk); a child (link) Report has input null. */
+export type InputKind = "message" | "link" | "email" | "upi_id" | "payment_request" | "qr" | "payment_proof" | "app" | "apk";
 
 export interface Evidence {
   id: string;              // dotted, e.g. "rule.otp_request"
@@ -70,6 +75,14 @@ export interface LinkInfo {
   sent: string[];          // every live call made for this link
 }
 
+/** v6: a fact sheet for an input that is not a link, rendered like LinkInfo.facts. Null for message and link; nothing sets it in W1. */
+export interface Details {
+  kind: "payment" | "app" | "email";   // follows Report.module (transactions: payment, apps: app, messages: email)
+  title: string;           // "Payment details", "App details", "Sender details"
+  facts: Fact[];
+  note: string | null;     // e.g. "The file was read on this device. It was not installed or run, and it is gone."
+}
+
 /** D24: a P1 link signal (a verified .brand ending or a .bank.in address) lowered the verdict. `text` is the whole calm sentence, written by the backend:
  *  "Lowered from Likely scam: the link belongs to Jio (only Reliance can register .jio addresses)." Set only when the level really fell. */
 export interface Lowered {
@@ -78,8 +91,9 @@ export interface Lowered {
 }
 
 export interface Report {
-  schema_version: "5";
+  schema_version: "6";
   module: Module;
+  input: InputKind | null; // v6: what was checked; null on a child (link) Report
   level: Level;
   score: number | null;    // never shown as a percentage (D4)
   category: string | null;
@@ -94,5 +108,6 @@ export interface Report {
    *  null for Can't judge and on a child Report. A meter, NOT a probability: the model is not calibrated. */
   risk_score: number | null;
   lowered: Lowered | null;   // D24
+  details: Details | null;   // v6: payment / app / email fact sheet; null for message and link
   meta: Meta;
 }

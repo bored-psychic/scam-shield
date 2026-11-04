@@ -11,7 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # message Report. A v3 reader would reject the unknown field, hence the bump.
 # v5 (2026-10-18, D24): Report.risk_score (the 0-100 warning-sign meter, inside the band of the final level) and Report.lowered (a P1 brand-owned
 # link lowered the verdict: from which level, and the sentence that says why). Both null on a child Report.
-SCHEMA_VERSION = "5"
+# v6 (2026-11-04, D29 / W1, docs/plans/multi_input.md 2.2): Report.input (what kind of input was checked) and Report.details (a fact sheet for inputs that are not
+# links: payment / app / email); both null on a child Report, details null for message and link. A v5 reader would reject the unknown fields, hence the bump.
+SCHEMA_VERSION = "6"
 
 
 class Level(str, Enum):
@@ -35,6 +37,11 @@ class Effect(str, Enum):
     UNKNOWN = "unknown"
 
 Module = Literal["messages", "links", "transactions", "apps"]
+# What was checked (Report.input). Each kind belongs to one module; a child (link) Report has no input.
+InputKind = Literal["message", "link", "email", "upi_id", "payment_request", "qr", "payment_proof", "app", "apk"]
+MODULE_OF_INPUT: dict[str, str] = {"message": "messages", "link": "messages", "email": "messages", "upi_id": "transactions", "payment_request": "transactions",
+                                   "qr": "transactions", "payment_proof": "transactions", "app": "apps", "apk": "apps"}
+DETAILS_OF_MODULE: dict[str, str] = {"messages": "email", "transactions": "payment", "apps": "app"}   # Details.kind by Report.module
 
 
 class _Strict(BaseModel):
@@ -116,6 +123,14 @@ class LinkInfo(_Strict):
     sent: list[str] = []           # every live call made for this link: what was sent, to which service
 
 
+class Details(_Strict):
+    """A fact sheet for an input that is not a link (payment, app, email), rendered like a link's LinkInfo.facts. Nothing builds one in W1."""
+    kind: Literal["payment", "app", "email"]
+    title: str = Field(min_length=1, max_length=40)     # "Payment details", "App details", "Sender details"
+    facts: list[Fact] = []
+    note: str | None = None                              # e.g. "The file was read on this device. It was not installed or run, and it is gone."
+
+
 class Lowered(_Strict):
     """D24: the verdict was lowered by a P1 positive link signal (a verified .brand ending or a .bank.in address; shield.core.router.apply_positives)."""
     from_level: Literal[Level.LIKELY_SCAM]   # P1 only ever lowers Likely scam (to Suspicious); a wider rule must widen this on purpose
@@ -127,8 +142,9 @@ RISK_BANDS = {Level.NO_WARNING_SIGNS: (0, 29), Level.SUSPICIOUS: (30, 69), Level
 
 
 class Report(_Strict):
-    schema_version: Literal["5"] = "5"
+    schema_version: Literal["6"] = "6"
     module: Module
+    input: InputKind | None = None   # v6: what was checked; None on a child (link) Report and when to_report() was not told
     level: Level
     score: float | None = None
     category: str | None = None
@@ -141,6 +157,7 @@ class Report(_Strict):
     link: LinkInfo | None = None   # D23: on a link's child Report; None on the message Report
     risk_score: int | None = None  # D24: 0-100 warning-sign meter inside the band of `level`; None for Can't judge and on a child Report. NOT a probability
     lowered: Lowered | None = None   # D24: set only when a P1 link signal actually lowered the level shown (never when it fired and the level stayed)
+    details: Details | None = None   # v6: a fact sheet for payment / app / email inputs; None for message and link
     meta: Meta = Meta()
 
     @model_validator(mode="after")
@@ -152,6 +169,17 @@ class Report(_Strict):
         lo, hi = RISK_BANDS[self.level]
         if not lo <= self.risk_score <= hi:
             raise ValueError(f"risk_score {self.risk_score} is outside the {lo}-{hi} band of {self.level.value}")
+        return self
+
+    @model_validator(mode="after")
+    def _input_module_details(self):
+        """module follows input, details.kind follows module, and a child Report (always a link) has no input."""
+        if self.input is not None and self.module != MODULE_OF_INPUT[self.input]:
+            raise ValueError(f"input {self.input!r} belongs to the {MODULE_OF_INPUT[self.input]} module, not {self.module}")
+        if self.details is not None and self.details.kind != DETAILS_OF_MODULE.get(self.module):
+            raise ValueError(f"details of kind {self.details.kind!r} do not go with the {self.module} module")
+        if any(c.input is not None for c in self.children):
+            raise ValueError("a child Report has no input")
         return self
 
     @field_validator("risk_score")

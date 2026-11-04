@@ -31,11 +31,11 @@ The target: *a person pastes or screenshots a message in English, Hindi, Kannada
 
 ```
 src/shield/
-  contracts.py        # pydantic Report contract, SCHEMA_VERSION "5" (Level, Evidence, LinkInfo, Fact, ...)
+  contracts.py        # pydantic Report contract, SCHEMA_VERSION "6" (Level, Evidence, LinkInfo, Fact, InputKind, Details, ...; D29 / W1 added Report.input and details)
   config.py           # paths, active text head, switches (SAFETY_ADVICE_CAP, CRTSH_CHECK, URL_ALONE_MAX_LEVEL, URL_FLAG_THRESHOLD, INVEST_RULES)
   examples.py
-  api/       main.py (FastAPI: /api/health, /api/analyse, /api/ocr), upload.py (hard-capped in-memory multipart reader)
-  core/      router.py (analyse(): entities -> engines -> levels), lang.py (detect_lang + the D5 cap line in en / hi / kn), verdict.py (level_of, fuse), report.py (router result -> Report: evidence,
+  api/       main.py (FastAPI: /api/health, /api/analyse, /api/check (one endpoint for the tabs, W1: auto / message / link / email, other kinds 501 until built), /api/ocr), upload.py (hard-capped in-memory multipart reader)
+  core/      router.py (analyse(): entities -> engines -> levels; assess_links(): the link ladder, reusable by other inputs), intake.py (classify(): message / link / upi_id / qr, labels only), lang.py (detect_lang + the D5 cap line in en / hi / kn), verdict.py (level_of, fuse), report.py (router result -> Report: evidence,
              top-3 reasons, advice), risk.py (0-100 warning-sign meter, D24), advice.py (what to do, per level), sender_rule.py (D22),
              net.py (the only outbound HTTP)
   messages/  text_head.py (TextScorer: MurilScorer, TF-IDF baseline), rules.py (OTP / PIN / CVV, PIN-to-receive, advisory phrases),
