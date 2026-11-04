@@ -23,7 +23,7 @@ Rule ids in this note: **UP** = payments / UPI, **AP** = apps / APK, **EM** = em
    certificate) in a **short-lived child process** with a timeout, byte budgets and a memory watchdog. Never installed, run or emulated.
 4. **Email**: subject + body through the existing message engine, plus sender, header (read-only, no DNS) and attachment-name rules. Long-email
    windowing is designed and pre-registered, but chosen only on splits-v3 val, after Nov 6.
-5. **Tabs**: Message / Link / Email / Payment-UPI / App-APK / Screenshot, a scrollable tab row on phones; the Message tab routes a bare link,
+5. **Tabs**: SMS / Email, Link, Payment-UPI, App-APK (four tabs since D29.15; a screenshot mode inside each, no Screenshot tab), a scrollable tab row on phones; the Message tab routes a bare link,
    UPI ID or `upi://` string with a notice.
 6. **Cut-line:** MUST = contract v6 + tabs + Link tab + payment text checks + payment proof + message hooks (val-gated, merged before the 5 Nov
    real-test run, otherwise shipped OFF) + app lookup and questionnaire + email-lite + docs (~36 h). SHOULD, in this order = NPCI handle list,
@@ -486,26 +486,26 @@ report and the limits section will carry: **"Email checks were validated on publ
 
 ### 6.1 Tab row
 
-Six tabs in this order: **Message · Link · Email · Payment / UPI · App / APK · Screenshot**. WAI-ARIA tabs pattern: `role="tablist"`, each tab a
+**Four tabs (D29.15, 2026-11-03; supersedes the six tabs first approved): SMS / Email · Link · Payment / UPI · App / APK.** There is no Screenshot tab and no
+separate Email tab: each tab has its own screenshot mode instead (6.2). WAI-ARIA tabs pattern: `role="tablist"`, each tab a
 `<button role="tab" aria-selected aria-controls>`, panels `role="tabpanel"`, arrow keys move between tabs, Home / End jump, the active tab is
 scrolled into view. Phone (<= 640 px): one horizontally scrolling row (`overflow-x: auto`, scroll-snap, edge fades as the scroll hint, no page
-scroll sideways), pills 40 px tall with 14 px text (the existing phone floors), the active pill filled. Desktop: all six fit in one row. The
-tab is not stored (the browser keeps only the theme, ARCHITECTURE §5.4); Message is the default.
+scroll sideways), pills 40 px tall with 14 px text (the existing phone floors), the active pill filled. Desktop: all four fit in one row. The
+tab is not stored (the browser keeps only the theme, ARCHITECTURE §5.4); SMS / Email is the default. The same four tabs sit on top of the result page,
+showing what was checked; a click on one goes back to the home screen on that tab.
 
-Hero line per tab (formal register): Message keeps today's hero; Link: "Check a link before you open it."; Email: "Check an email before you
-reply or click."; Payment: "Check a payment request, UPI ID or QR code before you pay."; App: "Check an app before you install it.";
-Screenshot: "Check a screenshot of a message, a payment request or a QR code."
+Headline per tab (the exact copy is `docs/design/tabs-home.html`, built in `frontend/src/lib/tabs.ts`; the accent word is the only part in italics and red):
+SMS / Email "Is this message a *scam*?" with "Paste it or add a screenshot."; Link "Is this link *safe*?" with "Checked without opening it.";
+Payment "Is this payment *genuine*?" with "Check a UPI ID or a screenshot."; App "Is this app *real*?" with "Check it before you install."
 
 ### 6.2 Widgets
 
 | Tab | Widget |
 |---|---|
-| Message | today's `PasteBox` unchanged (text, screenshot button, drop, paste, detection chips) |
-| Link | one-line `<input type="text" inputmode="url" autocapitalize="off" spellcheck="false">` with a visible label and a Check button; a pasted message with prose is routed to Message with a notice |
-| Email | Subject (one line) and Body (textarea), both required; a closed "More details (optional)" disclosure with From, Display name, Reply-To, Attachment names (comma-separated), and Headers (textarea, "Gmail: ⋮ > Show original, then copy the part above the message") |
-| Payment / UPI | a three-way segmented control: **UPI ID or request** (textarea that accepts a UPI ID, a `upi://` string or the request text; for a request, the optional question "Did you start this payment?" Yes / No / Not sure), **QR code** (SHOULD: picker / drop / paste of an image; the decoded fields are shown read-only before the check), **Payment screenshot** (no upload: the explanation "A screenshot cannot prove a payment, so there is nothing to upload" and a "Show me what to do" button). The payment card line (2.4) is shown under the control |
-| App / APK | a two-way segmented control: **Name or link** (one line: app name, package or Play Store link) and **App file** (the questionnaire "How did you get this file?" + an optional file name field; SHOULD: a file picker `accept=".apk,application/vnd.android.package-archive"`, 50 MB, checked before upload) with the note "The file is read on this device. It is never installed or run." |
-| Screenshot | a large drop zone + picker + paste (PNG / JPEG / WEBP, 8 MB). SHOULD: a QR is looked for first; if found, its fields are shown and checked as a payment. Otherwise the OCR text goes into an editable box with today's notice ("check amounts and links") and is checked as a message |
+| SMS / Email | today's `PasteBox` (text, screenshot button, drop, paste, detection chips) plus an **Email** toggle: Subject (one line) and Body (textarea), both required; a closed "Sender, reply-to, attachments and headers" disclosure (From, Display name, Reply-To, Attachment names, comma-separated, and Headers, "Gmail: ⋮ > Show original, then copy the part above the message"). Until W7 the email is sent as subject, a blank line and the body, and the optional fields are not sent |
+| Link | one-line `<input type="text" inputmode="url" autocapitalize="off" spellcheck="false">` with a visible label and a Check button, plus a screenshot mode (OCR text, the first link kept); a pasted message with prose is routed to SMS / Email with a notice |
+| Payment / UPI | a segmented control: **UPI ID or request** (textarea that accepts a UPI ID, a `upi://` string or the request text; for a request, the optional question "Did you start this payment?" Yes / No / Not sure) and **Screenshot** (no upload: the explanation "A screenshot cannot prove a payment, so there is nothing to upload" and a "Show me what to do" button). A QR code reader (SHOULD, W10) would join the Screenshot mode. The payment card line (2.4) is shown under the control |
+| App / APK | a two-way segmented control: **Name or link** (one line: app name, package or Play Store link) and **App file** (the questionnaire "How did you get this file?" + an optional file name field; SHOULD: a file picker `accept=".apk,application/vnd.android.package-archive"`, 50 MB, checked before upload) with the note "The file is read on this device. It is never installed or run." **No Screenshot mode** |
 
 ### 6.3 Routing notice
 
