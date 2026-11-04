@@ -727,6 +727,7 @@ async function fileChecks(browser) {
       return { body: posts.bodies[n], n: posts.bodies.length - n, text: await page.locator("section[role=alert]").textContent(), verdict: await page.locator(".vword").count(), retry: await page.locator('section[role=alert] button.go').count() };
     };
     const back = () => page.click('section[role=alert] button.ghost');
+    await page.click("button.ghost.back");   // the SMS sample's result (F28) is on screen: back to the home screen
     let q = await asked("payment", async () => { await page.click('.segbtn:has-text("UPI ID or payment request")'); await page.fill("#upi", "refund.desk@ybl"); });
     check(`F30 ${theme} Payment UPI ID: one request {kind: upi_id, text}, the API's "not available yet" shown, no verdict, no Retry`, q.n === 1 && JSON.stringify(q.body) === JSON.stringify({ kind: "upi_id", text: "refund.desk@ybl" }) && /This check is not available yet\./.test(q.text) && !q.verdict && !q.retry, JSON.stringify(q.body));
     await back();
