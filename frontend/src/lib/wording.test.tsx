@@ -113,8 +113,7 @@ describe("Q4 the Checking steps per input", () => {
   test("message, email and link keep the approved three lines; payment and app have their own", () => {
     for (const n of ["message", "email", "link"] as const) expect(steps(n)).toEqual([`Reading the ${n}`, "Checking links and payment IDs", "Looking for OTP requests and pressure tricks"]);
     expect(steps("payment")).toEqual(["Reading the payment details", "Checking the UPI ID and its name", "Looking for refund and prize tricks"]);
-    expect(steps("app")).toHaveLength(3);
-    expect(steps("app")[0]).toMatch(/Reading the app/);
+    expect(steps("app")).toEqual(["Reading the app details", "Checking the app name and package", "Looking for fake-app tricks"]);
   });
 });
 
